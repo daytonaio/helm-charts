@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "daytona.fullname" . }}-api
+  namespace: "{{ include "daytona.namespace" . }}"
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  {{- with .Values.services.api.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.services.api.service.type }}
+  ports:
+    - port: {{ .Values.services.api.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "daytona.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api

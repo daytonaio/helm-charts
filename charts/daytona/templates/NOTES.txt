@@ -1,0 +1,31 @@
+🎉 Daytona AI Infrastructure has been deployed successfully!
+
+📋 ACCESS GUIDE:
+
+1. 🚀 Daytona Services:
+   # Dashboard: https://{{ .Values.domain }}
+   # API: https://{{ .Values.domain }}/api
+
+2. 🐳 Harbor Portal (Container Registry):
+   # Web UI: https://harbor.{{ .Values.domain }}
+   # Username: admin
+   # Password: Harbor12345
+
+3. 📦 MinIO Console (Object Storage):
+   kubectl port-forward svc/{{ include "daytona.fullname" . }}-minio-console 9001:{{ .Values.minio.consoleService.port }}
+   # Then access: http://localhost:9001
+   # Username: {{ .Values.minio.rootUser }}
+   # Password: {{ .Values.minio.rootPassword }}
+
+4. 🔐 Keycloak (Identity Provider):
+   # Web UI: https://{{ .Values.domain }}/idp
+   # Username: admin
+   # Password: admin
+
+5. 🗄️ PgAdmin (Database Management):
+   kubectl port-forward svc/{{ include "daytona.fullname" . }}-pgadmin4 8083:80
+   # Then access: http://localhost:8083
+   # Username: {{ .Values.pgadmin4.env.email }}
+   # Password: {{ .Values.pgadmin4.env.password }}
+
+💡 TIP: Run 'kubectl get pods' to check if all services are running!

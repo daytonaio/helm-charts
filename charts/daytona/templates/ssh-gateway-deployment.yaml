@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: "{{ include "daytona.namespace" . }}"
+  name: {{ include "daytona.fullname" . }}-ssh-gateway
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ssh-gateway
+  {{- with (index .Values.services "ssh-gateway").annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ (index .Values.services "ssh-gateway").replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "daytona.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ssh-gateway
+  template:
+    metadata:
+      {{- with (index .Values.services "ssh-gateway").podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ssh-gateway
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "ssh-gateway" "Chart" .Chart "Release" .Release) }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: ssh-gateway
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ (index .Values.services "ssh-gateway").image.registry }}/{{ (index .Values.services "ssh-gateway").image.repository }}:{{ (index .Values.services "ssh-gateway").image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ (index .Values.services "ssh-gateway").image.pullPolicy }}
+          ports:
+            - name: ssh
+              containerPort: 2222
+              protocol: TCP
+          env:
+            {{- include "daytona.serviceEnv" (dict "service" "ssh-gateway" "values" .Values "context" .) | nindent 12 }}
+          resources:
+            {{- toYaml (index .Values.services "ssh-gateway").resources | nindent 12 }}
+      {{- with (index .Values.services "ssh-gateway").nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (index .Values.services "ssh-gateway").affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (index .Values.services "ssh-gateway").tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
