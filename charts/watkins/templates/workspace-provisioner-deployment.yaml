@@ -145,8 +145,6 @@ spec:
             - name: "BROWSER_IDE"
               value: "theia"
             {{- end }}
-          resources:
-            {{- toYaml .Values.components.workspaceProvisioner.resources | nindent 12 }}
           volumeMounts:
             - name: keys
               mountPath: /keys/
