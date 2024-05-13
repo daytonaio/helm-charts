@@ -1,0 +1,77 @@
+{{- if .Values.components.workspaceVolumeInit.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-volume-init
+rules:
+- apiGroups: [""]
+  resources: ["services", "services/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["list", "watch", "get", "create", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/status", "deployments/scale"]
+  verbs: ["get", "create", "patch", "update", "delete"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create", "get"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims", "persistentvolumeclaims/status"]
+  verbs: ["list", "get", "create", "delete"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["list", "get", "create", "delete"]
+- apiGroups: ["longhorn.io"]
+  resources: ["backingimages", "backingimages/status"]
+  verbs: ["list", "get", "create", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-volume-init
+subjects:
+- kind: ServiceAccount
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ printf "watkins-%s-%s-storage" .Release.Name .Release.Namespace }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-volume-init
+rules:
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["list", "get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "watkins-%s-%s-storage" .Release.Name .Release.Namespace }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-volume-init
+subjects:
+- kind: ServiceAccount
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ printf "watkins-%s-%s-storage" .Release.Name .Release.Namespace }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

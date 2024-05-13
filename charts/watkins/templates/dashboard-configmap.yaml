@@ -1,0 +1,38 @@
+{{- $sshPort := 22 }}
+{{- if (and (eq .Values.components.sshGateway.service.type "NodePort") (not (empty .Values.components.sshGateway.service.nodePort))) }}
+{{- $sshPort = .Values.components.sshGateway.service.nodePort }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "watkins.dashboard.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+data:
+  configuration.json: |
+    {
+      "production": true,
+      "apiBaseUrl": {{ include "watkins.api.url" . | quote }},
+      "keycloak": {
+        "url": {{ include "watkins.keycloak.baseUrl" . | quote }},
+        "realm": {{ .Values.keycloakConfig.realm | quote }},
+        "clientId": {{ .Values.keycloakConfig.clients.dashboard.clientId | quote }}
+      },
+      {{- if (and (eq .Values.components.sshGateway.service.type "NodePort") (not (empty .Values.components.sshGateway.service.nodePort))) }}
+      "sshPort": {{ .Values.components.sshGateway.service.nodePort | quote }},
+      {{- else if (and (ne (int .Values.components.sshGateway.service.port) 22) (eq .Values.components.sshGateway.service.type "LoadBalancer")) }}
+      "sshPort": {{ .Values.components.sshGateway.service.port | quote }},
+      {{- end }}
+      {{- if .Values.components.dashboard.paymentPageUrl }}
+      "paymentPageUrl": {{ .Values.components.dashboard.paymentPageUrl | quote }},
+      {{- end }}
+      "notificationUrl": {{ include "watkins.notification.url" . | quote }},
+      "workspaceTemplatesIndexUrl": {{ .Values.components.dashboard.workspaceTemplatesIndexUrl | quote }},
+      "workspaceUnusedTimeoutInSeconds": {{ .Values.configuration.workspaceUnusedTimeoutInSeconds | quote }},
+      "appVersion": "{{ .Chart.AppVersion }}",
+      "jetbrainsGatewayPluginDownloadUrl": {{ .Values.components.dashboard.jetbrainsGatewayPluginDownloadUrl | quote }},
+      "excludeJetbrainsCodeEditors": {{ .Values.components.workspaceVolumeInit.excludeJetbrainsCodeEditors }}
+    }

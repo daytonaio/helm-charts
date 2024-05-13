@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.domainNotificationPublisher.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: domain-notification-publisher
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.components.domainNotificationPublisher.replicaCount }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: domain-notification-publisher
+  template:
+    metadata:
+      {{- if .Values.components.domainNotificationPublisher.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.domainNotificationPublisher.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: domain-notification-publisher
+        {{- if .Values.components.domainNotificationPublisher.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.domainNotificationPublisher.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.domainNotificationPublisher.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.domainNotificationPublisher.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: domain-notification-publisher
+          image: {{ template "watkins.domainNotificationPublisher.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.domainNotificationPublisher.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.components.domainNotificationPublisher.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.components.domainNotificationPublisher.resources }}
+          resources: {{- toYaml .Values.components.domainNotificationPublisher.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "DB_HOST"
+              value: {{ include "watkins.database.host" . | quote }}
+            - name: "DB_PORT"
+              value: {{ include "watkins.database.port" . | quote }}
+            - name: "DB_USER"
+              value: {{ include "watkins.database.user" . | quote }}
+            - name: "DB_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.database.secretName" . }}
+                  key: {{ include "watkins.database.secretKey" . }}
+            - name: "DB_NAME"
+              value: {{ include "watkins.database.name" . | quote }}
+            - name: "AMQP_HOST"
+              value: {{ include "watkins.rabbitmq.host" . | quote }}
+            - name: "AMQP_PORT"
+              value: {{ include "watkins.rabbitmq.port" . | quote }}
+            - name: "AMQP_USER"
+              value: {{ include "watkins.rabbitmq.user" . | quote }}
+            - name: "AMQP_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.rabbitmq.secretName" . }}
+                  key: {{ include "watkins.rabbitmq.secretKey" . }}
+            - name: "REDIS_HOST"
+              value: {{ include "watkins.redis.host" . | quote }}
+            - name: "REDIS_PORT"
+              value: {{ include "watkins.redis.port" . | quote }}
+            - name: "NOTIFICATION_BUS_CONSUMERS"
+              value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
+          resources:
+            {{- toYaml .Values.components.domainNotificationPublisher.resources | nindent 12 }}

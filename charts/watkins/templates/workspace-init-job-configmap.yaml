@@ -1,0 +1,61 @@
+{{- if .Values.components.workspaceVolumeInit.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-volume-init
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+data:
+{{- if .Values.components.workspaceVolumeInit.excludeJetbrainsCodeEditors }}
+  config.json: |
+    {
+      "ides": {}
+    }
+{{- else }}
+  config.json: |
+    {
+      "ides": {
+        "jetbrains": {
+          "ides": [
+            {
+              "name": "IntelliJ IDEA Ultimate",
+              "downloadUrl": "https://download.jetbrains.com/idea/ideaIU-2023.3.2.tar.gz"
+            },
+            {
+              "name": "GoLand",
+              "downloadUrl": "https://download.jetbrains.com/go/goland-2023.3.2.tar.gz"
+            },
+            {
+              "name": "PyCharm Professional",
+              "downloadUrl": "https://download.jetbrains.com/python/pycharm-professional-2023.3.2.tar.gz"
+            },
+            {
+              "name": "PhpStorm",
+              "downloadUrl": "https://download.jetbrains.com/webide/PhpStorm-2023.3.2.tar.gz"
+            },
+            {
+              "name": "WebStorm",
+              "downloadUrl": "https://download.jetbrains.com/webstorm/WebStorm-2023.3.2.tar.gz"
+            },
+            {
+              "name": "CLion",
+              "downloadUrl": "https://download.jetbrains.com/cpp/CLion-2023.3.2.tar.gz"
+            },
+            {
+              "name": "Rider",
+              "downloadUrl": "https://download.jetbrains.com/rider/JetBrains.Rider-2023.3.2.tar.gz"
+            },
+            {
+              "name": "RubyMine",
+              "downloadUrl": "https://download.jetbrains.com/ruby/RubyMine-2023.3.2.tar.gz"
+            }
+          ],
+          "backendPluginUrl": "https://download.daytona.io/jetbrains/backend/jetbrains-backend-daytona-plugin-latest.jar"
+        }
+      }
+    }
+{{- end }}
+{{- end }}

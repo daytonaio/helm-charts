@@ -1,0 +1,30 @@
+{{- if .Values.configuration.singleClusterDeployment }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "watkins.workspaceProxy.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-proxy
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.components.workspaceProxy.service.annotations .Values.commonAnnotations }}
+  {{- $annotations := include "common.tplvalues.merge" ( dict "values" ( list .Values.components.workspaceProxy.service.annotations .Values.commonAnnotations ) "context" . ) }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" $annotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.components.workspaceProxy.service.ports.api }}
+      targetPort: http
+      protocol: TCP
+      name: {{ .Values.components.workspaceProxy.service.portNames.api }}
+  {{- if .Values.components.workspaceProxy.metrics.enabled }}
+    - port: {{ .Values.components.workspaceProxy.service.ports.metrics }}
+      targetPort: metrics
+      protocol: TCP
+      name: {{ .Values.components.workspaceProxy.service.portNames.metrics }}
+  {{- end }}
+  selector: {{- include "common.labels.matchLabels" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-proxy
+{{- end }}

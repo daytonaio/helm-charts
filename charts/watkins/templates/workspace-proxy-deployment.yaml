@@ -1,0 +1,143 @@
+{{- if .Values.configuration.singleClusterDeployment }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.workspaceProxy.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-proxy
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.components.workspaceProxy.replicaCount }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: workspace-proxy
+  template:
+    metadata:
+      {{- if .Values.components.workspaceProxy.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceProxy.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: workspace-proxy
+        {{- if .Values.components.workspaceProxy.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceProxy.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.workspaceProxy.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.workspaceProxy.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: branding
+          image: {{ include "watkins.branding.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['sh', '-c', 'mkdir -p /assets/workspace-status /assets/workspace-proxy && cp -r /branding/workspace-status/* /assets/workspace-status/ && cp -r /branding/workspace-proxy/* /assets/workspace-proxy/']
+          volumeMounts:
+            - name: branding
+              mountPath: /assets
+      containers:
+        - name: api
+          image: {{ template "watkins.workspaceProxy.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.workspaceProxy.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.components.workspaceProxy.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.components.workspaceProxy.resources }}
+          resources: {{- toYaml .Values.components.workspaceProxy.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "PORT"
+              value: {{ .Values.components.workspaceProxy.containerPorts.http | quote }}
+            - name: "DASHBOARD_URL"
+              value: {{ include "watkins.url" . | quote }}
+            - name: "API_BASE_URL"
+              value: {{ include "watkins.api.internalUrl" . | quote }}
+            - name: "WORKSPACE_BASE_DOMAIN"
+              value: {{ include "watkins.hostname" . | quote }}
+            - name: "WORKSPACE_NAMESPACE"
+              value: {{ include "watkins.workspaceNamespace" . | quote }}
+              {{- if .Values.ingress.selfSigned }}
+            - name: NODE_TLS_REJECT_UNAUTHORIZED
+              value: '0'
+              {{- end }}
+            - name: "OIDC_ISSUER"
+              value: {{ include "watkins.keycloak.issuer" . | quote }}
+            - name: "OIDC_URL"
+              value: {{ include "watkins.keycloak.url" . | quote }}
+            - name: "OIDC_CLIENT_ID"
+              value: {{ .Values.keycloakConfig.clients.workspaceProxy.clientId | quote }}
+            - name: "OIDC_BASE_URL"
+              value: {{ printf "%s://auth.%s" (ternary "https" "http" .Values.ingress.tls) (include "watkins.hostname" .) | quote }}
+            - name: "OIDC_CLIENT_SECRET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: workspace-proxy-client-secret
+            - name: "SESSION_SECRET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: workspace-proxy-session-secret
+            - name: "COOKIE_SECRET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: workspace-proxy-cookie-secret
+            {{- if .Values.components.workspaceVolumeInit.supervisorExtensions.theiaEnabled }}
+            - name: "BROWSER_IDE"
+              value: "theia"
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.components.workspaceProxy.containerPorts.http }}
+              protocol: TCP
+            {{- if .Values.components.workspaceProxy.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.components.workspaceProxy.containerPorts.metrics }}
+              protocol: TCP
+            {{- end }}
+          {{- if .Values.components.workspaceProxy.customStartupProbe }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceProxy.customStartupProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.workspaceProxy.startupProbe.enabled }}
+          startupProbe: {{- omit .Values.components.workspaceProxy.startupProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.workspaceProxy.startupProbe.path }}
+              port: http
+          {{- end }}
+          {{- if .Values.components.workspaceProxy.customLivenessProbe }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceProxy.customLivenessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.workspaceProxy.livenessProbe.enabled }}
+          livenessProbe: {{- omit .Values.components.workspaceProxy.livenessProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.workspaceProxy.livenessProbe.path }}
+              port: http
+          {{- end }}
+          {{- if .Values.components.workspaceProxy.customReadinessProbe }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceProxy.customReadinessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.workspaceProxy.readinessProbe.enabled }}
+          readinessProbe: {{- omit .Values.components.workspaceProxy.readinessProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.workspaceProxy.readinessProbe.path }}
+              port: http
+          {{- end }}
+          volumeMounts:
+            - mountPath: /usr/src/app/dist/apps/workspace-status/branding
+              subPath: workspace-status
+              name: branding
+            - mountPath: /usr/src/app/branding
+              subPath: workspace-proxy
+              name: branding
+            - name: config
+              mountPath: /usr/src/app/assets/configuration.json
+              subPath: configuration.json
+      volumes:
+        - emptyDir: {}
+          name: branding
+        - name: config
+          configMap:
+            name: {{ template "watkins.workspaceProxy.fullname" . }}
+{{- end }}

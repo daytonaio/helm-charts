@@ -1,0 +1,1252 @@
+## Parameters
+
+## @section Global parameters
+## Global Container image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Container image parameters: imageRegistry, imagePullSecrets and storageClass
+##
+
+## @param global.imageRegistry Global Container image registry
+## @param global.imagePullSecrets Global Container registry secret names as an array
+## @param global.storageClass Global StorageClass for Persistent Volume(s)
+##
+global:
+  imageRegistry: ""
+  ## E.g.
+  ## imagePullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  imagePullSecrets: []
+  storageClass: ""
+
+## watkins image version
+## @param image.registry watkins image registry
+## @param image.repository watkins image repository
+## @param image.tag watkins image tag (immutable tags are recommended)
+## @param image.digest watkins image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+## @param image.pullPolicy watkins image pull policy
+## @param image.pullSecrets Specify docker-registry secret names as an array
+## @param image.debug Specify if debug logs should be enabled
+##
+image:
+  registry: registry.gitlab.com
+  repository: daytonaio/watkins
+  tag: ""
+  digest: ""
+  ## Specify a imagePullPolicy
+  ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
+  ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  ##
+  pullPolicy: IfNotPresent
+  ## Optionally specify an array of imagePullSecrets.
+  ## Secrets must be manually created in the namespace.
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  ## Example:
+  ## pullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  pullSecrets: []
+  ## Set to true if you would like to see extra information on logs
+  ##
+  debug: false
+
+nameOverride: ""
+## @param fullnameOverride String to fully override common.names.fullname
+##
+fullnameOverride: ""
+## @param namespaceOverride String to fully override common.names.namespace
+##
+namespaceOverride: ""
+## @param commonLabels Labels to add to all deployed objects
+##
+commonLabels: {}
+## @param commonAnnotations Annotations to add to all deployed objects
+##
+commonAnnotations: {}
+
+serviceAccount:
+  annotations: {}
+
+configuration:
+  defaultPlanParallelWorkspaces: 3
+  defaultPlanCredits: 10020
+  defaultPlanName: default
+  defaultPlanInactivityTimeoutInMinutes: 30
+  defaultPlanBuildCredits: 60
+  defaultPlanParallelBuilds: 1
+  defaultPlanPinnedWorkspaces: 0
+  singleClusterDeployment: true
+  encryptionSecret: supersecret
+  workspaceUnusedTimeoutInSeconds: 1209600
+  appName: Daytona
+  workspaceRuntimeClassName: ""
+  workspaceVolumeMode: Filesystem
+  defaultWorkspaceClassName: small
+  # Leave undefined for non-expiring subscription
+  # defaultSubscriptionExpiryInDays: 30
+  smtp:
+    enabled: false
+    host: ""
+    port: 25
+    username: ""
+    password: ""
+  sessionSecret: sessionsecret
+  cookieSecret: cookiesecret
+  # Leave undefined for non-expiring subscription
+  defaultSubscriptionExpiryInDays: ""
+  defaultSubscriptionSeats: 1
+
+  workspaceNamespace:
+    name: ""
+    create: false
+
+  workspaceStorageClass: ""
+
+  ## Workspace pod configuration
+  ##
+  workspacePod:
+    ##
+    ## @param configuration.workspacePod.nodeSelector Node labels for pod assignment
+    ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+    ##
+    nodeSelector: {}
+    ##
+    ## @param configuration.workspacePod.podTolerations Tolerations for pod assignment
+    ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+    ##
+    podTolerations: []
+
+  # Custom nameservers for workspaces, comma-separated list. Leave blank for use with CoreDNS
+  customNameservers: ""
+
+## External PostgreSQL configuration
+## All of these values are only used when postgresql.enabled is set to false
+## @param externalDatabase.host Database host
+## @param externalDatabase.port Database port number
+## @param externalDatabase.user Non-root username for Watkins
+## @param externalDatabase.password Password for the non-root username for Watkins
+## @param externalDatabase.database Watkins database name
+## @param externalDatabase.existingSecret Name of an existing secret resource containing the database credentials
+## @param externalDatabase.existingSecretPasswordKey Name of an existing secret key containing the database credentials
+##
+externalDatabase:
+  host: ""
+  port: 5432
+  username: ""
+  password: ""
+  database: ""
+  existingSecret: ""
+  existingSecretPasswordKey: "postgres-password"
+
+## @section External Redis parameters
+## All of these values are only used when redis.enabled is set to false
+## @param externalRedis.host Redis host
+## @param externalRedis.port Redis port number
+## @param externalRedis.password Password for the Redis
+## @param externalRedis.existingSecret Name of an existing secret resource containing the Redis credentials
+## @param externalRedis.existingSecretPasswordKey Name of an existing secret key containing the Redis credentials
+##
+externalRedis:
+  host: ""
+  port: 6379
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: ""
+
+## @section External RabbitMQ Configuration
+## All of these values are ignored when rabbitmq.enabled is set to true
+## @param externalRabbitmq.host Host of the external RabbitMQ
+## @param externalRabbitmq.port External RabbitMQ port number
+## @param externalRabbitmq.username External RabbitMQ username
+## @param externalRabbitmq.password External RabbitMQ password. It will be saved in a kubernetes secret
+## @param externalRabbitmq.vhost External RabbitMQ virtual host. It will be saved in a kubernetes secret
+## @param externalRabbitmq.existingSecret Existing secret with RabbitMQ password. It will be saved in a kubernetes secret
+## @param externalRabbitmq.existingPasswordSecretKey Existing secret with RabbitMQ password. It will be saved in a kubernetes secret
+##
+externalRabbitmq:
+  host: ""
+  port: 5672
+  username: ""
+  password: ""
+  vhost: ""
+  existingSecret: ""
+  existingSecretPasswordKey: "rabbitmq-password"
+
+ingress:
+  ## @param ingress.enabled Enable ingress record generation for watkins
+  ##
+  enabled: true
+  ## @param ingress.ingressClassName IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)
+  ## This is supported in Kubernetes 1.18+ and required if you have more than one IngressClass marked as the default for your cluster .
+  ## ref: https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/
+  ##
+  ingressClassName: ""
+  ## @param ingress.pathType Ingress path type
+  ##
+  pathType: ImplementationSpecific
+  ## @param ingress.apiVersion Force Ingress API version (automatically detected if not set)
+  ##
+  apiVersion: ""
+  ## @param ingress.hostname Default host for the ingress record (evaluated as template)
+  ##
+  hostname: watkins.local
+  ## @param ingress.path Default path for the ingress record
+  ##
+  path: /
+  ## @param ingress.servicePort Backend service port to use
+  ## Default is http. Alternative is https.
+  ##
+  servicePort: http
+  ## @param ingress.annotations [object] Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations.
+  ## Use this parameter to set the required annotations for cert-manager, see
+  ## ref: https://cert-manager.io/docs/usage/ingress/#supported-annotations
+  ## e.g:
+  ## annotations:
+  ##   kubernetes.io/ingress.class: nginx
+  ##   cert-manager.io/cluster-issuer: cluster-issuer-name
+  ##
+  annotations: {}
+  ## @param ingress.tls Enable TLS configuration for the host defined at `ingress.hostname` parameter
+  ## TLS certificates will be retrieved from a TLS secret with name: `{{- printf "%s-tls" (tpl .Values.ingress.hostname .) }}`
+  ## You can:
+  ##   - Use the `ingress.secrets` parameter to create this TLS secret
+  ##   - Rely on cert-manager to create it by setting the corresponding annotations
+  ##   - Rely on Helm to create self-signed certificates by setting `ingress.selfSigned=true`
+  ##
+  tls: false
+  ## @param ingress.selfSigned Create a TLS secret for this ingress record using self-signed certificates generated by Helm
+  ##
+  selfSigned: false
+  ## @param ingress.extraHosts An array with additional hostname(s) to be covered with the ingress record
+  ## e.g:
+  ## extraHosts:
+  ##   - name: watkins.local
+  ##     path: /
+  ##
+  extraHosts: []
+  ## @param ingress.extraPaths Any additional arbitrary paths that may need to be added to the ingress under the main host.
+  ## For example: The ALB ingress controller requires a special rule for handling SSL redirection.
+  ## extraPaths:
+  ## - path: /*
+  ##   backend:
+  ##     serviceName: ssl-redirect
+  ##     servicePort: use-annotation
+  ##
+  extraPaths: []
+  ## @param ingress.extraTls The tls configuration for additional hostnames to be covered with this ingress record.
+  ## see: https://kubernetes.io/docs/concepts/services-networking/ingress/#tls
+  ## extraTls:
+  ## - hosts:
+  ##     - watkins.local
+  ##   secretName: watkins.local-tls
+  ##
+  extraTls: []
+  ## @param ingress.secrets Custom TLS certificates as secrets
+  ## NOTE: 'key' and 'certificate' are expected in PEM format
+  ## NOTE: 'name' should line up with a 'secretName' set further up
+  ## If it is not set and you're using cert-manager, this is unneeded, as it will create a secret for you with valid certificates
+  ## If it is not set and you're NOT using cert-manager either, self-signed certificates will be created valid for 365 days
+  ## It is also possible to create and manage the certificates outside of this helm chart
+  ## Please see README.md for more information
+  ## e.g:
+  ## - name: watkins.local-tls
+  ##   key: |-
+  ##     -----BEGIN RSA PRIVATE KEY-----
+  ##     ...
+  ##     -----END RSA PRIVATE KEY-----
+  ##   certificate: |-
+  ##     -----BEGIN CERTIFICATE-----
+  ##     ...
+  ##     -----END CERTIFICATE-----
+  ##   ca: |-
+  ##     -----BEGIN CERTIFICATE-----
+  ##     ...
+  ##     -----END CERTIFICATE-----
+  secrets: []
+  ## @param ingress.extraRules Additional rules to be covered with this ingress record
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-rules
+  ## e.g:
+  ## extraRules:
+  ## - host: watkins.local
+  ##     http:
+  ##       path: /
+  ##       backend:
+  ##         service:
+  ##           name: watkins-svc
+  ##           port:
+  ##             name: http
+  ##
+  extraRules: []
+
+components:
+  sshGateway:
+    ## @param components.sshGateway.replicaCount Number of API server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## API pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.sshGateway.podSecurityContext.enabled Enabled API pods' Security Context
+    ## @param components.sshGateway.podSecurityContext.fsGroup Set sshGateway pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## API containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.sshGateway.containerSecurityContext.enabled Enabled sshGateway containers' Security Context
+    ## @param components.sshGateway.containerSecurityContext.runAsUser Set sshGateway container's Security Context runAsUser
+    ## @param components.sshGateway.containerSecurityContext.runAsNonRoot Set sshGateway container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    resources: {}
+    service:
+      port: 22
+      nodePort: 30000
+      type: NodePort
+    annotations: {}
+
+    ## @param components.sshGateway.containerPorts.tcp workspaceshGateway HTTP container port
+    ##
+    containerPorts:
+      ssh: 3000
+
+  ## API server configuration
+  ##
+  api:
+    ## @param components.api.replicaCount Number of API server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## API pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.api.podSecurityContext.enabled Enabled API pods' Security Context
+    ## @param components.api.podSecurityContext.fsGroup Set API pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## API containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.api.containerSecurityContext.enabled Enabled API containers' Security Context
+    ## @param components.api.containerSecurityContext.runAsUser Set API container's Security Context runAsUser
+    ## @param components.api.containerSecurityContext.runAsNonRoot Set API container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    ## @param components.api.containerPorts.http api HTTP container port
+    ##
+    containerPorts:
+      http: 3000
+      metrics: 9000
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    service:
+      ports:
+        api: 80
+        metrics: 8080
+
+      portNames:
+        api: api
+        metrics: metrics
+
+      annotations: {}
+
+    metrics:
+      enabled: false
+      path: /metrics
+
+      serviceMonitor:
+        enabled: false
+        namespace: ""
+        interval: "30s"
+
+    resources: {}
+
+    ## @param components.api.livenessProbe.enabled Enable livenessProbe
+    ## @param components.api.livenessProbe.path Path for livenessProbe
+    ## @param components.api.livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+    ## @param components.api.livenessProbe.periodSeconds Period seconds for livenessProbe
+    ## @param components.api.livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+    ## @param components.api.livenessProbe.failureThreshold Failure threshold for livenessProbe
+    ## @param components.api.livenessProbe.successThreshold Success threshold for livenessProbe
+    ##
+    livenessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 1
+      successThreshold: 1
+      failureThreshold: 3
+    ## @param components.api.readinessProbe.enabled Enable readinessProbe
+    ## @param components.api.readinessProbe.path Path for readinessProbe
+    ## @param components.api.readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+    ## @param components.api.readinessProbe.periodSeconds Period seconds for readinessProbe
+    ## @param components.api.readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+    ## @param components.api.readinessProbe.failureThreshold Failure threshold for readinessProbe
+    ## @param components.api.readinessProbe.successThreshold Success threshold for readinessProbe
+    ##
+    readinessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 1
+      successThreshold: 1
+      failureThreshold: 3
+
+    ## When enabling this, make sure to set initialDelaySeconds to 0 for livenessProbe and readinessProbe
+    ## @param components.api.startupProbe.enabled Enable startupProbe
+    ## @param components.api.startupProbe.path Path for startupProbe
+    ## @param components.api.startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
+    ## @param components.api.startupProbe.periodSeconds Period seconds for startupProbe
+    ## @param components.api.startupProbe.timeoutSeconds Timeout seconds for startupProbe
+    ## @param components.api.startupProbe.failureThreshold Failure threshold for startupProbe
+    ## @param components.api.startupProbe.successThreshold Success threshold for startupProbe
+    ##
+    startupProbe:
+      enabled: false
+      path: /health
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      timeoutSeconds: 1
+      failureThreshold: 60
+      successThreshold: 1
+
+    ## Custom Startup probes for api
+    ## @param components.api.customStartupProbe Override default startup probe
+    ##
+    customStartupProbe: {}
+    ## Custom Liveness probes for api
+    ## @param components.api.customLivenessProbe Override default liveness probe
+    ##
+    customLivenessProbe: {}
+    ## Custom Rediness probes api
+    ## @param components.api.customReadinessProbe Override default readiness probe
+    ##
+    customReadinessProbe: {}
+    ## @param components.api.priorityClassName api pod priority class name
+
+    ## @param components.api.swagger.enabled Enable api swagger UI
+    swagger:
+      enabled: true
+
+  branding:
+    image: ""
+
+  dashboard:
+    ## @param components.dashboard.replicaCount Number of Dashboard server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## Dashboard pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.dashboard.podSecurityContext.enabled Enabled Dashboard pods' Security Context
+    ## @param components.dashboard.podSecurityContext.fsGroup Set Dashboard pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## Dashboard containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.dashboard.containerSecurityContext.enabled Enabled Dashboard containers' Security Context
+    ## @param components.dashboard.containerSecurityContext.runAsUser Set Dashboard container's Security Context runAsUser
+    ## @param components.dashboard.containerSecurityContext.runAsNonRoot Set Dashboard container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    ## @param components.dashboard.containerPorts.http dashboard HTTP container port
+    ##
+    containerPorts:
+      http: 80
+
+    service:
+      port: 3000
+
+    paymentPageUrl: ""
+
+    defaultClusterRegion: us
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "10m"
+
+    workspaceTemplatesIndexUrl: https://raw.githubusercontent.com/daytonaio-templates/index/main/templates.json
+    jetbrainsGatewayPluginDownloadUrl: https://download.daytona.io/jetbrains/gateway/release/jetbrains-gateway-daytona-plugin-0.0.22.jar
+
+  dbMigration:
+    ## @param components.dbMigration.enabled Whether to enable db-migration job
+    ##
+    enabled: true
+
+    ## @param components.dbMigration.annotations [object] Annotations for db-migration job
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ##
+    annotations: {}
+
+    ## Keycloak init resource requests and limits
+    ## ref: https://kubernetes.io/docs/user-guide/compute-resources/
+    ## @param components.dbMigration.resources.limits The resources limits for the db-migration container
+    ## @param components.dbMigration.resources.requests The requested resources for the db-migration container
+    ##
+    resources:
+      limits: {}
+      requests: {}
+    ## db-migration containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.dbMigration.containerSecurityContext.enabled Enabled db-migration containers' Security Context
+    ## @param components.dbMigration.containerSecurityContext.runAsUser Set db-migration container's Security Context runAsUser
+    ## @param components.dbMigration.containerSecurityContext.runAsNonRoot Set db-migration container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+    ## db-migration pods' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.dbMigration.podSecurityContext.enabled Enabled db-migration pods' Security Context
+    ## @param components.dbMigration.podSecurityContext.fsGroup Set db-migration pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## @param components.dbMigration.backoffLimit Number of retries before considering a Job as failed
+    ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
+    ##
+    backoffLimit: 1
+    ## @param components.dbMigration.podLabels Pod extra labels
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+    ##
+    podLabels: {}
+    ## @param components.dbMigration.podAnnotations Annotations for job pod
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ##
+    podAnnotations: {}
+    ## @param components.dbMigration.extraEnvVars Additional environment variables to set
+    ## Example:
+    ## extraEnvVars:
+    ##   - name: FOO
+    ##     value: "bar"
+    ##
+    ## @param components.dbMigration.nodeSelector Node labels for pod assignment
+    ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+    ##
+    nodeSelector: {}
+    ##
+    ## @param components.dbMigration.podTolerations Tolerations for job pod assignment
+    ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+    ##
+    podTolerations: []
+
+    ## Automatic Cleanup for Finished Jobs
+    ## @param components.dbMigration.cleanupAfterFinished.enabled Enables Cleanup for Finished Jobs
+    ## @param components.dbMigration.cleanupAfterFinished.seconds Sets the value of ttlSecondsAfterFinished
+    ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/
+    ##
+    cleanupAfterFinished:
+      enabled: true
+      seconds: 600
+
+  ## Domain notification publisher server configuration
+  ##
+  domainNotificationPublisher:
+    ## @param components.domainNotificationPublisher.replicaCount Number of Domain notification publisher server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## API pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.domainNotificationPublisher.podSecurityContext.enabled Enabled Domain notification publisher pods' Security Context
+    ## @param components.domainNotificationPublisher.podSecurityContext.fsGroup Set Domain notification publisher pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## API containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.domainNotificationPublisher.containerSecurityContext.enabled Enabled Domain notification publisher containers' Security Context
+    ## @param components.domainNotificationPublisher.containerSecurityContext.runAsUser Set Domain notification publisher container's Security Context runAsUser
+    ## @param components.domainNotificationPublisher.containerSecurityContext.runAsNonRoot Set Domain notification publisher container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    service:
+      ports:
+        api: 80
+        metrics: 8080
+
+      portNames:
+        api: api
+        metrics: metrics
+
+      annotations: {}
+
+    metrics:
+      enabled: false
+      path: /metrics
+
+      serviceMonitor:
+        enabled: false
+        namespace: ""
+        interval: "30s"
+
+    resources: {}
+
+  ## Email service configuration
+  ##
+  email:
+    ## @param components.email.replicaCount Number of email service replicas to deploy
+    ##
+    replicaCount: 1
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    from: "Example Team <no-reply@example.com>"
+    invitationSubject: "Invitation to join Example team"
+
+    resources: {}
+
+  workspaceWatcher:
+    ## @param components.watcher.replicaCount Number of Watcher server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## Watcher pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.watcher.podSecurityContext.enabled Enabled Watcher pods' Security Context
+    ## @param components.watcher.podSecurityContext.fsGroup Set Watcher pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## Watcher containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.watcher.containerSecurityContext.enabled Enabled Watcher containers' Security Context
+    ## @param components.watcher.containerSecurityContext.runAsUser Set Watcher container's Security Context runAsUser
+    ## @param components.watcher.containerSecurityContext.runAsNonRoot Set Watcher container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "30m"
+
+  migration:
+    name: migration
+
+  realtimeServer:
+    ## @param components.realtimeServer.replicaCount Number of RealtimeServer server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## RealtimeServer pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.realtimeServer.podSecurityContext.enabled Enabled RealtimeServer pods' Security Context
+    ## @param components.realtimeServer.podSecurityContext.fsGroup Set RealtimeServer pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## RealtimeServer containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.realtimeServer.containerSecurityContext.enabled Enabled RealtimeServer containers' Security Context
+    ## @param components.realtimeServer.containerSecurityContext.runAsUser Set RealtimeServer container's Security Context runAsUser
+    ## @param components.realtimeServer.containerSecurityContext.runAsNonRoot Set RealtimeServer container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    service:
+      annotations: {}
+
+    ## @param components.realtimeServer.containerPorts.http RealtimeServer HTTP container port
+    ##
+    containerPorts:
+      http: 3000
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "30m"
+    ## @param components.realtimeServer.livenessProbe.enabled Enable livenessProbe
+    ## @param components.realtimeServer.livenessProbe.path Path for livenessProbe
+    ## @param components.realtimeServer.livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+    ## @param components.realtimeServer.livenessProbe.periodSeconds Period seconds for livenessProbe
+    ## @param components.realtimeServer.livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+    ## @param components.realtimeServer.livenessProbe.failureThreshold Failure threshold for livenessProbe
+    ## @param components.realtimeServer.livenessProbe.successThreshold Success threshold for livenessProbe
+    ##
+    livenessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 1
+      successThreshold: 1
+      failureThreshold: 3
+    ## @param components.realtimeServer.readinessProbe.enabled Enable readinessProbe
+    ## @param components.realtimeServer.readinessProbe.path Path for readinessProbe
+    ## @param components.realtimeServer.readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+    ## @param components.realtimeServer.readinessProbe.periodSeconds Period seconds for readinessProbe
+    ## @param components.realtimeServer.readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+    ## @param components.realtimeServer.readinessProbe.failureThreshold Failure threshold for readinessProbe
+    ## @param components.realtimeServer.readinessProbe.successThreshold Success threshold for readinessProbe
+    ##
+    readinessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 1
+      successThreshold: 1
+      failureThreshold: 3
+
+    ## When enabling this, make sure to set initialDelaySeconds to 0 for livenessProbe and readinessProbe
+    ## @param components.realtimeServer.startupProbe.enabled Enable startupProbe
+    ## @param components.realtimeServer.startupProbe.path Path for startupProbe
+    ## @param components.realtimeServer.startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
+    ## @param components.realtimeServer.startupProbe.periodSeconds Period seconds for startupProbe
+    ## @param components.realtimeServer.startupProbe.timeoutSeconds Timeout seconds for startupProbe
+    ## @param components.realtimeServer.startupProbe.failureThreshold Failure threshold for startupProbe
+    ## @param components.realtimeServer.startupProbe.successThreshold Success threshold for startupProbe
+    ##
+    startupProbe:
+      enabled: false
+      path: /health
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      timeoutSeconds: 1
+      failureThreshold: 60
+      successThreshold: 1
+
+    ## Custom Startup probes for realtimeServer
+    ## @param components.realtimeServer.customStartupProbe Override default startup probe
+    ##
+    customStartupProbe: {}
+    ## Custom Liveness probes for realtimeServer
+    ## @param components.realtimeServer.customLivenessProbe Override default liveness probe
+    ##
+    customLivenessProbe: {}
+    ## Custom Rediness probes realtimeServer
+    ## @param components.realtimeServer.customReadinessProbe Override default readiness probe
+    ##
+    customReadinessProbe: {}
+    ## @param components.realtimeServer.priorityClassName realtimeServer pod priority class name
+
+  workspaceProvisioner:
+    ## @param components.workspaceProvisioner.replicaCount Number of WorkspaceProvisioner server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## WorkspaceProvisioner pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.workspaceProvisioner.podSecurityContext.enabled Enabled WorkspaceProvisioner pods' Security Context
+    ## @param components.workspaceProvisioner.podSecurityContext.fsGroup Set WorkspaceProvisioner pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## WorkspaceProvisioner containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.workspaceProvisioner.containerSecurityContext.enabled Enabled WorkspaceProvisioner containers' Security Context
+    ## @param components.workspaceProvisioner.containerSecurityContext.runAsUser Set WorkspaceProvisioner container's Security Context runAsUser
+    ## @param components.workspaceProvisioner.containerSecurityContext.runAsNonRoot Set WorkspaceProvisioner container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    serviceAccount:
+      name: workspace-provisioner
+      annotations: {}
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    workspaces:
+      # 30 mins
+      idleWorkspaceTimeout: 1800000
+      defaultContainerImage: daytonaio/workspace-universal:latest
+      defaultContainerUser: daytona
+      devContainerRecoveryImage: ubuntu
+      devContainerRecoveryUser: root
+      dockerRegistryMirror: https://mirror.registry.daytona.io
+      nodeSelector: ""
+      tolerations: ""
+
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "30m"
+
+  ## workspace proxy server configuration
+  ##
+  workspaceProxy:
+    ## @param components.workspaceProxy.replicaCount Number of workspace proxy server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## API pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.workspaceProxy.podSecurityContext.enabled Enabled workspace proxy pods' Security Context
+    ## @param components.workspaceProxy.podSecurityContext.fsGroup Set workspace proxy pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## API containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.workspaceProxy.containerSecurityContext.enabled Enabled workspace proxy containers' Security Context
+    ## @param components.workspaceProxy.containerSecurityContext.runAsUser Set workspace proxy container's Security Context runAsUser
+    ## @param components.workspaceProxy.containerSecurityContext.runAsNonRoot Set workspace proxy container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    ## @param components.workspaceProxy.containerPorts.http workspace proxy HTTP container port
+    ##
+    containerPorts:
+      http: 3000
+      metrics: 9000
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    service:
+      ports:
+        api: 80
+        metrics: 8080
+
+      portNames:
+        api: api
+        metrics: metrics
+
+      annotations: {}
+
+    metrics:
+      enabled: false
+      path: /metrics
+
+      serviceMonitor:
+        enabled: false
+        namespace: ""
+        interval: "30s"
+
+    resources: {}
+    ## @param components.workspaceProxy.livenessProbe.enabled Enable livenessProbe
+    ## @param components.workspaceProxy.livenessProbe.path Path for livenessProbe
+    ## @param components.workspaceProxy.livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+    ## @param components.workspaceProxy.livenessProbe.periodSeconds Period seconds for livenessProbe
+    ## @param components.workspaceProxy.livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+    ## @param components.workspaceProxy.livenessProbe.failureThreshold Failure threshold for livenessProbe
+    ## @param components.workspaceProxy.livenessProbe.successThreshold Success threshold for livenessProbe
+    ##
+    livenessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 1
+      successThreshold: 1
+      failureThreshold: 3
+
+    ## @param components.workspaceProxy.readinessProbe.enabled Enable readinessProbe
+    ## @param components.workspaceProxy.readinessProbe.path Path for readinessProbe
+    ## @param components.workspaceProxy.readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+    ## @param components.workspaceProxy.readinessProbe.periodSeconds Period seconds for readinessProbe
+    ## @param components.workspaceProxy.readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+    ## @param components.workspaceProxy.readinessProbe.failureThreshold Failure threshold for readinessProbe
+    ## @param components.workspaceProxy.readinessProbe.successThreshold Success threshold for readinessProbe
+    ##
+    readinessProbe:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 1
+      successThreshold: 1
+      failureThreshold: 3
+
+    ## When enabling this, make sure to set initialDelaySeconds to 0 for livenessProbe and readinessProbe
+    ## @param components.workspaceProxy.startupProbe.enabled Enable startupProbe
+    ## @param components.workspaceProxy.startupProbe.path Path for startupProbe
+    ## @param components.workspaceProxy.startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
+    ## @param components.workspaceProxy.startupProbe.periodSeconds Period seconds for startupProbe
+    ## @param components.workspaceProxy.startupProbe.timeoutSeconds Timeout seconds for startupProbe
+    ## @param components.workspaceProxy.startupProbe.failureThreshold Failure threshold for startupProbe
+    ## @param components.workspaceProxy.startupProbe.successThreshold Success threshold for startupProbe
+    ##
+    startupProbe:
+      enabled: false
+      path: /health
+      initialDelaySeconds: 30
+      periodSeconds: 5
+      timeoutSeconds: 1
+      failureThreshold: 60
+      successThreshold: 1
+
+    ## Custom Startup probes for workspaceProxy
+    ## @param components.workspaceProxy.customStartupProbe Override default startup probe
+    ##
+    customStartupProbe: {}
+    ## Custom Liveness probes for workspaceProxy
+    ## @param components.workspaceProxy.customLivenessProbe Override default liveness probe
+    ##
+    customLivenessProbe: {}
+    ## Custom Rediness probes workspaceProxy
+    ## @param components.workspaceProxy.customReadinessProbe Override default readiness probe
+    ##
+    customReadinessProbe: {}
+    ## @param components.workspaceProxy.priorityClassName workspaceProxy pod priority class name
+
+  workspaceUsage:
+    ## @param components.workspaceUsage.replicaCount Number of WorkspaceUsage server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## WorkspaceUsage pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.workspaceUsage.podSecurityContext.enabled Enabled WorkspaceUsage pods' Security Context
+    ## @param components.workspaceUsage.podSecurityContext.fsGroup Set WorkspaceUsage pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## WorkspaceUsage containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.workspaceUsage.containerSecurityContext.enabled Enabled WorkspaceUsage containers' Security Context
+    ## @param components.workspaceUsage.containerSecurityContext.runAsUser Set WorkspaceUsage container's Security Context runAsUser
+    ## @param components.workspaceUsage.containerSecurityContext.runAsNonRoot Set WorkspaceUsage container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    usageTrackingInterval: 900000 # 15 minutes
+    resources: {}
+
+  ## workspace volume init configuration
+  ##
+  workspaceVolumeInit:
+    ## @param components.workspaceVolumeInit.enabled Enable workspace volume init
+    ##
+    enabled: true
+
+    ## @param components.workspaceVolumeInit.annotations [object] Annotations for workspace-volume-init job
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ##
+    annotations:
+      helm.sh/hook: "post-install,post-upgrade,post-rollback"
+      helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
+      helm.sh/hook-weight: "5"
+
+    ## @param components.workspaceVolumeInit.backoffLimit Number of retries before considering a Job as failed
+    ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
+    ##
+    backoffLimit: 1
+    ## @param components.workspaceVolumeInit.podLabels Pod extra labels
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+    ##
+    podLabels: {}
+    ## @param components.workspaceVolumeInit.podAnnotations Annotations for job pod
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ##
+    podAnnotations: {}
+    ## @param components.workspaceVolumeInit.extraEnvVars Additional environment variables to set
+    ## Example:
+    ## extraEnvVars:
+    ##   - name: FOO
+    ##     value: "bar"
+    ##
+    ## @param components.workspaceVolumeInit.nodeSelector Node labels for pod assignment
+    ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+    ##
+    nodeSelector: {}
+    ##
+    ## @param components.workspaceVolumeInit.podTolerations Tolerations for job pod assignment
+    ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+    ##
+    podTolerations: []
+
+    podSecurityContext: {}
+
+    ## Workspace volume init resource requests and limits
+    ## ref: https://kubernetes.io/docs/user-guide/compute-resources/
+    ## @param components.workspaceVolumeInit.resources.limits The resources limits for the workspace-volume-init container
+    ## @param components.workspaceVolumeInit.resources.requests The requested resources for the workspace-volume-init container
+    ##
+    resources:
+      limits: {}
+      requests: {}
+
+    ## @param components.workspaceVolumeInit.preloadIDEs Should IDEs be preloaded
+    preloadIDEs: true
+
+    pullImages:
+      ## @param components.workspaceVolumeInit.pullImages.images Comma-separated list of images to pull
+      images: ""
+      ## @param components.workspaceVolumeInit.pullImages.podImage The image that the pull images pod will use
+      podImage: docker.io/docker:dind
+      ## @param components.workspaceVolumeInit.pullImages.serviceAccountName Optional service account name to add to the pod
+      serviceAccountName: ""
+      ## @param components.workspaceVolumeInit.pullImages.pullSecret Optional docker secret to mount into .docker/config.json
+      pullSecret: ""
+
+    ## @param components.workspaceVolumeInit.nodeSelector Specify nodeSelector tags that will restrict storing Longhorn volume data on specific nodes
+    volumeNodeSelector: ""
+
+    serviceAccount:
+      name: workspace-volume-init
+      annotations: {}
+
+    ## @param components.workspaceVolumeInit.supervisorExtensions Which supervisor extensions are enabled
+    supervisorExtensions:
+      sshdEnabled: true
+      theiaEnabled: false
+      openVSCodeServerEnabled: true
+
+    ## @param components.workspaceVolumeInit.excludeJetbrainsCodeEditors Disable download of JB Code Editors into preload volume
+    excludeJetbrainsCodeEditors: false
+
+notificationBus:
+  maxConcurrentConsumers: 100
+
+postgresql:
+  enabled: false
+  nameOverride: "watkins-postgresql"
+  auth:
+    postgresPassword: ""
+    username: watkins
+    password: ""
+    database: watkins
+    existingSecret: ""
+  architecture: standalone
+
+gitProviders:
+  github:
+    clientId: ""
+    clientSecret: ""
+  githubEnterpriseServer:
+    clientId: ""
+    clientSecret: ""
+    baseUrl: ""
+    apiUrl: ""
+  gitlab:
+    clientId: ""
+    clientSecret: ""
+  bitbucket:
+    clientId: ""
+    clientSecret: ""
+  bitbucketServer:
+    clientId: ""
+    clientSecret: ""
+    baseUrl: ""
+  gitlabSelfManaged:
+    clientId: ""
+    clientSecret: ""
+    baseUrl: ""
+
+keycloakConfig:
+  realm: default
+  clients:
+    api:
+      clientId: api
+      clientSecret: apisupersecret
+    cli:
+      clientId: cli
+      name: Daytona CLI
+    jetbrains:
+      clientId: jetbrains
+      name: JetBrains
+    vscode:
+      clientId: vscode
+      name: Visual Studio Code
+    dashboard:
+      clientId: dashboard
+    workspaceProxy:
+      clientId: workspace-proxy
+      clientSecret: proxysupersecret
+
+## External Keycloak configuration
+## All of these values are only used when keycloak.enabled is set to false
+## @param externalKeycloak.url Keycloak URL
+##
+externalKeycloak:
+  url: ""
+
+keycloak:
+  enabled: true
+  nameOverride: "watkins-keycloak"
+
+  image:
+    repository: daytonaio/keycloak
+    tag: 22.0.5-daytona.r1-debian-11
+
+  keycloakConfigCli:
+    enabled: true
+    extraEnvVars:
+      - name: IMPORT_VARSUBSTITUTION_ENABLED
+        value: "true"
+    extraEnvVarsSecret: '{{ printf "%s-config-cli" (include "common.names.fullname" .) }}'
+    existingConfigmap: '{{ printf "%s-config-cli" (include "common.names.fullname" .) }}'
+
+  extraVolumes:
+    - name: extensions
+      emptyDir: {}
+
+  extraVolumeMounts:
+    - name: extensions
+      mountPath: /opt/bitnami/keycloak/providers
+
+  initContainers:
+    - name: themes
+      image: daytonaio/keycloak-themes:2.3.1
+      securityContext:
+        runAsUser: 1001
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - cp /opt/daytona/keycloak/*.jar /extensions
+      volumeMounts:
+        - name: extensions
+          mountPath: /extensions
+    - name: providers
+      image: daytonaio/keycloak-extensions:1.1.0
+      securityContext:
+        runAsUser: 1001
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - cp /opt/daytona/keycloak/*.jar /extensions
+      volumeMounts:
+        - name: extensions
+          mountPath: /extensions
+
+  production: true
+  proxy: edge
+
+  service:
+    type: ClusterIP
+
+  auth:
+    adminUser: admin
+    adminPassword: ""
+
+  postgresql:
+    enabled: true
+    nameOverride: "watkins-keycloak-postgresql"
+    image:
+      tag: 15.4.0-debian-11-r54
+
+  extraEnvVars:
+    - name: KEYCLOAK_EXTRA_ARGS
+      value: --features=token-exchange,admin-fine-grained-authz --spi-connections-http-client-default-disable-trust-manager=true
+
+  extraEnvVarsCM: '{{ printf "%s-env-extra" (include "common.names.fullname" .) }}'
+
+  externalDatabase:
+    host: ""
+    port: ""
+    user: ""
+    database: ""
+    password: ""
+    existingSecret: ""
+    existingSecretPasswordKey: ""
+
+rabbitmq:
+  enabled: false
+  nameOverride: "watkins-rabbitmq"
+  persistence:
+    enabled: true
+  auth:
+    username: user
+    password: pass
+    erlangCookie: secreterlangcookie
+
+redis:
+  enabled: false
+  nameOverride: "watkins-redis"
+  auth:
+    enabled: false
+  architecture: standalone

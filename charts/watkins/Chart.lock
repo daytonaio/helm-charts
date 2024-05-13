@@ -1,0 +1,18 @@
+dependencies:
+- name: common
+  repository: https://charts.bitnami.com/bitnami
+  version: 2.13.2
+- name: keycloak
+  repository: https://charts.bitnami.com/bitnami
+  version: 17.3.1
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.2.6
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 17.9.2
+- name: rabbitmq
+  repository: https://charts.bitnami.com/bitnami
+  version: 11.12.0
+digest: sha256:74339e059cf364cc3c8a5fa2d989732f9710811db3d596006a9976d4fd4aade6
+generated: "2023-11-14T10:54:51.023009111Z"

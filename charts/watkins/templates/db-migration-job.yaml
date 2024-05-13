@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "watkins.db-migration.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: db-migration
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.components.dbMigration.annotations "context" $ ) | nindent 4 }}
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  backoffLimit: {{ .Values.components.dbMigration.backoffLimit }}
+  {{- if .Values.components.dbMigration.cleanupAfterFinished.enabled }}
+  ttlSecondsAfterFinished: {{ .Values.components.dbMigration.cleanupAfterFinished.seconds }}
+  {{- end }}
+  template:
+    metadata:
+      {{- if .Values.components.dbMigration.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.dbMigration.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: db-migration
+        {{- if .Values.components.dbMigration.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.dbMigration.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.dbMigration.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.dbMigration.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-db
+          image: {{ template "watkins.db-migration.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -d $DB_NAME -h $DB_HOST -p $DB_PORT -U $DB_USER; do
+                sleep 1
+              done
+          env:
+            - name: "DB_HOST"
+              value: {{ include "watkins.database.host" . | quote }}
+            - name: "DB_PORT"
+              value: {{ include "watkins.database.port" . | quote }}
+            - name: "DB_USER"
+              value: {{ include "watkins.database.user" . | quote }}
+            - name: "DB_NAME"
+              value: {{ include "watkins.database.name" . | quote }}
+            - name: "DB_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.database.secretName" . }}
+                  key: {{ include "watkins.database.secretKey" . }}
+      containers:
+        - name: db-migration
+          image: {{ template "watkins.db-migration.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: "MIKRO_ORM_MIGRATIONS_DISABLE_FOREIGN_KEYS"
+              value: "false"
+            - name: "DB_HOST"
+              value: {{ include "watkins.database.host" . | quote }}
+            - name: "DB_PORT"
+              value: {{ include "watkins.database.port" . | quote }}
+            - name: "DB_USER"
+              value: {{ include "watkins.database.user" . | quote }}
+            - name: "DB_NAME"
+              value: {{ include "watkins.database.name" . | quote }}
+            - name: "DB_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.database.secretName" . }}
+                  key: {{ include "watkins.database.secretKey" . }}
