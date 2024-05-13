@@ -1,0 +1,111 @@
+# Helm chart specific files
+Chart.lock
+*.tgz
+*.tar.gz
+
+# Helm package files
+charts/*.tgz
+charts/*.tar.gz
+
+# Helm test files
+tests/*.yaml
+tests/*.yml
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Log files
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Environment specific files
+.env
+.env.local
+.env.*.local
+
+# Kubernetes generated files
+*.generated.yaml
+*.generated.yml
+
+# Helm lint output
+lint-output.txt
+
+# Package manager files
+package-lock.json
+yarn.lock
+
+# Documentation build files
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Test coverage
+coverage/
+*.cover
+*.out
+
+# Dependency directories
+node_modules/
+vendor/
+
+# Local development files
+local-values.yaml
+local-values.yml
+dev-values.yaml
+dev-values.yml
+
+# Secrets and sensitive files
+secrets.yaml
+secrets.yml
+*.secret
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Generated documentation
+docs/generated/
+
+# Helm repository index
+index.yaml
+index.yml
+
+# Helm plugin files
+.helm/
+
+# Temporary chart files
+temp-charts/
+tmp/
+
+# Values files with sensitive data
+*secret*.yaml
+*secret*.yml
+*password*.yaml
+*password*.yml
+*credential*.yaml
+*credential*.yml

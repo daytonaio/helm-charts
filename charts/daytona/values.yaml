@@ -1,0 +1,480 @@
+# Default values for daytona.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  namespace: "" # If not set, will default to Release.Namespace
+
+# Base domain Daytona
+domain: "daytona.example.com"
+
+# Service-specific configurations
+services:
+  api:
+    enabled: true
+    # Image configuration
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-api
+      tag: "" # Will default to Chart.AppVersion
+      pullPolicy: IfNotPresent
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 3000
+      annotations: {}
+    # Ingress configuration
+    ingress:
+      enabled: true
+      className: "nginx"
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      hosts:
+        - host: "daytona.example.com"
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - hosts:
+            - "daytona.example.com"
+          secretName: "daytona.example.com-tls"
+    # Environment variables (can be overridden via Helm values)
+    env:
+      # Application configuration
+      ENVIRONMENT: "production"
+      PORT: "3000"
+
+      # Database configuration
+      DB_HOST: "daytona-postgresql"
+      DB_PORT: "5432"
+      DB_DATABASE: "daytona"
+      DB_USERNAME: "user"
+      # DB_PASSWORD: "" # Will be set from secret if not defined here
+
+      # Redis configuration
+      REDIS_HOST: "" # Will be auto-generated as {{ .Release.Name }}-redis-master
+      REDIS_PORT: "6379"
+      # REDIS_PASSWORD: "" # Will be set from secret if Redis auth enabled
+
+      # OIDC configuration
+      OIDC_CLIENT_ID: "daytona"
+      OIDC_ISSUER_BASE_URL: "https://daytona.example.com/idp/realms/daytona"
+      PUBLIC_OIDC_DOMAIN: "https://daytona.example.com/idp/realms/daytona"
+      OIDC_AUDIENCE: "daytona"
+      OIDC_MANAGEMENT_API_ENABLED: "false"
+      OIDC_MANAGEMENT_API_CLIENT_ID: ""
+      OIDC_MANAGEMENT_API_CLIENT_SECRET: ""
+      OIDC_MANAGEMENT_API_AUDIENCE: ""
+
+      # Workspace configuration
+      DEFAULT_SNAPSHOT: "ubuntu:22.04"
+      DASHBOARD_URL: "https://daytona.example.com/dashboard"
+      DASHBOARD_BASE_API_URL: "https://daytona.example.com"
+
+      # OTEL configuration
+      OTEL_ENABLED: "true"
+      OTEL_COLLECTOR_URL: "http://daytona-jaeger:4318/v1/traces"
+
+      # Registry configuration (Harbor)
+      TRANSIENT_REGISTRY_URL: "https://harbor.daytona.example.com"
+      TRANSIENT_REGISTRY_ADMIN: "admin"
+      TRANSIENT_REGISTRY_PASSWORD: "Harbor12345"
+      TRANSIENT_REGISTRY_PROJECT_ID: "daytona"
+      INTERNAL_REGISTRY_URL: "https://harbor.daytona.example.com"
+      INTERNAL_REGISTRY_ADMIN: "admin"
+      INTERNAL_REGISTRY_PASSWORD: "Harbor12345"
+      INTERNAL_REGISTRY_PROJECT_ID: "daytona"
+
+      # SMTP configuration
+      SMTP_HOST: ""
+      SMTP_PORT: ""
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_SECURE: ""
+      SMTP_EMAIL_FROM: ""
+
+      # S3 configuration
+      S3_ENDPOINT: "http://daytona-minio:9000"
+      S3_STS_ENDPOINT: "http://daytona-minio:9000/minio/v1/assume-role"
+      S3_REGION: "us-east-1"
+      S3_ACCESS_KEY: "minioadmin"
+      S3_SECRET_KEY: "minioadmin"
+
+      # Runner configuration
+      DEFAULT_RUNNER_DOMAIN: ""
+      DEFAULT_RUNNER_API_URL: ""
+      DEFAULT_RUNNER_PROXY_URL: ""
+      DEFAULT_RUNNER_API_KEY: ""
+      DEFAULT_RUNNER_CPU: "4"
+      DEFAULT_RUNNER_MEMORY: "8"
+      DEFAULT_RUNNER_DISK: "50"
+      DEFAULT_RUNNER_GPU: "0"
+      DEFAULT_RUNNER_GPU_TYPE: "none"
+      DEFAULT_RUNNER_CAPACITY: "100"
+      DEFAULT_RUNNER_REGION: "us"
+      DEFAULT_RUNNER_CLASS: "small"
+
+    # Resource limits and requests
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    # Node selector
+    nodeSelector: {}
+    # Tolerations
+    tolerations: []
+    # Affinity
+    affinity: {}
+    # Annotations
+    annotations: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Replica count
+    replicaCount: 1
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+  proxy:
+    enabled: true
+    # Image configuration
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-proxy
+      tag: "" # Will default to Chart.AppVersion
+      pullPolicy: IfNotPresent
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 4000
+      annotations: {}
+    # Ingress configuration
+    ingress:
+      enabled: true
+      className: "nginx"
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      hosts:
+        - host: "proxy.daytona.example.com"
+          paths:
+            - path: /
+              pathType: Prefix
+        - host: "*.proxy.daytona.example.com"
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - hosts:
+            - "proxy.daytona.example.com"
+            - "*.proxy.daytona.example.com"
+          secretName: "daytona.example.com-tls"
+    # Environment variables
+    env:
+      OIDC_CLIENT_ID: "daytona"
+      OIDC_CLIENT_SECRET: ""
+      OIDC_DOMAIN: "https://daytona.example.com/idp/realms/daytona"
+      OIDC_AUDIENCE: "daytona"
+      PROXY_PORT: 80
+      PROXY_DOMAIN: proxy.daytona.example.com:80
+      PROXY_API_KEY: "super_secret_key"
+      PROXY_PROTOCOL: http
+      REDIS_HOST: "" # Will be auto-generated as {{ .Release.Name }}-redis-master
+      REDIS_PORT: "6379"
+    # Resource limits and requests
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+    # Node selector
+    nodeSelector: {}
+    # Tolerations
+    tolerations: []
+    # Affinity
+    affinity: {}
+    # Annotations
+    annotations: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Replica count
+    replicaCount: 1
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+  ssh-gateway:
+    enabled: true
+    # Image configuration
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-ssh-gateway
+      tag: "" # Will default to Chart.AppVersion
+      pullPolicy: IfNotPresent
+    # Service configuration
+    service:
+      type: LoadBalancer
+      port: 2222
+      annotations: {}
+    # Set api key for ssh gateway. This key is used to authenticate the ssh gateway against api
+    apiKey: supersecretapikey
+    # Generate ssh keys to be used for the ssh gateway. These keys are stored in the secret and used to authenticate the ssh gateway. Generate keys using ssh-keygen and store them as base64 values here
+    sshKeys:
+      privClientSSHKey: ""
+      pubClientSSHKey: ""
+      privGatewaySSHKey: ""
+    env:
+      SSH_GATEWAY_PORT: "2222"
+      SSH_GATEWAY_HOST: "ssh.daytona.example.com"
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    # Node selector
+    nodeSelector: {}
+    # Tolerations
+    tolerations: []
+    # Affinity
+    affinity: {}
+    # Annotations
+    annotations: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Replica count
+    replicaCount: 1
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+  jaeger:
+    enabled: true
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 4318
+    # Resource limits and requests
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    # Node selector
+    nodeSelector: {}
+    # Tolerations
+    tolerations: []
+    # Affinity
+    affinity: {}
+    # Annotations
+    annotations: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Replica count
+    replicaCount: 1
+
+# Global node selector (fallback)
+nodeSelector: {}
+
+# Global tolerations (fallback)
+tolerations: []
+
+# Global affinity (fallback)
+affinity: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 2000
+
+# Container security context
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: false
+  runAsUser: 0
+
+# Database configuration
+database:
+  host: "daytona-postgresql"
+  port: 5432
+  name: "daytona"
+  user: "user"
+  password: "pass"
+  sslMode: "disable"
+
+# Redis configuration
+redis:
+  enabled: true
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+  auth:
+    enabled: false
+  persistence:
+    enabled: true
+    size: 1Gi
+  containerPorts:
+    redis: 6379
+  replica:
+    replicaCount: 0
+
+# PgAdmin subchart configuration
+pgadmin4:
+  enabled: true
+  env:
+    email: "dev@daytona.io"
+    password: "SuperSecrets"
+  service:
+    type: ClusterIP
+    port: 80
+  persistentVolume:
+    enabled: true
+    size: 1Gi
+  serverDefinitions:
+    enabled: true
+    resourceType: ConfigMap
+    servers:
+      daytona:
+        Name: "Daytona"
+        Group: "Servers"
+        Host: "daytona-postgresql"
+        Port: 5432
+        MaintenanceDB: "postgres"
+        Username: "user"
+        Password: "pass"
+
+# Harbor subchart configuration
+harbor:
+  enabled: true
+  # Harbor configuration
+  expose:
+    type: ingress
+    tls:
+      enabled: true
+      certSource: secret
+      secret:
+        secretName: "daytona.example.com-tls"
+    ingress:
+      className: nginx
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      hosts:
+        core: "harbor.daytona.example.com"
+  externalURL: "https://harbor.daytona.example.com"
+  harborAdminPassword: "Harbor12345"
+  trivy:
+    enabled: false
+  database:
+    type: internal
+  redis:
+    type: internal
+  persistence:
+    enabled: true
+    resourcePolicy: "keep"
+    persistentVolumeClaim:
+      registry:
+        size: 10Gi
+      jobservice:
+        size: 1Gi
+
+# MinIO subchart configuration
+minio:
+  enabled: true
+  mode: standalone
+  rootUser: "minioadmin"
+  rootPassword: "minioadmin"
+  replicas: 1
+  resources:
+    requests:
+      memory: 2Gi
+  buckets:
+    - name: daytona
+      policy: none
+      purge: false
+      versioning: false
+      objectlocking: false
+  persistence:
+    enabled: true
+    size: 8Gi
+  service:
+    type: ClusterIP
+    port: 9000
+  consoleService:
+    type: ClusterIP
+    port: 9001
+
+# Jaeger configuration
+jaeger:
+  enabled: true
+
+# Keycloak subchart configuration
+keycloak:
+  enabled: true
+  #nameOverride: "watkins-keycloak"
+
+  keycloakConfigCli:
+    enabled: true
+    existingConfigmap: daytona-keycloak-realm-config
+
+  production: true
+  proxyHeaders: "xforwarded"
+  httpRelativePath: /idp/
+
+  service:
+    type: ClusterIP
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hostname: "daytona.example.com"
+    tls: true
+    extraTls:
+      - hosts:
+          - "daytona.example.com"
+        secretName: "daytona.example.com-tls"
+
+  auth:
+    adminUser: admin
+    adminPassword: "admin"
+
+  postgresql:
+    enabled: true
+    nameOverride: "keycloak-postgresql"
+
+# PostgreSQL subchart
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "pass"
+    username: "user"
+    password: "pass"
+    database: "daytona"
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
