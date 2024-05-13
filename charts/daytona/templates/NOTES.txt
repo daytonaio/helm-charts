@@ -1,0 +1,49 @@
+🎉 Daytona AI Infrastructure has been deployed successfully!
+
+📋 ACCESS GUIDE:
+
+1. 🚀 Daytona Services:
+   # Dashboard: https://{{ .Values.domain }}
+   # API: https://{{ .Values.domain }}/api
+
+2. 🐳 Harbor Portal (Container Registry):
+   # Web UI: https://harbor.{{ .Values.domain }}
+   # Username: admin
+   # Password: Harbor12345
+
+3. 📦 MinIO Console (Object Storage):
+   kubectl port-forward svc/{{ include "daytona.fullname" . }}-minio-console 9001:{{ .Values.minio.consoleService.port }}
+   # Then access: http://localhost:9001
+   # Username: {{ .Values.minio.rootUser }}
+   # Password: {{ .Values.minio.rootPassword }}
+
+4. 🔐 Keycloak (Identity Provider):
+   # Web UI: https://{{ .Values.domain }}/idp
+   # Username: admin
+   # Password: admin
+
+5. 🗄️ PgAdmin (Database Management):
+   kubectl port-forward svc/{{ include "daytona.fullname" . }}-pgadmin4 8083:80
+   # Then access: http://localhost:8083
+   # Username: {{ .Values.pgadmin4.env.email }}
+   # Password: {{ .Values.pgadmin4.env.password }}
+
+💡 TIP: Run 'kubectl get pods' to check if all services are running!
+
+🔑 GENERATE ADMIN API KEY:
+
+   # Get the API key
+   kubectl exec $(kubectl get pods -l "app.kubernetes.io/name={{ include "daytona.fullname" . }},app.kubernetes.io/component=api" -o jsonpath='{.items[0].metadata.name}') -- node dist/apps/api/main.js --create-admin-api-key "your-key-name" 2>/dev/null | grep "dtn"
+
+🏃 DEPLOY DAYTONA RUNNER:
+
+   After generating the admin API key above, deploy a Daytona runner on a clean Linux host:
+
+   # Download and run the runner installation script
+   curl -sSL https://download.daytona.io/install.sh | sudo bash
+
+   # The script will prompt for:
+   # - Daytona API URL: https://{{ .Values.domain }}
+   # - Admin API Key: (use the key generated above)
+
+   This will install the Daytona runner binary and connect it to your Daytona API.
