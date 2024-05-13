@@ -3,7 +3,7 @@ entries:
   watkins:
   - apiVersion: v2
     appVersion: 8.86.0
-    created: "2024-05-13T08:45:23.761502734Z"
+    created: "2024-05-13T20:03:36.541891258Z"
     dependencies:
     - name: common
       repository: https://charts.bitnami.com/bitnami
@@ -25,10 +25,10 @@ entries:
       repository: https://charts.bitnami.com/bitnami
       version: 11.12.0
     description: Watkins Helm Chart
-    digest: 9fe48c491fc804f339a5a0a231488686fd09e671b8d8577f850b06fb3e3a3ef6
+    digest: 020b42264ba3033c37eb9d3713c0b110d394d8b8b8263321a8f7b0521614455e
     name: watkins
     type: application
     urls:
     - https://charts.daytona.io/charts/watkins-2.94.0.tgz
     version: 2.94.0
-generated: "2024-05-13T08:45:23.726220796Z"
+generated: "2024-05-13T20:03:36.50753489Z"
