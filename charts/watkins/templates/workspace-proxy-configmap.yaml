@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "watkins.workspaceProxy.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-proxy
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+data:
+{{- if .Values.components.workspaceVolumeInit.supervisorExtensions.theiaEnabled }}
+  configuration.json: |
+    {
+      "production": true,
+      "dashboardUrl": {{ include "watkins.url" . | quote }},
+      "apiBaseUrl": {{ include "watkins.api.url" . | quote }},
+      "browserIde": "theia"
+    }
+{{- else }}
+  configuration.json: |
+    {
+      "production": true,
+      "dashboardUrl": {{ include "watkins.url" . | quote }},
+      "apiBaseUrl": {{ include "watkins.api.url" . | quote }}
+    }
+{{- end }}

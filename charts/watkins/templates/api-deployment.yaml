@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.api.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: api
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.components.api.replicaCount }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      {{- if .Values.components.api.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.api.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: api
+        {{- if .Values.components.api.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.api.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.api.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.api.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ template "watkins.api.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.api.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.components.api.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.components.api.resources }}
+          resources: {{- toYaml .Values.components.api.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "PORT"
+              value: {{ .Values.components.api.containerPorts.http | quote }}
+            - name: "BASE_DOMAIN"
+              value: {{ include "watkins.hostname" . | quote }}
+            - name: "API_BASE_URL"
+              value: {{ include "watkins.api.url" . | quote }}
+            - name: "DB_HOST"
+              value: {{ include "watkins.database.host" . | quote }}
+            - name: "DB_PORT"
+              value: {{ include "watkins.database.port" . | quote }}
+            - name: "DB_USER"
+              value: {{ include "watkins.database.user" . | quote }}
+            - name: "DB_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.database.secretName" . }}
+                  key: {{ include "watkins.database.secretKey" . }}
+            - name: "DB_NAME"
+              value: {{ include "watkins.database.name" . | quote }}
+            - name: "AMQP_HOST"
+              value: {{ include "watkins.rabbitmq.host" . | quote }}
+            - name: "AMQP_PORT"
+              value: {{ include "watkins.rabbitmq.port" . | quote }}
+            - name: "AMQP_USER"
+              value: {{ include "watkins.rabbitmq.user" . | quote }}
+            - name: "AMQP_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.rabbitmq.secretName" . }}
+                  key: {{ include "watkins.rabbitmq.secretKey" . }}
+            - name: "NODE_TLS_REJECT_UNAUTHORIZED"
+              value: "0"
+            - name: "SWAGGER_ENABLED"
+              value: {{ .Values.components.api.swagger.enabled | quote }}
+            - name: "REDIS_HOST"
+              value: {{ include "watkins.redis.host" . | quote }}
+            - name: "REDIS_PORT"
+              value: {{ include "watkins.redis.port" . | quote }}
+            - name: "NOTIFICATION_BUS_CONSUMERS"
+              value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
+            - name: "DEFAULT_PLAN_PARALLEL_WORKSPACES"
+              value: {{ .Values.configuration.defaultPlanParallelWorkspaces | quote }}
+            - name: "DEFAULT_PLAN_CREDITS"
+              value: {{ .Values.configuration.defaultPlanCredits | quote }}
+            - name: "DEFAULT_PLAN_NAME"
+              value: {{ .Values.configuration.defaultPlanName | quote }}
+            - name: "DEFAULT_PLAN_INACTIVITY_TIMEOUT_IN_MINUTES"
+              value: {{ .Values.configuration.defaultPlanInactivityTimeoutInMinutes | quote }}
+            - name: "DEFAULT_PLAN_BUILD_CREDITS"
+              value: {{ .Values.configuration.defaultPlanBuildCredits | quote }}
+            - name: "DEFAULT_PLAN_PARALLEL_BUILDS"
+              value: {{ .Values.configuration.defaultPlanParallelBuilds | quote }}
+            - name: "DEFAULT_PLAN_PINNED_WORKSPACES"
+              value: {{ .Values.configuration.defaultPlanPinnedWorkspaces | quote }}
+            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
+              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
+            - name: "DEFAULT_SUBSCRIPTION_SEATS"
+              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
+            - name: "OIDC_ISSUER"
+              value: {{ include "watkins.keycloak.issuer" . | quote }}
+            - name: "OIDC_URL"
+              value: {{ include "watkins.keycloak.url" . | quote }}
+            - name: "OIDC_ADMIN_URL"
+              value: {{ include "watkins.keycloak.adminUrl" . | quote }}
+            - name: "OIDC_AUDIENCE"
+              value: {{ .Values.keycloakConfig.clients.api.clientId | quote }}
+            - name: "OIDC_CLIENT_ID"
+              value: {{ .Values.keycloakConfig.clients.api.clientId | quote }}
+            - name: "OIDC_CLIENT_SECRET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: api-client-secret
+            - name: "ENCRYPTION_SECRET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: encryption-secret
+            - name: "METRICS_ENABLED"
+              value: {{ .Values.components.api.metrics.enabled | quote }}
+            - name: "METRICS_PORT"
+              value: {{ .Values.components.api.containerPorts.metrics | quote }}
+            - name: "METRICS_PATH"
+              value: {{ .Values.components.api.metrics.path | quote }}
+            - name: "SINGLE_CLUSTER_DEPLOYMENT"
+              value: {{ .Values.configuration.singleClusterDeployment | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_NAME"
+              value: {{ .Values.configuration.defaultWorkspaceClassName | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.components.api.containerPorts.http }}
+              protocol: TCP
+            {{- if .Values.components.api.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.components.api.containerPorts.metrics }}
+              protocol: TCP
+            {{- end }}
+          {{- if .Values.components.api.customStartupProbe }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.api.customStartupProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.api.startupProbe.enabled }}
+          startupProbe: {{- omit .Values.components.api.startupProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.api.startupProbe.path }}
+              port: http
+          {{- end }}
+          {{- if .Values.components.api.customLivenessProbe }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.api.customLivenessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.api.livenessProbe.enabled }}
+          livenessProbe: {{- omit .Values.components.api.livenessProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.api.livenessProbe.path }}
+              port: http
+          {{- end }}
+          {{- if .Values.components.api.customReadinessProbe }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.api.customReadinessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.api.readinessProbe.enabled }}
+          readinessProbe: {{- omit .Values.components.api.readinessProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.api.readinessProbe.path }}
+              port: http
+          {{- end }}

@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.realtimeServer.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: realtime-server
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.components.realtimeServer.autoscaling.enabled }}
+  replicas: {{ .Values.components.realtimeServer.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: realtime-server
+  template:
+    metadata:
+      {{- if .Values.components.realtimeServer.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.realtimeServer.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: realtime-server
+        {{- if .Values.components.realtimeServer.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.realtimeServer.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.realtimeServer.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.realtimeServer.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: realtime-server
+          image: {{ include "watkins.realtimeServer.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.realtimeServer.resources }}
+          resources: {{- toYaml .Values.components.realtimeServer.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "BASE_DOMAIN"
+              value: {{ include "watkins.hostname" . | quote }}
+            - name: "API_BASE_URL"
+              value: {{ include "watkins.api.internalUrl" . | quote }}
+            - name: "DB_HOST"
+              value: {{ include "watkins.database.host" . | quote }}
+            - name: "DB_PORT"
+              value: {{ include "watkins.database.port" . | quote }}
+            - name: "DB_USER"
+              value: {{ include "watkins.database.user" . | quote }}
+            - name: "DB_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.database.secretName" . }}
+                  key: {{ include "watkins.database.secretKey" . }}
+            - name: "DB_NAME"
+              value: {{ include "watkins.database.name" . | quote }}
+            - name: "AMQP_HOST"
+              value: {{ include "watkins.rabbitmq.host" . | quote }}
+            - name: "AMQP_PORT"
+              value: {{ include "watkins.rabbitmq.port" . | quote }}
+            - name: "AMQP_USER"
+              value: {{ include "watkins.rabbitmq.user" . }}
+            - name: "AMQP_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.rabbitmq.secretName" . }}
+                  key: {{ include "watkins.rabbitmq.secretKey" . }}
+            - name: "REDIS_HOST"
+              value: {{ include "watkins.redis.host" . | quote }}
+            - name: "REDIS_PORT"
+              value: {{ include "watkins.redis.port" . | quote }}
+            - name: PORT
+              value: {{ .Values.components.realtimeServer.containerPorts.http | quote }}
+            - name: "NOTIFICATION_BUS_CONSUMERS"
+              value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
+            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
+              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
+            - name: "DEFAULT_SUBSCRIPTION_SEATS"
+              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.components.realtimeServer.containerPorts.http }}
+              protocol: TCP
+          {{- if .Values.components.realtimeServer.customStartupProbe }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.realtimeServer.customStartupProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.realtimeServer.startupProbe.enabled }}
+          startupProbe: {{- omit .Values.components.realtimeServer.startupProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.realtimeServer.startupProbe.path }}
+              port: http
+          {{- end }}
+          {{- if .Values.components.realtimeServer.customLivenessProbe }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.realtimeServer.customLivenessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.realtimeServer.livenessProbe.enabled }}
+          livenessProbe: {{- omit .Values.components.realtimeServer.livenessProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.realtimeServer.livenessProbe.path }}
+              port: http
+          {{- end }}
+          {{- if .Values.components.realtimeServer.customReadinessProbe }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.components.realtimeServer.customReadinessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.components.realtimeServer.readinessProbe.enabled }}
+          readinessProbe: {{- omit .Values.components.realtimeServer.readinessProbe "enabled" "path" | toYaml | nindent 12 }}
+            httpGet:
+              path: {{ .Values.components.realtimeServer.readinessProbe.path }}
+              port: http
+          {{- end }}

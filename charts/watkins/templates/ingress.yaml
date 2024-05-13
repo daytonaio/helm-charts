@@ -1,0 +1,101 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "common.names.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: ingress
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.ingress.annotations .Values.commonAnnotations (eq .Values.ingress.ingressClassName "nginx") }}
+  {{- $list := list .Values.ingress.annotations .Values.commonAnnotations -}}
+  {{- if eq .Values.ingress.ingressClassName "nginx" -}}
+  {{- $list = append $list (dict "nginx.ingress.kubernetes.io/proxy-buffer-size" "128k" ) }}
+  {{- end }}
+  {{- $annotations := include "common.tplvalues.merge" (dict "values" $list "context" .) }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" $annotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and .Values.ingress.ingressClassName (eq "true" (include "common.ingress.supportsIngressClassname" .)) }}
+  ingressClassName: {{ .Values.ingress.ingressClassName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ include "watkins.hostname" . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "watkins.dashboard.fullname" . }}
+                port:
+                  name: http
+    - host: api.{{ include "watkins.hostname" . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "watkins.api.fullname" . }}
+                port:
+                  name: {{ .Values.components.api.service.portNames.api }}
+    {{- if .Values.keycloak.enabled }}
+    - host: {{ include "watkins.keycloak.hostname" . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "watkins.keycloak.fullname" . }}
+                port:
+                  name: http
+    {{- end }}
+    - host: notification.{{ include "watkins.hostname" . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "watkins.realtimeServer.fullname" . }}
+                port:
+                  name: http
+    - host: "*.{{ include "watkins.hostname" . }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "watkins.workspaceProxy.fullname" . }}
+                port:
+                  name: {{ .Values.components.workspaceProxy.service.portNames.api }}
+    {{- range .Values.ingress.extraHosts }}
+    - host: {{ .name | quote }}
+      http:
+        paths:
+          - path: {{ default "/" .path }}
+            {{- if eq "true" (include "common.ingress.supportsPathType" $) }}
+            pathType: {{ default "ImplementationSpecific" .pathType }}
+            {{- end }}
+            backend: {{- include "common.ingress.backend" (dict "serviceName" (include "common.names.fullname" $) "servicePort" "http" "context" $) | nindent 14 }}
+    {{- end }}
+    {{- if .Values.ingress.extraRules }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.ingress.extraRules "context" $) | nindent 4 }}
+    {{- end }}
+  {{- if or (and .Values.ingress.tls (or (include "common.ingress.certManagerRequest" ( dict "annotations" .Values.ingress.annotations )) .Values.ingress.selfSigned)) .Values.ingress.extraTls }}
+  tls:
+    {{- if and .Values.ingress.tls (or (include "common.ingress.certManagerRequest" ( dict "annotations" .Values.ingress.annotations )) .Values.ingress.selfSigned) }}
+    - hosts:
+        - {{ .Values.ingress.hostname | quote }}
+        - "*.{{ .Values.ingress.hostname }}"
+      secretName: {{ printf "%s-tls" .Values.ingress.hostname }}
+    {{- end }}
+    {{- if .Values.ingress.extraTls }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.ingress.extraTls "context" $) | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

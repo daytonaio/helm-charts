@@ -1,0 +1,94 @@
+{{- if .Values.components.workspaceVolumeInit.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
+  labels:
+    app.kubernetes.io/component: workspace-volume-init
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  backoffLimit: {{ .Values.components.workspaceVolumeInit.backoffLimit }}
+  template:
+    metadata:
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: workspace-volume-init
+        {{- if .Values.components.workspaceVolumeInit.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceVolumeInit.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.components.workspaceVolumeInit.podAnnotations }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceVolumeInit.podAnnotations "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.workspaceVolumeInit.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.workspaceVolumeInit.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if .Values.components.workspaceVolumeInit.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceVolumeInit.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.components.workspaceVolumeInit.podTolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceVolumeInit.podTolerations "context" .) | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: workspace-volume-init
+        image: {{ include "watkins.workspaceVolumeInit.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.components.workspaceVolumeInit.resources }}
+        resources: {{- toYaml .Values.components.workspaceVolumeInit.resources | nindent 10 }}
+        {{- end }}
+        env:
+        - name: WORKSPACE_VOLUME_MODE
+          value: {{ .Values.configuration.workspaceVolumeMode | quote }}
+        - name: WORKSPACE_RUNTIME_CLASS_NAME
+          value: {{ .Values.configuration.workspaceRuntimeClassName | quote }}
+        - name: NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: RESOURCE_TAG
+          value: "{{ .Values.image.tag | default .Chart.AppVersion }}"
+        - name: STORAGE_CLASS_NAME
+          value: {{ include "watkins.workspace.storageClass" . | quote }}
+        - name: JOB_PREFIX
+          value: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+        {{- if .Values.components.workspaceVolumeInit.volumeNodeSelector }}
+        - name: VOLUME_NODE_SELECTOR
+          value: {{ .Values.components.workspaceVolumeInit.volumeNodeSelector | quote }}
+        {{- end }}
+        - name: PULL_IMAGES_IMAGES
+          value: {{ include "watkins.workspace.preloadImages" . | quote }}
+        - name: PULL_IMAGES_POD_IMAGE
+          value: {{ .Values.components.workspaceVolumeInit.pullImages.podImage | quote }}
+        {{- if .Values.components.workspaceVolumeInit.pullImages.pullSecret }}
+        - name: PULL_IMAGES_PULL_SECRET
+          value: {{ .Values.components.workspaceVolumeInit.pullImages.pullSecret | quote }}
+        {{- end }}
+        - name: PULL_IMAGES_STORAGE_CLASS_NAME
+          value: {{ .Values.configuration.workspaceStorageClass | quote }}
+        {{- if .Values.components.workspaceVolumeInit.pullImages.serviceAccountName }}
+        - name: PULL_IMAGES_SERVICE_ACCOUNT_NAME
+          value: {{ .Values.components.workspaceVolumeInit.pullImages.serviceAccountName | quote }}
+        {{- else }}
+        - name: PULL_IMAGES_SERVICE_ACCOUNT_NAME
+          value: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+        {{- end }}
+        {{- if .Values.components.workspaceVolumeInit.preloadIDEs }}
+        volumeMounts:
+          - name: config
+            mountPath: /etc/workspace-volume-init-job/config.json
+            subPath: config.json
+        {{ end }}
+      serviceAccountName: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+      restartPolicy: OnFailure
+      {{- if .Values.components.workspaceVolumeInit.preloadIDEs }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
+      {{- end }}
+  backoffLimit: 4
+{{- end }}

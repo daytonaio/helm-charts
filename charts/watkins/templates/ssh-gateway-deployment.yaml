@@ -1,0 +1,66 @@
+{{- if .Values.configuration.singleClusterDeployment }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.sshGateway.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: ssh-gateway
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.components.sshGateway.replicaCount }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ssh-gateway
+  template:
+    metadata:
+      {{- if .Values.components.sshGateway.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.sshGateway.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: ssh-gateway
+        {{- if .Values.components.sshGateway.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.sshGateway.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.sshGateway.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.sshGateway.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: {{ include "watkins.sshGateway.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.sshGateway.resources }}
+          resources: {{- toYaml .Values.components.sshGateway.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "WORKSPACE_USER"
+              value: {{ .Values.components.workspaceProvisioner.workspaces.defaultContainerUser | quote }}
+            - name: "API_BASE_URL"
+              value: {{ include "watkins.api.internalUrl" . | quote }}
+            - name: "ENVIRONMENT"
+              value: "production"
+            - name: "SSH_BASTION_PORT"
+              value: {{ .Values.components.sshGateway.containerPorts.ssh | quote }}
+            - name: "WORKSPACE_NAMESPACE"
+              value: {{ include "watkins.workspaceNamespace" . | quote }}
+          ports:
+            - name: ssh
+              containerPort: {{ .Values.components.sshGateway.containerPorts.ssh }}
+              protocol: TCP
+          # TODO: health probes
+          volumeMounts:
+            - name: keys
+              mountPath: /keys/
+              readOnly: true
+      volumes:
+      - name: keys
+        secret:
+          secretName: {{ include "watkins.sshGateway.fullname" . }}
+{{- end }}

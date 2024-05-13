@@ -1,0 +1,109 @@
+{{- if .Values.configuration.smtp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.email.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: {{ template "watkins.email.fullname" . }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.components.email.autoscaling.enabled }}
+  replicas: {{ .Values.components.email.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels: {{ include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ template "watkins.email.fullname" . }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.components.email.podAnnotations }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
+        {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: {{ template "watkins.email.fullname" . }}
+        {{- if .Values.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: branding
+          image: "{{ .Values.image.repository }}/{{ .Values.components.branding.name }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['sh', '-c', 'cp -r /branding/dashboard/* /assets/']
+          volumeMounts:
+            - name: branding
+              mountPath: /assets
+      containers:
+        - name: email
+          image: "{{ .Values.image.repository }}/email-service:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.email.resources }}
+          resources: {{- toYaml .Values.components.email.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "DB_HOST"
+              value: {{ include "watkins.database.host" . | quote }}
+            - name: "DB_PORT"
+              value: {{ include "watkins.database.port" . | quote }}
+            - name: "DB_USER"
+              value: {{ include "watkins.database.user" . | quote }}
+            - name: "DB_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.database.secretName" . }}
+                  key: {{ include "watkins.database.secretKey" . }}
+            - name: "DB_NAME"
+              value: {{ include "watkins.database.name" . | quote }}
+            - name: "AMQP_HOST"
+              value: {{ include "watkins.rabbitmq.host" . | quote }}
+            - name: "AMQP_PORT"
+              value: {{ include "watkins.rabbitmq.port" . | quote }}
+            - name: "AMQP_USER"
+              value: {{ include "watkins.rabbitmq.user" . | quote }}
+            - name: "AMQP_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.rabbitmq.secretName" . }}
+                  key: {{ include "watkins.rabbitmq.secretKey" . }}
+            - name: "REDIS_HOST"
+              value: {{ include "watkins.redis.host" . | quote }}
+            - name: "REDIS_PORT"
+              value: {{ include "watkins.redis.port" . | quote }}
+            - name: "NOTIFICATION_BUS_CONSUMERS"
+              value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
+            {{- if .Values.configuration.defaultSubscriptionExpiryInDays }}
+              - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
+              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
+            {{- end }}
+            - name: "DEFAULT_SUBSCRIPTION_SEATS"
+              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
+            - name: "SMTP_HOST"
+              value: {{ .Values.configuration.smtp.host | quote }}
+            - name: "SMTP_PORT"
+              value: {{ .Values.configuration.smtp.port | quote }}
+            - name: "SMTP_USER"
+              value: {{ .Values.configuration.smtp.username | quote }}
+            - name: "SMTP_PASS"
+              value: {{ .Values.configuration.smtp.password | quote }}
+            - name: "EMAIL_FROM"
+              value: {{ .Values.components.email.from | quote }}
+            - name: "EMAIL_INVITATION_SUBJECT"
+              value: {{ .Values.components.email.invitationSubject | quote }}
+            - name: "DASHBOARD_URL"
+              value: {{ include "watkins.url" . | quote }}
+          volumeMounts:
+            - name: branding
+              mountPath: /usr/src/app/branding
+      volumes:
+        - name: branding
+          emptyDir: {}
+{{- end }}

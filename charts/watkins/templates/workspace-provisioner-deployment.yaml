@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.workspaceProvisioner.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-provisioner
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.components.workspaceProvisioner.autoscaling.enabled }}
+  replicas: {{ .Values.components.workspaceProvisioner.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: workspace-provisioner
+  template:
+    metadata:
+      {{- if .Values.components.workspaceProvisioner.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceProvisioner.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: workspace-provisioner
+        {{- if .Values.components.workspaceProvisioner.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceProvisioner.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.workspaceProvisioner.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.workspaceProvisioner.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "watkins.workspaceProvisioner.fullname" . }}
+      containers:
+        - name: {{ include "watkins.workspaceProvisioner.fullname" . }}
+          image: {{ include "watkins.workspaceProvisioner.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.workspaceProvisioner.resources }}
+          resources: {{- toYaml .Values.components.workspaceProvisioner.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "PORT"
+              value: "3000"
+            - name: "BASE_DOMAIN"
+              value: {{ include "watkins.hostname" . | quote }}
+            - name: "API_BASE_URL"
+              value: {{ include "watkins.api.internalUrl" . | quote }}
+            - name: "DASHBOARD_URL"
+              value: {{ include "watkins.url" . | quote }}
+            - name: "DB_HOST"
+              value: {{ include "watkins.database.host" . | quote }}
+            - name: "DB_PORT"
+              value: {{ include "watkins.database.port" . | quote }}
+            - name: "DB_USER"
+              value: {{ include "watkins.database.user" . | quote }}
+            - name: "DB_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.database.secretName" . }}
+                  key: {{ include "watkins.database.secretKey" . }}
+            - name: "DB_NAME"
+              value: {{ include "watkins.database.name" . | quote }}
+            - name: "AMQP_HOST"
+              value: {{ include "watkins.rabbitmq.host" . | quote }}
+            - name: "AMQP_PORT"
+              value: {{ include "watkins.rabbitmq.port" . | quote }}
+            - name: "AMQP_USER"
+              value: {{ include "watkins.rabbitmq.user" . }}
+            - name: "AMQP_PASS"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.rabbitmq.secretName" . }}
+                  key: {{ include "watkins.rabbitmq.secretKey" . }}
+            - name: "REDIS_HOST"
+              value: {{ include "watkins.redis.host" . | quote }}
+            - name: "REDIS_PORT"
+              value: {{ include "watkins.redis.port" . | quote }}
+            - name: "WORKSPACE_NAMESPACE"
+              value: {{ include "watkins.workspaceNamespace" . | quote }}
+            - name: "WORKSPACE_SERVICE_ACCOUNT_NAME"
+              value: {{ include "watkins.workspaceInstance.serviceAccountName" . | quote }}
+            - name: "SSH_BASTION_PORT"
+              value: {{ .Values.components.sshGateway.service.nodePort | quote }}
+            - name: "WS_DEFAULT_CONTAINER_IMAGE"
+              value: {{ .Values.components.workspaceProvisioner.workspaces.defaultContainerImage | quote }}
+            - name: "WS_DEFAULT_CONTAINER_USER"
+              value: {{ .Values.components.workspaceProvisioner.workspaces.defaultContainerUser | quote }}
+            - name: "WORKSPACE_SUPERVISOR_IMAGE"
+              value: {{ include "watkins.workspaceSupervisor.image" . | quote }}
+            - name: "NOTIFICATION_BUS_CONSUMERS"
+              value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
+            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
+              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
+            - name: "DEFAULT_SUBSCRIPTION_SEATS"
+              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
+            - name: "OIDC_ISSUER"
+              value: {{ include "watkins.keycloak.issuer" . | quote }}
+            - name: "OIDC_AUDIENCE"
+              value: {{ .Values.keycloakConfig.clients.api.clientId | quote }}
+            - name: "OIDC_CLIENT_ID"
+              value: {{ .Values.keycloakConfig.clients.api.clientId | quote }}
+            - name: "OIDC_CLIENT_SECRET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: api-client-secret
+            - name: "ENCRYPTION_SECRET"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: encryption-secret
+            - name: "SINGLE_CLUSTER_DEPLOYMENT"
+              value: {{ .Values.configuration.singleClusterDeployment | quote }}
+            - name: "WORKSPACE_CONTAINER_IMAGE"
+              value: {{ include "watkins.workspace.image" . }}
+            - name: WORKSPACE_VOLUME_MODE
+              value: {{ .Values.configuration.workspaceVolumeMode | quote }}
+            - name: WORKSPACE_RUNTIME_CLASS_NAME
+              value: {{ .Values.configuration.workspaceRuntimeClassName | quote }}
+            {{- if .Values.components.workspaceProvisioner.workspaces.dockerRegistryMirror }}
+            - name: "DOCKER_REGISTRY_MIRROR"
+              value: {{ .Values.components.workspaceProvisioner.workspaces.dockerRegistryMirror | quote }}
+            {{- end }}
+            - name: "WORKSPACE_STORAGE_CLASS_NAME"
+              value: {{ include "watkins.workspace.storageClass" . | quote }}
+            {{- if .Values.configuration.customNameservers }}
+            - name: "WORKSPACE_CUSTOM_NAMESERVERS"
+              value: {{ .Values.configuration.customNameservers | quote }}
+            {{- end }}
+            {{- if .Values.components.workspaceProvisioner.workspaces.tolerations }}
+            - name: "WORKSPACE_TOLERATIONS"
+              value: {{ .Values.components.workspaceProvisioner.workspaces.tolerations | quote }}
+            {{- end }}
+            {{- if .Values.components.workspaceProvisioner.workspaces.nodeSelector }}
+            - name: "WORKSPACE_NODE_SELECTOR"
+              value: {{ .Values.components.workspaceProvisioner.workspaces.nodeSelector | quote }}
+            {{- end }}
+            {{- if .Values.components.workspaceProvisioner.workspaces.runtimeClass }}
+            - name: "WORKSPACE_RUNTIME_CLASS"
+              value: {{ .Values.components.workspaceProvisioner.workspaces.runtimeClass | quote }}
+            {{- end }}
+            {{- if .Values.components.workspaceVolumeInit.supervisorExtensions.theiaEnabled }}
+            - name: "BROWSER_IDE"
+              value: "theia"
+            {{- end }}
+          resources:
+            {{- toYaml .Values.components.workspaceProvisioner.resources | nindent 12 }}
+          volumeMounts:
+            - name: keys
+              mountPath: /keys/
+              readOnly: true
+      volumes:
+        - name: keys
+          secret:
+            secretName: {{ include "watkins.sshGateway.fullname" . }}

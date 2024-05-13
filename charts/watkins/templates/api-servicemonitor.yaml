@@ -1,0 +1,59 @@
+{{- if and .Values.components.api.metrics.enabled .Values.components.api.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "watkins.api.fullname" . }}
+  namespace: {{ default (include "common.names.namespace" .) .Values.components.api.metrics.serviceMonitor.namespace | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.components.api.metrics.serviceMonitor.labels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.components.api.metrics.serviceMonitor.labels "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+    app.kubernetes.io/component: {{ template "watkins.api.fullname" . }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.components.api.metrics.serviceMonitor.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.components.api.metrics.serviceMonitor.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  jobLabel: {{ .Values.components.api.metrics.serviceMonitor.jobLabel | quote }}
+  endpoints:
+    - port: {{ .Values.components.api.service.portNames.metrics }}
+      {{- if .Values.components.api.metrics.path }}
+      path: {{ .Values.components.api.metrics.path }}
+      {{- end }}
+      {{- if .Values.components.api.metrics.serviceMonitor.interval }}
+      interval: {{ .Values.components.api.metrics.serviceMonitor.interval }}
+      {{- end }}
+      {{- if .Values.components.api.metrics.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ .Values.components.api.metrics.serviceMonitor.scrapeTimeout }}
+      {{- end }}
+      {{- if .Values.components.api.metrics.serviceMonitor.honorLabels }}
+      honorLabels: {{ .Values.components.api.metrics.serviceMonitor.honorLabels }}
+      {{- end }}
+      {{- if .Values.components.api.metrics.serviceMonitor.metricRelabelings }}
+      metricRelabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.components.api.metrics.serviceMonitor.metricRelabelings "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.components.api.metrics.serviceMonitor.relabelings }}
+      relabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.components.api.metrics.serviceMonitor.relabelings "context" $) | nindent 8 }}
+      {{- end }}
+  {{- if .Values.components.api.metrics.serviceMonitor.podTargetLabels }}
+  podTargetLabels: {{- include "common.tplvalues.render" ( dict "value" .Values.components.api.metrics.serviceMonitor.podTargetLabels "context" $) | nindent 4 }}
+  {{- end }}
+  {{- if .Values.components.api.metrics.serviceMonitor.targetLabels }}
+  targetLabels: {{- include "common.tplvalues.render" ( dict "value" .Values.components.api.metrics.serviceMonitor.targetLabels "context" $) | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: {{ template "watkins.api.fullname" . }}
+      {{- if .Values.components.api.metrics.serviceMonitor.selector }}
+      {{- include "common.tplvalues.render" (dict "value" .Values.components.api.metrics.serviceMonitor.selector "context" $) | nindent 6 }}
+      {{- end }}
+  namespaceSelector:
+    matchNames:
+    - {{ include "common.names.namespace" . | quote }}
+{{- end }}

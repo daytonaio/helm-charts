@@ -1,0 +1,48 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "watkins.workspaceProvisioner.fullname" . }}
+  namespace: {{ include "watkins.workspaceNamespace" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-provisioner
+rules:
+- apiGroups: [""]
+  resources: ["services", "services/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "pods/status"]
+  verbs: ["list", "watch", "get", "create", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/scale", "deployments/status"]
+  verbs: ["get", "create", "patch", "update", "delete"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create", "get"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["list", "get", "create", "delete", "patch"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["list", "get", "create", "delete"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims", "persistentvolumeclaims/status"]
+  verbs: ["list", "get", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "watkins.workspaceProvisioner.fullname" . }}
+  namespace: {{ include "watkins.workspaceNamespace" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: workspace-provisioner
+subjects:
+- kind: ServiceAccount
+  name: {{ include "watkins.workspaceProvisioner.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "watkins.workspaceProvisioner.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io

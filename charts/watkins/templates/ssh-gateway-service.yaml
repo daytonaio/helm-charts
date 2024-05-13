@@ -1,0 +1,27 @@
+{{- if .Values.configuration.singleClusterDeployment }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "watkins.sshGateway.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: ssh-gateway
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.components.sshGateway.service.annotations .Values.commonAnnotations }}
+  {{- $annotations := include "common.tplvalues.merge" ( dict "values" ( list .Values.components.sshGateway.service.annotations .Values.commonAnnotations ) "context" . ) }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" $annotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.components.sshGateway.service.type }}
+  ports:
+    - port: {{ .Values.components.sshGateway.service.port }}
+      targetPort: ssh
+      protocol: TCP
+      name: ssh
+      {{- if (and (eq .Values.components.sshGateway.service.type "NodePort") (not (empty .Values.components.sshGateway.service.nodePort))) }}
+      nodePort: {{ .Values.components.sshGateway.service.nodePort }}
+      {{- end }}
+  selector:
+    app.kubernetes.io/component: ssh-gateway
+{{- end }}
