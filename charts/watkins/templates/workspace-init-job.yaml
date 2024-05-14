@@ -90,5 +90,4 @@ spec:
           configMap:
             name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
       {{- end }}
-  backoffLimit: 4
 {{- end }}
