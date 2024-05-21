@@ -23,4 +23,4 @@ dependencies:
 description: Watkins Helm Chart
 name: watkins
 type: application
-version: 2.94.2
+version: 2.94.3

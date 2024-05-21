@@ -3,6 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
+  namespace: {{ include "common.names.namespace" . | quote }}
   labels: {{- include "common.labels.standard" . | nindent 4 }}
     app.kubernetes.io/component: workspace-volume-init
     {{- if .Values.commonLabels }}

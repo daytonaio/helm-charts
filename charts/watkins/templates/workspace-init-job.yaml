@@ -3,6 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
+  namespace: {{ include "common.names.namespace" . | quote }}
   labels:
     app.kubernetes.io/component: workspace-volume-init
     {{- if .Values.commonLabels }}
