@@ -3,6 +3,36 @@ entries:
   watkins:
   - apiVersion: v2
     appVersion: 8.86.0
+    created: "2024-05-21T17:52:20.729332698Z"
+    dependencies:
+    - name: common
+      repository: https://charts.bitnami.com/bitnami
+      version: 2.13.2
+    - condition: keycloak.enabled
+      name: keycloak
+      repository: https://charts.bitnami.com/bitnami
+      version: 17.3.1
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 12.2.6
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 17.9.2
+    - condition: rabbitmq.enabled
+      name: rabbitmq
+      repository: https://charts.bitnami.com/bitnami
+      version: 11.12.0
+    description: Watkins Helm Chart
+    digest: 38a3bde11065fe78ef7d8d057506cc56dfe97abc6ad33d7a5a767a01ea920fbd
+    name: watkins
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/watkins-2.94.3.tgz
+    version: 2.94.3
+  - apiVersion: v2
+    appVersion: 8.86.0
     created: "2024-05-14T18:43:18.092070628Z"
     dependencies:
     - name: common
@@ -91,4 +121,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/watkins-2.94.0.tgz
     version: 2.94.0
-generated: "2024-05-14T18:43:18.057241615Z"
+generated: "2024-05-21T17:52:20.694774148Z"
