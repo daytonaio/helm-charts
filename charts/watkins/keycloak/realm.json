@@ -80,6 +80,7 @@
         "composites": {
           "realm": [
             "offline_access",
+            "member",
             "uma_authorization"
           ],
           "client": {
@@ -476,31 +477,11 @@
           "attributes": {}
         }
       ],
+      "admin-dashboard": [],
       "dashboard": []
     }
   },
-  "groups": [
-    {
-      "name": "admin",
-      "path": "/admin",
-      "attributes": {},
-      "realmRoles": [
-        "admin"
-      ],
-      "clientRoles": {},
-      "subGroups": []
-    },
-    {
-      "name": "member",
-      "path": "/member",
-      "attributes": {},
-      "realmRoles": [
-        "member"
-      ],
-      "clientRoles": {},
-      "subGroups": []
-    }
-  ],
+  "groups": [],
   "defaultRole": {
     "id": "0181d291-0030-44a1-9bc6-38019b93a039",
     "name": "default-roles-$(KEYCLOAK_REALM)",
@@ -509,9 +490,6 @@
     "clientRole": false,
     "containerId": "5cebeb4e-085c-4a9c-b549-dd139b2e0943"
   },
-  "defaultGroups": [
-    "/member"
-  ],
   "requiredCredentials": [
     "password"
   ],
@@ -527,6 +505,7 @@
     "totpAppFreeOTPName",
     "totpAppGoogleName"
   ],
+  "localizationTexts": {},
   "webAuthnPolicyRpEntityName": "keycloak",
   "webAuthnPolicySignatureAlgorithms": [
     "ES256"
@@ -539,6 +518,7 @@
   "webAuthnPolicyCreateTimeout": 0,
   "webAuthnPolicyAvoidSameAuthenticatorRegister": false,
   "webAuthnPolicyAcceptableAaguids": [],
+  "webAuthnPolicyExtraOrigins": [],
   "webAuthnPolicyPasswordlessRpEntityName": "keycloak",
   "webAuthnPolicyPasswordlessSignatureAlgorithms": [
     "ES256"
@@ -551,6 +531,7 @@
   "webAuthnPolicyPasswordlessCreateTimeout": 0,
   "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister": false,
   "webAuthnPolicyPasswordlessAcceptableAaguids": [],
+  "webAuthnPolicyPasswordlessExtraOrigins": [],
   "users": [
     {
       "id": "8b87e00e-d087-4776-89f5-017025ad3967",
@@ -567,7 +548,7 @@
       ],
       "clientRoles": {
         "realm-management": [
-          "view-identity-providers"
+          "realm-admin"
         ]
       },
       "notBefore": 0,
@@ -896,6 +877,55 @@
       ]
     },
     {
+      "id": "1a84926e-1255-4952-88ef-9e6f7e66ff64",
+      "clientId": "admin-dashboard",
+      "name": "Admin Dashboard",
+      "description": "",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "$(ADMIN_DASHBOARD_URL)/*"
+      ],
+      "webOrigins": [
+        "$(ADMIN_DASHBOARD_URL)"
+      ],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "publicClient": true,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "oidc.ciba.grant.enabled": "false",
+        "post.logout.redirect.uris": "+",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "false"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    },
+    {
       "id": "b0ae08b8-b155-43e1-a586-1c6b0997c4cf",
       "clientId": "dashboard",
       "surrogateAuthRequired": false,
@@ -1016,313 +1046,7 @@
         "phone",
         "offline_access",
         "microprofile-jwt"
-      ],
-      "authorizationSettings": {
-        "allowRemoteResourceManagement": false,
-        "policyEnforcementMode": "ENFORCING",
-        "resources": [
-          {
-            "name": "Users",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "_id": "cdd2acc8-5275-4f14-af79-12776eda4fa5",
-            "uris": [],
-            "scopes": [
-              {
-                "name": "user-impersonated"
-              },
-              {
-                "name": "manage-group-membership"
-              },
-              {
-                "name": "view"
-              },
-              {
-                "name": "impersonate"
-              },
-              {
-                "name": "map-roles"
-              },
-              {
-                "name": "manage"
-              }
-            ]
-          },
-          {
-            "name": "idp.resource.b1dcfb92-35d2-49f4-b398-66368d660415",
-            "type": "IdentityProvider",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "_id": "c1cbe94e-f359-4435-aabe-fa9dfff5908d",
-            "uris": [],
-            "scopes": [
-              {
-                "name": "token-exchange"
-              }
-            ]
-          },
-          {
-            "name": "idp.resource.0e622dae-6c30-481b-8d99-2aa235f8af3f",
-            "type": "IdentityProvider",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "_id": "7307e1d3-0826-4314-8b71-c75b74cfb9b7",
-            "uris": [],
-            "scopes": [
-              {
-                "name": "token-exchange"
-              }
-            ]
-          },
-          {
-            "name": "idp.resource.71ceed42-a9b7-4f48-8301-9ee5b379e31f",
-            "type": "IdentityProvider",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "_id": "7b4b151b-dd93-423a-8919-bd4024f5a3b8",
-            "uris": [],
-            "scopes": [
-              {
-                "name": "token-exchange"
-              }
-            ]
-          },
-          {
-            "name": "idp.resource.3dde8151-e6bc-471c-ab7e-9ee7a2624bc3",
-            "type": "IdentityProvider",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "_id": "1d16b6bd-151f-4520-a1b8-20c4060360f4",
-            "uris": [],
-            "scopes": [
-              {
-                "name": "token-exchange"
-              }
-            ]
-          },
-          {
-            "name": "idp.resource.14772f2b-bc2a-4488-8ed6-2e0d4cb5187b",
-            "type": "IdentityProvider",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "_id": "8fe341bf-5ebc-4e78-9d11-a4cabc7bd858",
-            "uris": [],
-            "scopes": [
-              {
-                "name": "token-exchange"
-              }
-            ]
-          },
-          {
-            "name": "idp.resource.d3890198-5568-4908-b5b3-185e32cf7289",
-            "type": "IdentityProvider",
-            "ownerManagedAccess": false,
-            "attributes": {},
-            "_id": "fc1d8ce1-9661-4fe9-879e-7303057ba937",
-            "uris": [],
-            "scopes": [
-              {
-                "name": "token-exchange"
-              }
-            ]
-          }
-        ],
-        "policies": [
-          {
-            "id": "750eb0dd-b0a7-49f8-a00e-c8bc3104e198",
-            "name": "api-impersonate",
-            "description": "Impersonate a user from API",
-            "type": "client",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "clients": "[\"api\"]"
-            }
-          },
-          {
-            "id": "7c3b7ab5-25e1-4743-bdb5-f0e3335a1590",
-            "name": "retrieve-external-tokens",
-            "description": "External IdP token exchange",
-            "type": "client",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "clients": "[\"api\"]"
-            }
-          },
-          {
-            "id": "b7a6f8ae-0b91-4f1e-908d-7ca404f93e57",
-            "name": "token-exchange.permission.idp.d3890198-5568-4908-b5b3-185e32cf7289",
-            "description": "",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"idp.resource.d3890198-5568-4908-b5b3-185e32cf7289\"]",
-              "scopes": "[\"token-exchange\"]",
-              "applyPolicies": "[\"retrieve-external-tokens\"]"
-            }
-          },
-          {
-            "id": "c3d1b659-5954-40b4-af3a-6a0ac2139924",
-            "name": "manage.permission.users",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"Users\"]",
-              "scopes": "[\"manage\"]"
-            }
-          },
-          {
-            "id": "d7fb4517-f47d-499a-9f1d-5645f346b5d7",
-            "name": "view.permission.users",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"Users\"]",
-              "scopes": "[\"view\"]"
-            }
-          },
-          {
-            "id": "e4696a17-645a-42b9-a541-b3aec220e816",
-            "name": "map-roles.permission.users",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"Users\"]",
-              "scopes": "[\"map-roles\"]"
-            }
-          },
-          {
-            "id": "ad192ccf-ca43-4934-b27c-7673d7685be4",
-            "name": "manage-group-membership.permission.users",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"Users\"]",
-              "scopes": "[\"manage-group-membership\"]"
-            }
-          },
-          {
-            "id": "b33d740b-937f-42a6-8720-e11b9cbac92b",
-            "name": "admin-impersonating.permission.users",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"Users\"]",
-              "scopes": "[\"impersonate\"]",
-              "applyPolicies": "[\"api-impersonate\"]"
-            }
-          },
-          {
-            "id": "617deb36-a089-45f2-83d4-b8ed2ca5fafd",
-            "name": "user-impersonated.permission.users",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"Users\"]",
-              "scopes": "[\"user-impersonated\"]"
-            }
-          },
-          {
-            "id": "36059fd0-bf58-49ab-95c2-8851fd6c925f",
-            "name": "token-exchange.permission.idp.b1dcfb92-35d2-49f4-b398-66368d660415",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"idp.resource.b1dcfb92-35d2-49f4-b398-66368d660415\"]",
-              "scopes": "[\"token-exchange\"]",
-              "applyPolicies": "[\"retrieve-external-tokens\"]"
-            }
-          },
-          {
-            "id": "2867ca78-f297-47fb-b918-32e4d074cde4",
-            "name": "token-exchange.permission.idp.0e622dae-6c30-481b-8d99-2aa235f8af3f",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"idp.resource.0e622dae-6c30-481b-8d99-2aa235f8af3f\"]",
-              "scopes": "[\"token-exchange\"]",
-              "applyPolicies": "[\"retrieve-external-tokens\"]"
-            }
-          },
-          {
-            "id": "7c822905-74d8-48e7-a541-3420acdc9f06",
-            "name": "token-exchange.permission.idp.71ceed42-a9b7-4f48-8301-9ee5b379e31f",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"idp.resource.71ceed42-a9b7-4f48-8301-9ee5b379e31f\"]",
-              "scopes": "[\"token-exchange\"]",
-              "applyPolicies": "[\"retrieve-external-tokens\"]"
-            }
-          },
-          {
-            "id": "4a747f42-ff86-454e-baaa-de541b29822f",
-            "name": "token-exchange.permission.idp.3dde8151-e6bc-471c-ab7e-9ee7a2624bc3",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"idp.resource.3dde8151-e6bc-471c-ab7e-9ee7a2624bc3\"]",
-              "scopes": "[\"token-exchange\"]",
-              "applyPolicies": "[\"retrieve-external-tokens\"]"
-            }
-          },
-          {
-            "id": "67bef174-cbf2-43da-b268-aa4321b8442e",
-            "name": "token-exchange.permission.idp.14772f2b-bc2a-4488-8ed6-2e0d4cb5187b",
-            "type": "scope",
-            "logic": "POSITIVE",
-            "decisionStrategy": "UNANIMOUS",
-            "config": {
-              "resources": "[\"idp.resource.14772f2b-bc2a-4488-8ed6-2e0d4cb5187b\"]",
-              "scopes": "[\"token-exchange\"]",
-              "applyPolicies": "[\"retrieve-external-tokens\"]"
-            }
-          }
-        ],
-        "scopes": [
-          {
-            "id": "61cb35e4-605e-4b29-abbc-9919e9ecae8e",
-            "name": "manage"
-          },
-          {
-            "id": "334ca3f0-158d-4995-a259-9448512b9b2c",
-            "name": "view"
-          },
-          {
-            "id": "3dbdf259-fff6-478c-9f56-f1430b3e400d",
-            "name": "map-roles"
-          },
-          {
-            "id": "e4e31978-579c-4665-afc4-8e7caffb804f",
-            "name": "impersonate"
-          },
-          {
-            "id": "0081e0b6-4cbd-4062-975f-2b90083705a9",
-            "name": "user-impersonated"
-          },
-          {
-            "id": "a6ec8069-c6f9-4779-9fa4-9d4e4acf2d0f",
-            "name": "manage-group-membership"
-          },
-          {
-            "id": "58939587-2d0a-40f1-8163-04b8fd6036b5",
-            "name": "token-exchange"
-          }
-        ],
-        "decisionStrategy": "UNANIMOUS"
-      }
+      ]
     },
     {
       "id": "b6fcaf8c-a82c-499d-82c4-79ed921f02b8",
@@ -2059,148 +1783,7 @@
   "enabledEventTypes": [],
   "adminEventsEnabled": false,
   "adminEventsDetailsEnabled": false,
-  "identityProviders": [
-    {
-      "alias": "bitbucket",
-      "internalId": "b1dcfb92-35d2-49f4-b398-66368d660415",
-      "providerId": "bitbucket",
-      "enabled": "$(BITBUCKET_ENABLED)",
-      "updateProfileFirstLoginMode": "on",
-      "trustEmail": true,
-      "storeToken": true,
-      "addReadTokenRoleOnCreate": false,
-      "authenticateByDefault": false,
-      "linkOnly": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
-      "config": {
-        "hideOnLoginPage": "false",
-        "clientId": "$(BITBUCKET_CLIENT_ID)",
-        "acceptsPromptNoneForwardFromClient": "false",
-        "disableUserInfo": "false",
-        "filteredByClaim": "false",
-        "syncMode": "IMPORT",
-        "clientSecret": "$(BITBUCKET_CLIENT_SECRET)",
-        "defaultScope": "email account repository:write project"
-      }
-    },
-    {
-      "alias": "github-enterprise-server",
-      "internalId": "71ceed42-a9b7-4f48-8301-9ee5b379e31f",
-      "providerId": "github-enterprise-server",
-      "enabled": "$(GITHUB_ENTERPRISE_SERVER_ENABLED)",
-      "updateProfileFirstLoginMode": "on",
-      "trustEmail": true,
-      "storeToken": true,
-      "addReadTokenRoleOnCreate": false,
-      "authenticateByDefault": false,
-      "linkOnly": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
-      "config": {
-        "hideOnLoginPage": "false",
-        "clientId": "$(GITHUB_ENTERPRISE_SERVER_CLIENT_ID)",
-        "acceptsPromptNoneForwardFromClient": "false",
-        "disableUserInfo": "false",
-        "filteredByClaim": "false",
-        "syncMode": "IMPORT",
-        "clientSecret": "$(GITHUB_ENTERPRISE_SERVER_CLIENT_SECRET)",
-        "defaultScope": "read:user user:email repo"
-      }
-    },
-    {
-      "alias": "gitlab",
-      "internalId": "3dde8151-e6bc-471c-ab7e-9ee7a2624bc3",
-      "providerId": "gitlab",
-      "enabled": "$(GITLAB_ENABLED)",
-      "updateProfileFirstLoginMode": "on",
-      "trustEmail": true,
-      "storeToken": true,
-      "addReadTokenRoleOnCreate": false,
-      "authenticateByDefault": false,
-      "linkOnly": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
-      "config": {
-        "hideOnLoginPage": "false",
-        "clientId": "$(GITLAB_CLIENT_ID)",
-        "acceptsPromptNoneForwardFromClient": "false",
-        "disableUserInfo": "false",
-        "filteredByClaim": "false",
-        "syncMode": "IMPORT",
-        "clientSecret": "$(GITLAB_CLIENT_SECRET)",
-        "defaultScope": "profile email read_user write_repository read_repository read_api"
-      }
-    },
-    {
-      "alias": "bitbucket-server",
-      "internalId": "d3890198-5568-4908-b5b3-185e32cf7289",
-      "providerId": "bitbucket-server",
-      "enabled": "$(BITBUCKET_SERVER_ENABLED)",
-      "updateProfileFirstLoginMode": "on",
-      "trustEmail": false,
-      "storeToken": true,
-      "addReadTokenRoleOnCreate": false,
-      "authenticateByDefault": false,
-      "linkOnly": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
-      "config": {
-        "hideOnLoginPage": "false",
-        "baseUrl": "$(BITBUCKET_SERVER_BASE_URL)",
-        "clientId": "$(BITBUCKET_SERVER_CLIENT_ID)",
-        "acceptsPromptNoneForwardFromClient": "false",
-        "disableUserInfo": "false",
-        "filteredByClaim": "false",
-        "syncMode": "IMPORT",
-        "clientSecret": "$(BITBUCKET_SERVER_CLIENT_SECRET)",
-        "defaultScope": "PUBLIC_REPOS REPO_READ REPO_WRITE"
-      }
-    },
-    {
-      "alias": "github",
-      "internalId": "0e622dae-6c30-481b-8d99-2aa235f8af3f",
-      "providerId": "github",
-      "enabled": "$(GITHUB_ENABLED)",
-      "updateProfileFirstLoginMode": "on",
-      "trustEmail": true,
-      "storeToken": true,
-      "addReadTokenRoleOnCreate": false,
-      "authenticateByDefault": false,
-      "linkOnly": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
-      "config": {
-        "hideOnLoginPage": "false",
-        "clientId": "$(GITHUB_CLIENT_ID)",
-        "acceptsPromptNoneForwardFromClient": "false",
-        "disableUserInfo": "false",
-        "filteredByClaim": "false",
-        "syncMode": "IMPORT",
-        "clientSecret": "$(GITHUB_CLIENT_SECRET)",
-        "defaultScope": "read:user user:email repo"
-      }
-    },
-    {
-      "alias": "gitlab-self-managed",
-      "internalId": "14772f2b-bc2a-4488-8ed6-2e0d4cb5187b",
-      "providerId": "gitlab-self-managed",
-      "enabled": "$(GITLAB_SELF_MANAGED_ENABLED)",
-      "updateProfileFirstLoginMode": "on",
-      "trustEmail": true,
-      "storeToken": true,
-      "addReadTokenRoleOnCreate": false,
-      "authenticateByDefault": false,
-      "linkOnly": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
-      "config": {
-        "hideOnLoginPage": "false",
-        "baseUrl": "$(GITLAB_SELF_MANAGED_BASE_URL)",
-        "clientId": "$(GITLAB_SELF_MANAGED_CLIENT_ID)",
-        "acceptsPromptNoneForwardFromClient": "false",
-        "disableUserInfo": "false",
-        "filteredByClaim": "false",
-        "syncMode": "IMPORT",
-        "clientSecret": "$(GITLAB_SELF_MANAGED_CLIENT_SECRET)",
-        "defaultScope": "profile email read_user write_repository read_repository read_api"
-      }
-    }
-  ],
+  "identityProviders": [],
   "identityProviderMappers": [],
   "components": {
     "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy": [
@@ -2800,14 +2383,6 @@
           "userSetupAllowed": false
         },
         {
-          "authenticator": "registration-profile-action",
-          "authenticatorFlow": false,
-          "requirement": "REQUIRED",
-          "priority": 40,
-          "autheticatorFlow": false,
-          "userSetupAllowed": false
-        },
-        {
           "authenticator": "registration-password-action",
           "authenticatorFlow": false,
           "requirement": "REQUIRED",
@@ -2997,11 +2572,15 @@
     "cibaAuthRequestedUserHint": "login_hint",
     "oauth2DeviceCodeLifespan": "600",
     "oauth2DevicePollingInterval": "5",
+    "clientOfflineSessionMaxLifespan": "0",
+    "clientSessionIdleTimeout": "0",
     "parRequestUriLifespan": "60",
+    "clientSessionMaxLifespan": "0",
+    "clientOfflineSessionIdleTimeout": "0",
     "cibaInterval": "5",
     "realmReusableOtpCode": "false"
   },
-  "keycloakVersion": "22.0.5-daytona.r0",
+  "keycloakVersion": "23.0.7-daytona.r0",
   "userManagedAccessAllowed": false,
   "clientProfiles": {
     "profiles": []

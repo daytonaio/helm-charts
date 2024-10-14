@@ -42,6 +42,26 @@ spec:
                 name: {{ include "watkins.api.fullname" . }}
                 port:
                   name: {{ .Values.components.api.service.portNames.api }}
+    - host: admin.{{ include "watkins.hostname" . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "watkins.adminDashboard.fullname" . }}
+                port:
+                  name: http
+    - host: docs.{{ include "watkins.hostname" . }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "watkins.docs.fullname" . }}
+                port:
+                  name: http
     {{- if .Values.keycloak.enabled }}
     - host: {{ include "watkins.keycloak.hostname" . }}
       http:

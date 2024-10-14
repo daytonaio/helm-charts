@@ -77,10 +77,12 @@ spec:
               value: {{ .Values.components.realtimeServer.containerPorts.http | quote }}
             - name: "NOTIFICATION_BUS_CONSUMERS"
               value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
-              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_SEATS"
-              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
+            - name: "OIDC_AUDIENCE"
+              value: {{ .Values.keycloakConfig.clients.api.clientId | quote }}
+            - name: "OIDC_ISSUER"
+              value: {{ include "watkins.keycloak.issuer" . | quote }}
+            - name: "OIDC_URL"
+              value: {{ include "watkins.keycloak.url" . | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.components.realtimeServer.containerPorts.http }}

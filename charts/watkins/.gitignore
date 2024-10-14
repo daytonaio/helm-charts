@@ -1,0 +1,19 @@
+
+# General files for the project
+pkg/*
+*.pyc
+bin/*
+.project
+/.bin
+/_test/secrets/*.json
+
+# OSX leaves these everywhere on SMB shares
+._*
+
+# OSX trash
+.DS_Store
+
+# Chart dependencies
+**/charts/*.tgz
+
+.history

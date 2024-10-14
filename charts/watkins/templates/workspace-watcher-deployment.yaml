@@ -69,9 +69,3 @@ spec:
               value: {{ include "watkins.redis.port" . | quote }}
             - name: "NOTIFICATION_BUS_CONSUMERS"
               value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
-            - name: "WORKSPACE_UNUSED_TIMEOUT_IN_SECONDS"
-              value: {{ .Values.configuration.workspaceUnusedTimeoutInSeconds | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
-              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_SEATS"
-              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}

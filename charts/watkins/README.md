@@ -1,6 +1,6 @@
 # watkins
 
-![Version: 2.94.0](https://img.shields.io/badge/Version-2.94.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 8.86.0](https://img.shields.io/badge/AppVersion-8.86.0-informational?style=flat-square)
+![Version: 2.102.0](https://img.shields.io/badge/Version-2.102.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 8.94.0](https://img.shields.io/badge/AppVersion-8.94.0-informational?style=flat-square)
 
 Watkins Helm Chart
 
@@ -8,9 +8,9 @@ Watkins Helm Chart
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://charts.bitnami.com/bitnami | common | 2.13.2 |
+| https://charts.bitnami.com/bitnami | common | 2.20.2 |
 | https://charts.bitnami.com/bitnami | keycloak | 17.3.1 |
-| https://charts.bitnami.com/bitnami | postgresql | 12.2.6 |
+| https://charts.bitnami.com/bitnami | postgresql | 12.12.10 |
 | https://charts.bitnami.com/bitnami | rabbitmq | 11.12.0 |
 | https://charts.bitnami.com/bitnami | redis | 17.9.2 |
 
@@ -20,6 +20,20 @@ Watkins Helm Chart
 |-----|------|---------|-------------|
 | commonAnnotations | object | `{}` |  |
 | commonLabels | object | `{}` |  |
+| components.adminDashboard.autoscaling.enabled | bool | `false` |  |
+| components.adminDashboard.autoscaling.maxReplicas | int | `100` |  |
+| components.adminDashboard.autoscaling.minReplicas | int | `1` |  |
+| components.adminDashboard.autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| components.adminDashboard.containerPorts.http | int | `80` |  |
+| components.adminDashboard.containerSecurityContext.enabled | bool | `true` |  |
+| components.adminDashboard.containerSecurityContext.runAsNonRoot | bool | `true` |  |
+| components.adminDashboard.containerSecurityContext.runAsUser | int | `1001` |  |
+| components.adminDashboard.podSecurityContext.enabled | bool | `true` |  |
+| components.adminDashboard.podSecurityContext.fsGroup | int | `1001` |  |
+| components.adminDashboard.replicaCount | int | `1` |  |
+| components.adminDashboard.resources.requests.cpu | string | `"10m"` |  |
+| components.adminDashboard.resources.requests.memory | string | `"64Mi"` |  |
+| components.adminDashboard.service.port | int | `3000` |  |
 | components.api.autoscaling.enabled | bool | `false` |  |
 | components.api.autoscaling.maxReplicas | int | `100` |  |
 | components.api.autoscaling.minReplicas | int | `1` |  |
@@ -90,7 +104,7 @@ Watkins Helm Chart
 | components.dbMigration.annotations | object | `{}` |  |
 | components.dbMigration.backoffLimit | int | `1` |  |
 | components.dbMigration.cleanupAfterFinished.enabled | bool | `true` |  |
-| components.dbMigration.cleanupAfterFinished.seconds | int | `600` |  |
+| components.dbMigration.cleanupAfterFinished.seconds | int | `3600` |  |
 | components.dbMigration.containerSecurityContext.enabled | bool | `true` |  |
 | components.dbMigration.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | components.dbMigration.containerSecurityContext.runAsUser | int | `1001` |  |
@@ -265,9 +279,9 @@ Watkins Helm Chart
 | components.workspaceUsage.resources | object | `{}` |  |
 | components.workspaceUsage.usageTrackingInterval | int | `900000` |  |
 | components.workspaceVolumeInit.annotations."helm.sh/hook" | string | `"post-install,post-upgrade,post-rollback"` |  |
-| components.workspaceVolumeInit.annotations."helm.sh/hook-delete-policy" | string | `"hook-succeeded,before-hook-creation"` |  |
-| components.workspaceVolumeInit.annotations."helm.sh/hook-weight" | string | `"5"` |  |
 | components.workspaceVolumeInit.backoffLimit | int | `1` |  |
+| components.workspaceVolumeInit.cleanupAfterFinished.enabled | bool | `true` |  |
+| components.workspaceVolumeInit.cleanupAfterFinished.seconds | int | `3600` |  |
 | components.workspaceVolumeInit.enabled | bool | `true` |  |
 | components.workspaceVolumeInit.excludeJetbrainsCodeEditors | bool | `false` |  |
 | components.workspaceVolumeInit.nodeSelector | object | `{}` |  |
@@ -284,6 +298,8 @@ Watkins Helm Chart
 | components.workspaceVolumeInit.resources.requests | object | `{}` |  |
 | components.workspaceVolumeInit.serviceAccount.annotations | object | `{}` |  |
 | components.workspaceVolumeInit.serviceAccount.name | string | `"workspace-volume-init"` |  |
+| components.workspaceVolumeInit.storageInit.nodeSelector | string | `""` |  |
+| components.workspaceVolumeInit.storageInit.tolerations | string | `""` |  |
 | components.workspaceVolumeInit.supervisorExtensions.openVSCodeServerEnabled | bool | `true` |  |
 | components.workspaceVolumeInit.supervisorExtensions.sshdEnabled | bool | `true` |  |
 | components.workspaceVolumeInit.supervisorExtensions.theiaEnabled | bool | `false` |  |
@@ -301,6 +317,8 @@ Watkins Helm Chart
 | components.workspaceWatcher.resources.requests.cpu | string | `"30m"` |  |
 | components.workspaceWatcher.resources.requests.memory | string | `"128Mi"` |  |
 | configuration.appName | string | `"Daytona"` |  |
+| configuration.auth.adminPassword | string | `""` |  |
+| configuration.auth.adminUsername | string | `"admin"` |  |
 | configuration.cookieSecret | string | `"cookiesecret"` |  |
 | configuration.customNameservers | string | `""` |  |
 | configuration.defaultPlanBuildCredits | int | `60` |  |
@@ -312,7 +330,14 @@ Watkins Helm Chart
 | configuration.defaultPlanPinnedWorkspaces | int | `0` |  |
 | configuration.defaultSubscriptionExpiryInDays | string | `""` |  |
 | configuration.defaultSubscriptionSeats | int | `1` |  |
-| configuration.defaultWorkspaceClassName | string | `"small"` |  |
+| configuration.defaultWorkspaceClass.cpu | int | `2` |  |
+| configuration.defaultWorkspaceClass.gpu | string | `""` |  |
+| configuration.defaultWorkspaceClass.gpuResourceName | string | `"nvidia.com/gpu"` |  |
+| configuration.defaultWorkspaceClass.memory | int | `8` |  |
+| configuration.defaultWorkspaceClass.name | string | `"Default"` |  |
+| configuration.defaultWorkspaceClass.runtimeClass | string | `""` |  |
+| configuration.defaultWorkspaceClass.storage | int | `50` |  |
+| configuration.defaultWorkspaceClass.usageMultiplier | int | `1` |  |
 | configuration.encryptionSecret | string | `"supersecret"` |  |
 | configuration.sessionSecret | string | `"sessionsecret"` |  |
 | configuration.singleClusterDeployment | bool | `true` |  |
@@ -325,7 +350,6 @@ Watkins Helm Chart
 | configuration.workspaceNamespace.name | string | `""` |  |
 | configuration.workspacePod.nodeSelector | object | `{}` |  |
 | configuration.workspacePod.podTolerations | list | `[]` |  |
-| configuration.workspaceRuntimeClassName | string | `""` |  |
 | configuration.workspaceStorageClass | string | `""` |  |
 | configuration.workspaceUnusedTimeoutInSeconds | int | `1209600` |  |
 | configuration.workspaceVolumeMode | string | `"Filesystem"` |  |
@@ -438,6 +462,7 @@ Watkins Helm Chart
 | keycloak.production | bool | `true` |  |
 | keycloak.proxy | string | `"edge"` |  |
 | keycloak.service.type | string | `"ClusterIP"` |  |
+| keycloakConfig.clients.adminDashboard.clientId | string | `"admin-dashboard"` |  |
 | keycloakConfig.clients.api.clientId | string | `"api"` |  |
 | keycloakConfig.clients.api.clientSecret | string | `"apisupersecret"` |  |
 | keycloakConfig.clients.cli.clientId | string | `"cli"` |  |
@@ -474,4 +499,4 @@ Watkins Helm Chart
 | serviceAccount.annotations | object | `{}` |  |
 
 ----------------------------------------------
-Autogenerated from chart metadata using [helm-docs v1.13.1](https://github.com/norwoodj/helm-docs/releases/v1.13.1)
+Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)

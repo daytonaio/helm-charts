@@ -1,0 +1,14 @@
+{{- if .Values.components.workspaceVolumeInit.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}
+  namespace: {{ include "watkins.workspaceNamespace" . }}
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+{{- end }}

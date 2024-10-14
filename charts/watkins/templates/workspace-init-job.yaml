@@ -2,8 +2,8 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
-  namespace: {{ include "common.names.namespace" . | quote }}
+  name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion | replace "." "-" }}
+  namespace: {{ include "watkins.workspaceNamespace" . }}
   labels:
     app.kubernetes.io/component: workspace-volume-init
     {{- if .Values.commonLabels }}
@@ -14,6 +14,9 @@ metadata:
   {{- end }}
 spec:
   backoffLimit: {{ .Values.components.workspaceVolumeInit.backoffLimit }}
+  {{- if .Values.components.workspaceVolumeInit.cleanupAfterFinished.enabled }}
+  ttlSecondsAfterFinished: {{ .Values.components.workspaceVolumeInit.cleanupAfterFinished.seconds }}
+  {{- end }}
   template:
     metadata:
       labels: {{- include "common.labels.standard" . | nindent 8 }}
@@ -22,6 +25,7 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceVolumeInit.podLabels "context" $) | nindent 8 }}
         {{- end }}
       annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
         {{- if .Values.components.workspaceVolumeInit.podAnnotations }}
         {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceVolumeInit.podAnnotations "context" $) | nindent 8 }}
         {{- end }}
@@ -36,6 +40,7 @@ spec:
       {{- if .Values.components.workspaceVolumeInit.podTolerations }}
       tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.components.workspaceVolumeInit.podTolerations "context" .) | nindent 8 }}
       {{- end }}
+      enableServiceLinks: false
       containers:
       - name: workspace-volume-init
         image: {{ include "watkins.workspaceVolumeInit.image" . }}
@@ -46,10 +51,10 @@ spec:
         env:
         - name: WORKSPACE_VOLUME_MODE
           value: {{ .Values.configuration.workspaceVolumeMode | quote }}
-        - name: WORKSPACE_RUNTIME_CLASS_NAME
-          value: {{ .Values.configuration.workspaceRuntimeClassName | quote }}
+        - name: "WORKSPACE_RUNTIME_CLASS_NAME"
+          value: {{ .Values.configuration.defaultWorkspaceClass.runtimeClass | quote }}
         - name: NAMESPACE
-          value: {{ .Release.Namespace | quote }}
+          value: {{ include "watkins.workspaceNamespace" . | quote }}
         - name: RESOURCE_TAG
           value: "{{ .Values.image.tag | default .Chart.AppVersion }}"
         - name: STORAGE_CLASS_NAME
@@ -77,18 +82,31 @@ spec:
         - name: PULL_IMAGES_SERVICE_ACCOUNT_NAME
           value: {{ template "watkins.workspaceVolumeInit.fullname" . }}
         {{- end }}
+        {{- if .Values.components.workspaceVolumeInit.storageInit.tolerations }}
+        - name: "STORAGE_INIT_TOLERATIONS"
+          value: {{ .Values.components.workspaceVolumeInit.storageInit.tolerations | quote }}
+        {{- end }}
+        {{- if .Values.components.workspaceVolumeInit.storageInit.nodeSelector }}
+        - name: "STORAGE_INIT_NODE_SELECTOR"
+          value: {{ .Values.components.workspaceVolumeInit.storageInit.nodeSelector | quote }}
+       {{- end }}
         {{- if .Values.components.workspaceVolumeInit.preloadIDEs }}
         volumeMounts:
           - name: config
             mountPath: /etc/workspace-volume-init-job/config.json
             subPath: config.json
+          - name: longhorn-volume
+            mountPath: /longhorn-volume
         {{ end }}
       serviceAccountName: {{ template "watkins.workspaceVolumeInit.fullname" . }}
-      restartPolicy: OnFailure
+      restartPolicy: Never
       {{- if .Values.components.workspaceVolumeInit.preloadIDEs }}
       volumes:
         - name: config
           configMap:
-            name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion }}
+            name: {{ template "watkins.workspaceVolumeInit.fullname" . }}-{{ .Values.image.tag | default .Chart.AppVersion | replace "." "-" }}
+        - name: longhorn-volume
+          persistentVolumeClaim:
+            claimName: {{ template "watkins.workspaceVolumeInit.fullname" . }}
       {{- end }}
 {{- end }}

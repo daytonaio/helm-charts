@@ -88,14 +88,8 @@ spec:
               value: {{ .Values.components.workspaceProvisioner.workspaces.defaultContainerImage | quote }}
             - name: "WS_DEFAULT_CONTAINER_USER"
               value: {{ .Values.components.workspaceProvisioner.workspaces.defaultContainerUser | quote }}
-            - name: "WORKSPACE_SUPERVISOR_IMAGE"
-              value: {{ include "watkins.workspaceSupervisor.image" . | quote }}
             - name: "NOTIFICATION_BUS_CONSUMERS"
               value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
-              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_SEATS"
-              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
             - name: "OIDC_ISSUER"
               value: {{ include "watkins.keycloak.issuer" . | quote }}
             - name: "OIDC_AUDIENCE"
@@ -118,8 +112,6 @@ spec:
               value: {{ include "watkins.workspace.image" . }}
             - name: WORKSPACE_VOLUME_MODE
               value: {{ .Values.configuration.workspaceVolumeMode | quote }}
-            - name: WORKSPACE_RUNTIME_CLASS_NAME
-              value: {{ .Values.configuration.workspaceRuntimeClassName | quote }}
             {{- if .Values.components.workspaceProvisioner.workspaces.dockerRegistryMirror }}
             - name: "DOCKER_REGISTRY_MIRROR"
               value: {{ .Values.components.workspaceProvisioner.workspaces.dockerRegistryMirror | quote }}
@@ -137,10 +129,6 @@ spec:
             {{- if .Values.components.workspaceProvisioner.workspaces.nodeSelector }}
             - name: "WORKSPACE_NODE_SELECTOR"
               value: {{ .Values.components.workspaceProvisioner.workspaces.nodeSelector | quote }}
-            {{- end }}
-            {{- if .Values.components.workspaceProvisioner.workspaces.runtimeClass }}
-            - name: "WORKSPACE_RUNTIME_CLASS"
-              value: {{ .Values.components.workspaceProvisioner.workspaces.runtimeClass | quote }}
             {{- end }}
             {{- if .Values.components.workspaceVolumeInit.supervisorExtensions.theiaEnabled }}
             - name: "BROWSER_IDE"

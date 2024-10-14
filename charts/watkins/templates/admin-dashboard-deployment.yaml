@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "watkins.adminDashboard.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: admin-dashboard
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.components.adminDashboard.autoscaling.enabled }}
+  replicas: {{ .Values.components.adminDashboard.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+      app.kubernetes.io/component: admin-dashboard
+  template:
+    metadata:
+      annotations:
+        checksum/config: "{{ include (print $.Template.BasePath "/admin-dashboard-configmap.yaml") . | sha256sum }}"
+      {{- if .Values.components.adminDashboard.podAnnotations }}
+      {{- include "common.tplvalues.render" (dict "value" .Values.components.adminDashboard.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: admin-dashboard
+        {{- if .Values.components.adminDashboard.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.adminDashboard.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.components.adminDashboard.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.adminDashboard.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: branding
+          image: {{ include "watkins.branding.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['sh', '-c', 'cp -r /branding/admin-dashboard/* /assets/']
+          volumeMounts:
+            - name: branding
+              mountPath: /assets
+      containers:
+        - name: admin-dashboard
+          image: {{ include "watkins.adminDashboard.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.adminDashboard.resources }}
+          resources: {{- toYaml .Values.components.adminDashboard.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: "PORT"
+              value: "3000"
+          livenessProbe:
+            exec:
+              command:
+              - service
+              - nginx
+              - status
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+              - service
+              - nginx
+              - status
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: branding
+              mountPath: /usr/share/nginx/html/branding
+            - name: config
+              mountPath: /usr/share/nginx/html/configuration.json
+              subPath: configuration.json
+          ports:
+            - name: http
+              containerPort: {{ .Values.components.adminDashboard.containerPorts.http }}
+              protocol: TCP
+      volumes:
+        - name: branding
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: {{ template "watkins.adminDashboard.fullname" . }}

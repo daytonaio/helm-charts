@@ -82,24 +82,18 @@ spec:
               value: {{ include "watkins.redis.port" . | quote }}
             - name: "NOTIFICATION_BUS_CONSUMERS"
               value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
-            - name: "DEFAULT_PLAN_PARALLEL_WORKSPACES"
-              value: {{ .Values.configuration.defaultPlanParallelWorkspaces | quote }}
-            - name: "DEFAULT_PLAN_CREDITS"
-              value: {{ .Values.configuration.defaultPlanCredits | quote }}
-            - name: "DEFAULT_PLAN_NAME"
-              value: {{ .Values.configuration.defaultPlanName | quote }}
-            - name: "DEFAULT_PLAN_INACTIVITY_TIMEOUT_IN_MINUTES"
-              value: {{ .Values.configuration.defaultPlanInactivityTimeoutInMinutes | quote }}
-            - name: "DEFAULT_PLAN_BUILD_CREDITS"
-              value: {{ .Values.configuration.defaultPlanBuildCredits | quote }}
-            - name: "DEFAULT_PLAN_PARALLEL_BUILDS"
-              value: {{ .Values.configuration.defaultPlanParallelBuilds | quote }}
-            - name: "DEFAULT_PLAN_PINNED_WORKSPACES"
-              value: {{ .Values.configuration.defaultPlanPinnedWorkspaces | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
-              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_SEATS"
-              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
+            - name: "DEFAULT_QUOTA_NAME"
+              value: {{ .Values.configuration.defaultQuota.name | quote }}
+            - name: "DEFAULT_QUOTA_PARALLEL_WORKSPACES"
+              value: {{ .Values.configuration.defaultQuota.parallelWorkspaces | quote }}
+            - name: "DEFAULT_QUOTA_PINNED_WORKSPACES"
+              value: {{ .Values.configuration.defaultQuota.pinnedWorkspaces | quote }}
+            - name: "DEFAULT_QUOTA_WORKSPACE_CREDITS"
+              value: {{ .Values.configuration.defaultQuota.workspaceCredits | quote }}
+            - name: "DEFAULT_QUOTA_WORKSPACE_IDLE_TIMEOUT_IN_MINUTES"
+              value: {{ .Values.configuration.defaultQuota.workspaceIdleTimeoutInMinutes | quote }}
+            - name: "DEFAULT_TEAM_QUOTA_EXPIRY_IN_DAYS"
+              value: {{ .Values.configuration.defaultTeamQuota.expiryInDays | quote }}
             - name: "OIDC_ISSUER"
               value: {{ include "watkins.keycloak.issuer" . | quote }}
             - name: "OIDC_URL"
@@ -129,7 +123,25 @@ spec:
             - name: "SINGLE_CLUSTER_DEPLOYMENT"
               value: {{ .Values.configuration.singleClusterDeployment | quote }}
             - name: "DEFAULT_WORKSPACE_CLASS_NAME"
-              value: {{ .Values.configuration.defaultWorkspaceClassName | quote }}
+              value: {{ .Values.configuration.defaultWorkspaceClass.name | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_CPU"
+              value: {{ .Values.configuration.defaultWorkspaceClass.cpu | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_CPU_OVERPROVISIONING_FACTOR"
+              value: {{ .Values.configuration.defaultWorkspaceClass.cpuOverprovisioningFactor | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_MEMORY"
+              value: {{ .Values.configuration.defaultWorkspaceClass.memory | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_MEMORY_OVERPROVISIONING_FACTOR"
+              value: {{ .Values.configuration.defaultWorkspaceClass.memoryOverprovisioningFactor | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_STORAGE"
+              value: {{ .Values.configuration.defaultWorkspaceClass.storage | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_USAGE_MULTIPLIER"
+              value: {{ .Values.configuration.defaultWorkspaceClass.usageMultiplier | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_GPU"
+              value: {{ .Values.configuration.defaultWorkspaceClass.gpu | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_GPU_RESOURCE_NAME"
+              value: {{ .Values.configuration.defaultWorkspaceClass.gpuResourceName | quote }}
+            - name: "DEFAULT_WORKSPACE_CLASS_RUNTIME_CLASS"
+              value: {{ .Values.configuration.defaultWorkspaceClass.runtimeClass | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.components.api.containerPorts.http }}
