@@ -1,0 +1,27 @@
+{{- $sshPort := 22 }}
+{{- if (and (eq .Values.components.sshGateway.service.type "NodePort") (not (empty .Values.components.sshGateway.service.nodePort))) }}
+{{- $sshPort = .Values.components.sshGateway.service.nodePort }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "watkins.adminDashboard.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: admin-dashboard
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+data:
+  configuration.json: |
+    {
+      "production": true,
+      "dashboardUrl": {{ include "watkins.url" . | quote }},
+      "apiBaseUrl": {{ include "watkins.api.url" . | quote }},
+      "keycloak": {
+        "url": {{ include "watkins.keycloak.baseUrl" . | quote }},
+        "realm": {{ .Values.keycloakConfig.realm | quote }},
+        "clientId": {{ .Values.keycloakConfig.clients.adminDashboard.clientId | quote }}
+      },
+      "notificationUrl": {{ include "watkins.notification.url" . | quote }}
+    }

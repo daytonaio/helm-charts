@@ -19,9 +19,11 @@ spec:
   {{- end }}
   template:
     metadata:
-      {{- if .Values.components.dbMigration.podAnnotations }}
-      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.components.dbMigration.podAnnotations "context" $) | nindent 8 }}
-      {{- end }}
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+        {{- if .Values.components.dbMigration.podAnnotations }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.dbMigration.podAnnotations "context" $) | nindent 8 }}
+        {{- end }}
       labels: {{- include "common.labels.standard" . | nindent 8 }}
         app.kubernetes.io/component: db-migration
         {{- if .Values.components.dbMigration.podLabels }}

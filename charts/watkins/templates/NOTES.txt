@@ -1,0 +1,15 @@
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+** Please be patient while the chart is being deployed **
+
+1. Daytona can be accessed through the following DNS name:
+
+  echo "Daytona URL: http{{ if .Values.ingress.tls }}s{{ end }}://{{ (tpl .Values.ingress.hostname .) }}"
+
+2. Access the Administration Console using the following credentials:
+
+  echo "Daytona Admin URL: http{{ if .Values.ingress.tls }}s{{ end }}://admin.{{ (tpl .Values.ingress.hostname .) }}"
+  echo "Username: {{ .Values.configuration.auth.adminUsername }}"
+  echo "Password: $(kubectl get secret --namespace {{ include "common.names.namespace" . }} {{ include "common.names.fullname" . }} -o jsonpath="{.data.admin-password}" | base64 -d)"

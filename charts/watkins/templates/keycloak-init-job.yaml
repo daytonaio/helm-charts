@@ -1,0 +1,108 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "watkins.keycloakInit.fullname" . }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak-init
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.components.keycloakInit.annotations "context" $ ) | nindent 4 }}
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  backoffLimit: {{ .Values.components.keycloakInit.backoffLimit }}
+  {{- if .Values.components.keycloakInit.cleanupAfterFinished.enabled }}
+  ttlSecondsAfterFinished: {{ .Values.components.keycloakInit.cleanupAfterFinished.seconds }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        app.kubernetes.io/component: keycloak-init
+        {{- if .Values.components.keycloakInit.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.keycloakInit.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.components.keycloakInit.podAnnotations }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.components.keycloakInit.podAnnotations "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "watkins.imagePullSecrets" . | nindent 6 }}
+      restartPolicy: Never
+      {{- if .Values.components.keycloakInit.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.components.keycloakInit.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if .Values.components.keycloakInit.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.components.keycloakInit.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.components.keycloakInit.podTolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.components.keycloakInit.podTolerations "context" .) | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: wait-for-keycloak
+          image: {{ include "watkins.keycloakInit.image" . }}
+          env:
+            - name: KEYCLOAK_BASE_URL
+              value: {{ printf "http://%s" (include "watkins.keycloak.fullname" .) | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - "until wget ${KEYCLOAK_BASE_URL} -O -; do sleep 5;done"
+      containers:
+        - name: keycloak-init
+          image: {{ include "watkins.keycloakInit.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.components.keycloakInit.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.components.keycloakInit.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          env:
+            - name: KEYCLOAK_BASE_URL
+              value: {{ printf "http://%s" (include "watkins.keycloak.fullname" .) | quote }}
+            - name: KEYCLOAK_ADMIN_USERNAME
+              value: {{ .Values.keycloak.auth.adminUser | quote }}
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "watkins.keycloak.fullname" . }}
+                  key: admin-password
+            - name: REALM_NAME
+              value: {{ .Values.keycloakConfig.realm | quote }}
+            - name: HTTP_ENABLED
+              value: {{ not .Values.ingress.tls | quote }}
+            - name: API_CLIENT_ID
+              value: {{ .Values.keycloakConfig.clients.api.clientId | quote }}
+            - name: ADMIN_DASHBOARD_CLIENT_ID
+              value: {{ .Values.keycloakConfig.clients.adminDashboard.clientId | quote }}
+            - name: DASHBOARD_CLIENT_ID
+              value: {{ .Values.keycloakConfig.clients.dashboard.clientId | quote }}
+            - name: CLI_CLIENT_ID
+              value: {{ .Values.keycloakConfig.clients.cli.clientId | quote }}
+            - name: WORKSPACE_PROXY_CLIENT_ID
+              value: {{ .Values.keycloakConfig.clients.workspaceProxy.clientId | quote }}
+            - name: DASHBOARD_BASE_URL
+              value: {{ include "watkins.url" . | quote }}
+            - name: ADMIN_DASHBOARD_BASE_URL
+              value: {{ include "watkins.adminDashboard.url" . | quote }}
+            - name: API_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: api-client-secret
+            - name: WORKSPACE_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: workspace-proxy-client-secret
+            - name: "INITIAL_ADMIN_USERNAME"
+              value: {{ .Values.configuration.auth.adminUsername | quote }}
+            - name: "INITIAL_ADMIN_PASSWORD"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.names.fullname" . }}
+                  key: admin-password
+          {{- if .Values.components.keycloakInit.resources }}
+          resources: {{- toYaml .Values.components.keycloakInit.resources | nindent 12 }}
+          {{- end }}
+{{- end }}

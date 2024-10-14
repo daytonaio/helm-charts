@@ -71,7 +71,3 @@ spec:
               value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
             - name: "USAGE_TRACKING_INTERVAL"
               value: {{ .Values.components.workspaceUsage.usageTrackingInterval | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
-              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
-            - name: "DEFAULT_SUBSCRIPTION_SEATS"
-              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}

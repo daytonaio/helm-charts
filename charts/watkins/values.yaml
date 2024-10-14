@@ -68,22 +68,28 @@ serviceAccount:
   annotations: {}
 
 configuration:
-  defaultPlanParallelWorkspaces: 3
-  defaultPlanCredits: 10020
-  defaultPlanName: default
-  defaultPlanInactivityTimeoutInMinutes: 30
-  defaultPlanBuildCredits: 60
-  defaultPlanParallelBuilds: 1
-  defaultPlanPinnedWorkspaces: 0
+  defaultQuota:
+    name: Default
+    parallelWorkspaces: ""
+    pinnedWorkspaces: ""
+    workspaceCredits: ""
+    workspaceIdleTimeoutInMinutes: 30
   singleClusterDeployment: true
   encryptionSecret: supersecret
-  workspaceUnusedTimeoutInSeconds: 1209600
   appName: Daytona
-  workspaceRuntimeClassName: ""
   workspaceVolumeMode: Filesystem
-  defaultWorkspaceClassName: small
-  # Leave undefined for non-expiring subscription
-  # defaultSubscriptionExpiryInDays: 30
+  defaultWorkspaceClass:
+    name: Default
+    cpu: 2
+    cpuOverprovisioningFactor: ""
+    memory: 8
+    memoryOverprovisioningFactor: ""
+    storage: 50
+    usageMultiplier: 1
+    # Leave undefined for disabled GPU support in default workspace class
+    gpu: ""
+    gpuResourceName: nvidia.com/gpu
+    runtimeClass: ""
   smtp:
     enabled: false
     host: ""
@@ -92,9 +98,13 @@ configuration:
     password: ""
   sessionSecret: sessionsecret
   cookieSecret: cookiesecret
-  # Leave undefined for non-expiring subscription
-  defaultSubscriptionExpiryInDays: ""
-  defaultSubscriptionSeats: 1
+  # Leave undefined for non-expiring team quotas
+  defaultTeamQuota:
+    expiryInDays: ""
+
+  auth:
+    adminUsername: admin
+    adminPassword: ""
 
   workspaceNamespace:
     name: ""
@@ -448,6 +458,50 @@ components:
   branding:
     image: ""
 
+  adminDashboard:
+    ## @param components.adminDashboard.replicaCount Number of Admin Dashboard server replicas to deploy
+    ##
+    replicaCount: 1
+
+    ## Admin Dashboard pods' SecurityContext
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.adminDashboard.podSecurityContext.enabled Enabled Admin Dashboard pods' Security Context
+    ## @param components.adminDashboard.podSecurityContext.fsGroup Set Admin Dashboard pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## Admin Dashboard containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.adminDashboard.containerSecurityContext.enabled Enabled Admin Dashboard containers' Security Context
+    ## @param components.adminDashboard.containerSecurityContext.runAsUser Set Admin Dashboard container's Security Context runAsUser
+    ## @param components.adminDashboard.containerSecurityContext.runAsNonRoot Set Admin Dashboard container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+
+    ## @param components.adminDashboard.containerPorts.http admin dashboard HTTP container port
+    ##
+    containerPorts:
+      http: 80
+
+    service:
+      port: 3000
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "10m"
+
   dashboard:
     ## @param components.dashboard.replicaCount Number of Dashboard server replicas to deploy
     ##
@@ -495,9 +549,6 @@ components:
       requests:
         memory: "64Mi"
         cpu: "10m"
-
-    workspaceTemplatesIndexUrl: https://raw.githubusercontent.com/daytonaio-templates/index/main/templates.json
-    jetbrainsGatewayPluginDownloadUrl: https://download.daytona.io/jetbrains/gateway/release/jetbrains-gateway-daytona-plugin-0.0.22.jar
 
   dbMigration:
     ## @param components.dbMigration.enabled Whether to enable db-migration job
@@ -570,7 +621,7 @@ components:
     ##
     cleanupAfterFinished:
       enabled: true
-      seconds: 600
+      seconds: 3600
 
   ## Domain notification publisher server configuration
   ##
@@ -627,6 +678,29 @@ components:
 
     resources: {}
 
+  docs:
+    name: docs
+    replicaCount: 1
+
+    service:
+      port: 8080
+
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 100
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "10m"
+
   ## Email service configuration
   ##
   email:
@@ -645,6 +719,82 @@ components:
     invitationSubject: "Invitation to join Example team"
 
     resources: {}
+
+  keycloakInit:
+    ## @param components.keycloakInit.enabled Whether to enable keycloak-init job
+    ##
+    enabled: true
+
+    ## @param components.keycloakInit.annotations [object] Annotations for keycloak-init job
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ##
+    annotations:
+      helm.sh/hook: "post-install,post-upgrade"
+      helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
+      helm.sh/hook-weight: "5"
+
+    ## Keycloak init resource requests and limits
+    ## ref: https://kubernetes.io/docs/user-guide/compute-resources/
+    ## @param components.keycloakInit.resources.limits The resources limits for the keycloak-init container
+    ## @param components.keycloakInit.resources.requests The requested resources for the keycloak-init container
+    ##
+    resources:
+      limits: {}
+      requests: {}
+    ## keycloak-init containers' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+    ## @param components.keycloakInit.containerSecurityContext.enabled Enabled keycloak-init containers' Security Context
+    ## @param components.keycloakInit.containerSecurityContext.runAsUser Set keycloak-init container's Security Context runAsUser
+    ## @param components.keycloakInit.containerSecurityContext.runAsNonRoot Set keycloak-init container's Security Context runAsNonRoot
+    ##
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+    ## keycloak-init pods' Security Context
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+    ## @param components.keycloakInit.podSecurityContext.enabled Enabled keycloak-init pods' Security Context
+    ## @param components.keycloakInit.podSecurityContext.fsGroup Set keycloak-init pod's Security Context fsGroup
+    ##
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    ## @param components.keycloakInit.backoffLimit Number of retries before considering a Job as failed
+    ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
+    ##
+    backoffLimit: 1
+    ## @param components.keycloakInit.podLabels Pod extra labels
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+    ##
+    podLabels: {}
+    ## @param components.keycloakInit.podAnnotations Annotations for job pod
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ##
+    podAnnotations: {}
+    ## @param components.keycloakInit.extraEnvVars Additional environment variables to set
+    ## Example:
+    ## extraEnvVars:
+    ##   - name: FOO
+    ##     value: "bar"
+    ##
+    ## @param components.keycloakInit.nodeSelector Node labels for pod assignment
+    ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+    ##
+    nodeSelector: {}
+    ##
+    ## @param components.keycloakInit.podTolerations Tolerations for job pod assignment
+    ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+    ##
+    podTolerations: []
+
+    ## Automatic Cleanup for Finished Jobs
+    ## @param components.keycloakInit.cleanupAfterFinished.enabled Enables Cleanup for Finished Jobs
+    ## @param components.keycloakInit.cleanupAfterFinished.seconds Sets the value of ttlSecondsAfterFinished
+    ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/
+    ##
+    cleanupAfterFinished:
+      enabled: false
+      seconds: 600
 
   workspaceWatcher:
     ## @param components.watcher.replicaCount Number of Watcher server replicas to deploy
@@ -832,11 +982,23 @@ components:
       # 30 mins
       idleWorkspaceTimeout: 1800000
       defaultContainerImage: daytonaio/workspace-universal:latest
+      defaultWorkspaceContainerImage: ""
       defaultContainerUser: daytona
       devContainerRecoveryImage: ubuntu
       devContainerRecoveryUser: root
       dockerRegistryMirror: https://mirror.registry.daytona.io
+      ## Workspace pods nodeSelector
+      ## @param components.workspaceProvisioner.workspaces.nodeSelector Specifies the node labels for scheduling workspace pods.
+      ## This should be a JSON object as a string, where the key-value pair represents a node label and its desired value.
+      ## Example:
+      ## nodeSelector: '{"daytona.io/node-role": "workload"}'
+      ##
       nodeSelector: ""
+      ## Workspace pods tolerations
+      ## @param components.workspaceProvisioner.workspaces.tolerations Tolerations for workspace pods in JSON format
+      ## Example:
+      ## tolerations: '[{"key": "daytona.io/node-role", "operator": "Equal", "value": "workload", "effect": "NoSchedule"}]'
+      ##
       tolerations: ""
 
     resources:
@@ -1016,8 +1178,6 @@ components:
     ##
     annotations:
       helm.sh/hook: "post-install,post-upgrade,post-rollback"
-      helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
-      helm.sh/hook-weight: "5"
 
     ## @param components.workspaceVolumeInit.backoffLimit Number of retries before considering a Job as failed
     ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
@@ -1047,6 +1207,15 @@ components:
     ##
     podTolerations: []
 
+    ## Automatic Cleanup for Finished Jobs
+    ## @param components.workspaceVolumeInit.cleanupAfterFinished.enabled Enables Cleanup for Finished Jobs
+    ## @param components.workspaceVolumeInit.cleanupAfterFinished.seconds Sets the value of ttlSecondsAfterFinished
+    ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/
+    ##
+    cleanupAfterFinished:
+      enabled: true
+      seconds: 3600
+
     podSecurityContext: {}
 
     ## Workspace volume init resource requests and limits
@@ -1060,6 +1229,18 @@ components:
 
     ## @param components.workspaceVolumeInit.preloadIDEs Should IDEs be preloaded
     preloadIDEs: true
+
+    storageInit:
+      ## Workspace storage initialization pods nodeSelector
+      ## @param components.workspaceVolumeInit.storageInit.nodeSelector Specify nodeSelector for storage initialization pods in JSON format
+      ## Example:
+      ## nodeSelector: '{"daytona.io/node-role": "workload"}'
+      nodeSelector: ""
+      ## Workspace storage initialization pods tolerations
+      ## @param components.workspaceVolumeInit.storageInit.tolerations Specify tolerations for storage initialization pods in JSON format
+      ## Example:
+      ## tolerations: '[{"key": "daytona.io/node-role", "operator": "Equal", "value": "workload", "effect": "NoSchedule"}]'
+      tolerations: ""
 
     pullImages:
       ## @param components.workspaceVolumeInit.pullImages.images Comma-separated list of images to pull
@@ -1101,30 +1282,6 @@ postgresql:
     existingSecret: ""
   architecture: standalone
 
-gitProviders:
-  github:
-    clientId: ""
-    clientSecret: ""
-  githubEnterpriseServer:
-    clientId: ""
-    clientSecret: ""
-    baseUrl: ""
-    apiUrl: ""
-  gitlab:
-    clientId: ""
-    clientSecret: ""
-  bitbucket:
-    clientId: ""
-    clientSecret: ""
-  bitbucketServer:
-    clientId: ""
-    clientSecret: ""
-    baseUrl: ""
-  gitlabSelfManaged:
-    clientId: ""
-    clientSecret: ""
-    baseUrl: ""
-
 keycloakConfig:
   realm: default
   clients:
@@ -1140,6 +1297,8 @@ keycloakConfig:
     vscode:
       clientId: vscode
       name: Visual Studio Code
+    adminDashboard:
+      clientId: admin-dashboard
     dashboard:
       clientId: dashboard
     workspaceProxy:
@@ -1159,15 +1318,21 @@ keycloak:
 
   image:
     repository: daytonaio/keycloak
-    tag: 22.0.5-daytona.r1-debian-11
+    tag: 23.0.7-daytona.r0-debian-11
 
-  keycloakConfigCli:
-    enabled: true
-    extraEnvVars:
-      - name: IMPORT_VARSUBSTITUTION_ENABLED
-        value: "true"
-    extraEnvVarsSecret: '{{ printf "%s-config-cli" (include "common.names.fullname" .) }}'
-    existingConfigmap: '{{ printf "%s-config-cli" (include "common.names.fullname" .) }}'
+  # keycloakConfigCli:
+  #   image:
+  #     tag: 5.11.1-debian-12-r0
+  #   command:
+  #     - java
+  #     - -jar
+  #     - /opt/bitnami/keycloak-config-cli/keycloak-config-cli-23.0.7.jar
+  #   enabled: true
+  #   extraEnvVars:
+  #     - name: IMPORT_VARSUBSTITUTION_ENABLED
+  #       value: "true"
+  #   extraEnvVarsSecret: '{{ printf "%s-config-cli" (include "common.names.fullname" .) }}'
+  #   existingConfigmap: '{{ printf "%s-config-cli" (include "common.names.fullname" .) }}'
 
   extraVolumes:
     - name: extensions
@@ -1179,7 +1344,7 @@ keycloak:
 
   initContainers:
     - name: themes
-      image: daytonaio/keycloak-themes:2.3.1
+      image: daytonaio/keycloak-themes:2.5.0
       securityContext:
         runAsUser: 1001
       command:
@@ -1191,7 +1356,7 @@ keycloak:
         - name: extensions
           mountPath: /extensions
     - name: providers
-      image: daytonaio/keycloak-extensions:1.1.0
+      image: daytonaio/keycloak-extensions:2.0.0
       securityContext:
         runAsUser: 1001
       command:

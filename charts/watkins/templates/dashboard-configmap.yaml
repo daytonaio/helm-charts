@@ -31,9 +31,8 @@ data:
       "paymentPageUrl": {{ .Values.components.dashboard.paymentPageUrl | quote }},
       {{- end }}
       "notificationUrl": {{ include "watkins.notification.url" . | quote }},
-      "workspaceTemplatesIndexUrl": {{ .Values.components.dashboard.workspaceTemplatesIndexUrl | quote }},
-      "workspaceUnusedTimeoutInSeconds": {{ .Values.configuration.workspaceUnusedTimeoutInSeconds | quote }},
       "appVersion": "{{ .Chart.AppVersion }}",
-      "jetbrainsGatewayPluginDownloadUrl": {{ .Values.components.dashboard.jetbrainsGatewayPluginDownloadUrl | quote }},
-      "excludeJetbrainsCodeEditors": {{ .Values.components.workspaceVolumeInit.excludeJetbrainsCodeEditors }}
+      "sshEnabled": {{ .Values.components.workspaceVolumeInit.supervisorExtensions.sshdEnabled }},
+      "adminDashboardUrl": {{ include "watkins.adminDashboard.url" . | quote }},
+      "docsUrl": {{ include "watkins.docs.url" . | quote }}
     }

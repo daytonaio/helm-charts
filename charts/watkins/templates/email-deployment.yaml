@@ -81,12 +81,6 @@ spec:
               value: {{ include "watkins.redis.port" . | quote }}
             - name: "NOTIFICATION_BUS_CONSUMERS"
               value: {{ .Values.notificationBus.maxConcurrentConsumers | quote }}
-            {{- if .Values.configuration.defaultSubscriptionExpiryInDays }}
-              - name: "DEFAULT_SUBSCRIPTION_EXPIRY_IN_DAYS"
-              value: {{ .Values.configuration.defaultSubscriptionExpiryInDays | quote }}
-            {{- end }}
-            - name: "DEFAULT_SUBSCRIPTION_SEATS"
-              value: {{ .Values.configuration.defaultSubscriptionSeats | quote }}
             - name: "SMTP_HOST"
               value: {{ .Values.configuration.smtp.host | quote }}
             - name: "SMTP_PORT"

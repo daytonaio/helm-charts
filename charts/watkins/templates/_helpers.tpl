@@ -45,6 +45,20 @@ Return Watkins url
 {{- end -}}
 
 {{/*
+Return Watkins admin dashboard url
+*/}}
+{{- define "watkins.adminDashboard.url" -}}
+{{- printf "%s://admin.%s" (ternary "https" "http" .Values.ingress.tls) (include "watkins.hostname" .) -}}
+{{- end -}}
+
+{{/*
+Return Watkins docs url
+*/}}
+{{- define "watkins.docs.url" -}}
+{{- printf "%s://docs.%s" (ternary "https" "http" .Values.ingress.tls) (include "watkins.hostname" .) -}}
+{{- end -}}
+
+{{/*
 Return Watkins API url
 */}}
 {{- define "watkins.api.url" -}}
@@ -127,7 +141,7 @@ Return api fullname
 Return db-migration fullname
 */}}
 {{- define "watkins.db-migration.fullname" -}}
-{{- printf "%s-%s" (include "common.names.fullname" .) "db-migration" | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s-%s-%s" (include "common.names.fullname" .) "db-migration" (.Values.image.tag | default .Chart.AppVersion | replace "." "-") (randAlphaNum 5 | lower ) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -135,6 +149,13 @@ Return email fullname
 */}}
 {{- define "watkins.email.fullname" -}}
 {{- printf "%s-%s" (include "common.names.fullname" .) "email" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Return admin dashboard fullname
+*/}}
+{{- define "watkins.adminDashboard.fullname" -}}
+{{- printf "%s-%s" (include "common.names.fullname" .) "admin-dashboard" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -206,6 +227,14 @@ Return workspace ssh gateway fullname
 {{- define "watkins.sshGateway.fullname" -}}
 {{- printf "%s-%s" (include "common.names.fullname" .) "ssh-gateway" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Return keycloak init fullname
+*/}}
+{{- define "watkins.keycloakInit.fullname" -}}
+{{- printf "%s-%s" (include "common.names.fullname" .) "keycloak-init" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
 
 {{/*
 Return workspace volume init fullname
@@ -284,6 +313,14 @@ Return db-migration image
 {{- end -}}
 
 {{/*
+Return admin dashboard image
+*/}}
+{{- define "watkins.adminDashboard.image" -}}
+{{- $component := "admin-dashboard" -}}
+{{- include "watkins.image" (dict "imageRoot" .Values.image "global" .Values.global "appVersion" .Chart.AppVersion "component" $component) -}}
+{{- end -}}
+
+{{/*
 Return dashboard image
 */}}
 {{- define "watkins.dashboard.image" -}}
@@ -356,12 +393,13 @@ Return workspace ssh gateway image
 {{- end -}}
 
 {{/*
-Return workspace supervisor image
+Return keycloak init image
 */}}
-{{- define "watkins.workspaceSupervisor.image" -}}
-{{- $component := "workspace-supervisor" -}}
+{{- define "watkins.keycloakInit.image" -}}
+{{- $component := "keycloak-init" -}}
 {{- include "watkins.image" (dict "imageRoot" .Values.image "global" .Values.global "appVersion" .Chart.AppVersion "component" $component) -}}
 {{- end -}}
+
 
 {{/*
 Return workspace volume init image
@@ -375,8 +413,12 @@ Return workspace volume init image
 Return workspace image
 */}}
 {{- define "watkins.workspace.image" -}}
-{{- $component := "workspace-image" -}}
-{{- include "watkins.image" (dict "imageRoot" .Values.image "global" .Values.global "appVersion" .Chart.AppVersion "component" $component) -}}
+  {{- if .Values.components.workspaceProvisioner.workspaces.defaultWorkspaceContainerImage }}
+    {{- .Values.components.workspaceProvisioner.workspaces.defaultWorkspaceContainerImage -}}
+  {{- else -}}
+    {{- $component := "workspace-image" -}}
+    {{- include "watkins.image" (dict "imageRoot" .Values.image "global" .Values.global "appVersion" .Chart.AppVersion "component" $component) -}}
+  {{- end -}}
 {{- end -}}
 
 {{/*
@@ -609,9 +651,11 @@ Retrieve key of the Redis secret
 Return list of dockerimages to pull in volume init
 */}}
 {{- define "watkins.workspace.preloadImages" -}}
-{{- if .Values.components.workspaceVolumeInit.enabled -}}
-    {{- printf "%s,%s" .Values.components.workspaceProvisioner.workspaces.defaultContainerImage .Values.components.workspaceVolumeInit.pullImages.images -}}
-{{- else -}}
-    {{- print .Values.externalRedis.port  -}}
-{{- end -}}
+  {{- if .Values.components.workspaceVolumeInit.enabled -}}
+    {{- if .Values.components.workspaceVolumeInit.pullImages.images }}
+      {{- printf "%s,%s" .Values.components.workspaceProvisioner.workspaces.defaultContainerImage .Values.components.workspaceVolumeInit.pullImages.images -}}
+    {{- else -}}
+      {{- print .Values.components.workspaceProvisioner.workspaces.defaultContainerImage -}}
+    {{- end -}}
+  {{- end -}}
 {{- end -}}

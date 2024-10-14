@@ -1,26 +1,26 @@
 apiVersion: v2
-appVersion: 8.86.0
+name: watkins
+description: Watkins Helm Chart
 dependencies:
   - name: common
+    version: 2.20.2
     repository: https://charts.bitnami.com/bitnami
-    version: 2.13.2
-  - condition: keycloak.enabled
-    name: keycloak
-    repository: https://charts.bitnami.com/bitnami
+  - name: keycloak
     version: 17.3.1
-  - condition: postgresql.enabled
-    name: postgresql
     repository: https://charts.bitnami.com/bitnami
-    version: 12.2.6
-  - condition: redis.enabled
-    name: redis
+    condition: keycloak.enabled
+  - name: postgresql
+    version: 12.12.10
     repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
     version: 17.9.2
-  - condition: rabbitmq.enabled
-    name: rabbitmq
     repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: rabbitmq
     version: 11.12.0
-description: Watkins Helm Chart
-name: watkins
+    repository: https://charts.bitnami.com/bitnami
+    condition: rabbitmq.enabled
 type: application
-version: 2.94.3
+version: 2.109.0
+appVersion: 8.101.0
