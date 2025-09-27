@@ -32,6 +32,7 @@ The following table lists the configurable parameters and their default values.
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `global.namespace` | Global namespace for all resources | `""` (uses Release.Namespace) |
+| `domain` | Base domain for Daytona services | `"daytona.example.com"` |
 
 ### Service-Specific Configuration
 
@@ -148,6 +149,34 @@ kubectl port-forward svc/daytona-keycloak 8082:80
 kubectl port-forward svc/daytona-pgadmin4 8083:80
 # Access: http://localhost:8083 (chart@domain.com / SuperSecret)
 ```
+
+## Runner Deployment
+
+After successfully deploying the Daytona platform, you can deploy runners on clean Linux hosts to execute AI workloads:
+
+### 1. Generate Admin API Key
+```bash
+# Generate an admin API key for runner registration
+kubectl exec $(kubectl get pods -l "app.kubernetes.io/name=daytona,app.kubernetes.io/component=api" -o jsonpath='{.items[0].metadata.name}') -- node dist/apps/api/main.js --create-admin-api-key "runner-admin-key" 2>/dev/null | grep "dtn"
+```
+
+### 2. Deploy Runner on Linux Host
+```bash
+# Download and run the runner installation script on your target Linux host
+curl -sSL https://download.daytona.io/install.sh | sudo bash
+```
+
+The installation script will prompt for:
+- **Daytona API URL**: `https://{{ .Values.domain }}/api` (or your custom domain)
+- **Admin API Key**: Use the key generated in step 1
+
+### 3. Runner Features
+- Automatic binary download and installation
+- System service configuration
+- Connection to Daytona API
+- AI workload execution capabilities
+- Resource monitoring and management
+
 ## Support
 
 For support and questions, please refer to the [Daytona documentation](https://docs.daytona.io) or open an issue in the [Daytona repository](https://github.com/daytonaio/daytona).

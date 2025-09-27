@@ -12,7 +12,7 @@ To install and register a Daytona Runner on your system, follow these steps:
 1. **Run the Runner Install Script**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/daytonaio/helm-charts/main/runner/install.sh | sudo bash
+curl -sSL https://download.daytona.io/install.sh | sudo bash
 ```
 
 The script will prompt you for:
@@ -34,15 +34,15 @@ The script will prompt you for:
 
 ## Managing the Runner Service
 
-- **Check status:**  
+- **Check status:**
 ```bash
 sudo systemctl status daytona-runner
 ```
-- **View logs:**  
+- **View logs:**
 ```bash
 sudo tail -f /var/log/daytona-runner.log
 ```
-- **Stop service:**  
+- **Stop service:**
 ```bash
 sudo systemctl stop daytona-runner
 ```
