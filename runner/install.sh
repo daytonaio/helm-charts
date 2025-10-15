@@ -37,7 +37,7 @@ log "Architecture check passed: $ARCH"
 
 # 2. Get Daytona API URL
 if [[ -z "$API_URL" ]]; then
-    read -p "Enter Daytona API URL: " API_URL < /dev/tty
+    read -p "Enter Daytona API URL (example: https://app.daytona.io): " API_URL
     if [[ -z "$API_URL" ]]; then
         error "API URL is required"
     fi
@@ -59,7 +59,7 @@ info "Fetching version information from API..."
 
 # Fetch config with proper error handling
 set +e  # Temporarily disable exit on error
-VERSION_RESPONSE=$(curl -s -f --max-time 10 -H "Authorization: Bearer $API_KEY" "$API_URL/config" 2>&1)
+CONFIG_RESPONSE=$(curl -s -f --max-time 10 -H "Authorization: Bearer $API_KEY" "$API_URL/api/config" 2>&1)
 CURL_EXIT_CODE=$?
 set -e  # Re-enable exit on error
 
@@ -70,20 +70,13 @@ if [ $CURL_EXIT_CODE -ne 0 ]; then
   - API Key is valid"
 fi
 
-# Extract version and SSH key
-VERSION=$(echo "$VERSION_RESPONSE" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
-SSH_GATEWAY_PUBLIC_KEY=$(echo "$VERSION_RESPONSE" | grep -o '"sshGatewayPublicKey":"[^"]*"' | cut -d'"' -f4)
+# Extract SSH key
+SSH_GATEWAY_PUBLIC_KEY=$(echo "$CONFIG_RESPONSE" | grep -o '"sshGatewayPublicKey":"[^"]*"' | cut -d'"' -f4)
 SSH_GATEWAY_ENABLE="true"
 
 if [[ -z "$SSH_GATEWAY_PUBLIC_KEY" ]]; then
     SSH_GATEWAY_ENABLE="false"
 fi
-
-if [[ -z "$VERSION" ]]; then
-    error "Could not extract version from API response"
-fi
-
-log "Retrieved version: $VERSION"
 
 # 5. Download runner binary
 RUNNER_DIR="/opt/daytona-runner"
@@ -104,7 +97,7 @@ if [ -f "$RUNNER_BINARY" ]; then
 fi
 
 if [ ! -f "$RUNNER_BINARY" ]; then
-    DOWNLOAD_URL="https://github.com/daytonaio/daytona/releases/download/$VERSION/runner-amd64"
+    DOWNLOAD_URL="$API_URL/runner-amd64"
 
     info "Creating runner directory: $RUNNER_DIR"
     sudo mkdir -p "$RUNNER_DIR"
@@ -308,7 +301,7 @@ REGISTRATION_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $API_KEY" \
     -d "$RUNNER_PAYLOAD" \
-    "$API_URL/runners")
+    "$API_URL/api/runners")
 
 # Extract HTTP status code (last line) and response body (everything else)
 HTTP_STATUS=$(echo "$REGISTRATION_RESPONSE" | tail -n1)
@@ -360,7 +353,7 @@ Environment=AWS_DEFAULT_BUCKET=${AWS_DEFAULT_BUCKET:-"daytona"}
 Environment=SSH_GATEWAY_ENABLE=${SSH_GATEWAY_ENABLE:-"false"}
 Environment=SSH_PUBLIC_KEY=$SSH_GATEWAY_PUBLIC_KEY
 Environment=SSH_HOST_KEY_PATH=${SSH_HOST_KEY_PATH:-"/etc/ssh/ssh_host_rsa_key"}
-Environment=SERVER_URL=$API_URL
+Environment=SERVER_URL=$API_URL/api
 Restart=on-failure
 RestartSec=5
 
