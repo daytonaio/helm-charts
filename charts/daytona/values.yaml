@@ -48,18 +48,6 @@ services:
       ENVIRONMENT: "production"
       PORT: "3000"
 
-      # Database configuration
-      DB_HOST: "daytona-postgresql"
-      DB_PORT: "5432"
-      DB_DATABASE: "daytona"
-      DB_USERNAME: "user"
-      # DB_PASSWORD: "" # Will be set from secret if not defined here
-
-      # Redis configuration
-      REDIS_HOST: "" # Will be auto-generated as {{ .Release.Name }}-redis-master
-      REDIS_PORT: "6379"
-      # REDIS_PASSWORD: "" # Will be set from secret if Redis auth enabled
-
       # OIDC configuration
       OIDC_CLIENT_ID: "daytona"
       OIDC_ISSUER_BASE_URL: "https://daytona.example.com/idp/realms/daytona"
@@ -71,7 +59,7 @@ services:
       OIDC_MANAGEMENT_API_AUDIENCE: ""
 
       # Workspace configuration
-      DEFAULT_SNAPSHOT: "ubuntu:22.04"
+      DEFAULT_SNAPSHOT: "daytonaio/sandbox:0.5.0"
       DASHBOARD_URL: "https://daytona.example.com/dashboard"
       DASHBOARD_BASE_API_URL: "https://daytona.example.com"
 
@@ -80,14 +68,15 @@ services:
       OTEL_COLLECTOR_URL: "http://daytona-jaeger:4318/v1/traces"
 
       # Registry configuration (Harbor)
-      TRANSIENT_REGISTRY_URL: "https://harbor.daytona.example.com"
-      TRANSIENT_REGISTRY_ADMIN: "admin"
-      TRANSIENT_REGISTRY_PASSWORD: "Harbor12345"
-      TRANSIENT_REGISTRY_PROJECT_ID: "daytona"
-      INTERNAL_REGISTRY_URL: "https://harbor.daytona.example.com"
-      INTERNAL_REGISTRY_ADMIN: "admin"
-      INTERNAL_REGISTRY_PASSWORD: "Harbor12345"
-      INTERNAL_REGISTRY_PROJECT_ID: "daytona"
+      # If Harbor is enabled, will use Harbor ingress URL and credentials
+      TRANSIENT_REGISTRY_URL: ""
+      TRANSIENT_REGISTRY_ADMIN: ""
+      TRANSIENT_REGISTRY_PASSWORD: ""
+      TRANSIENT_REGISTRY_PROJECT_ID: ""
+      INTERNAL_REGISTRY_URL: ""
+      INTERNAL_REGISTRY_ADMIN: ""
+      INTERNAL_REGISTRY_PASSWORD: ""
+      INTERNAL_REGISTRY_PROJECT_ID: ""
 
       # SMTP configuration
       SMTP_HOST: ""
@@ -188,8 +177,6 @@ services:
       PROXY_DOMAIN: proxy.daytona.example.com:80
       PROXY_API_KEY: "super_secret_key"
       PROXY_PROTOCOL: http
-      REDIS_HOST: "" # Will be auto-generated as {{ .Release.Name }}-redis-master
-      REDIS_PORT: "6379"
     # Resource limits and requests
     resources:
       limits:
@@ -215,7 +202,7 @@ services:
       annotations: {}
       name: ""
 
-  ssh-gateway:
+  sshGateway:
     enabled: true
     # Image configuration
     image:
@@ -266,6 +253,11 @@ services:
 
   jaeger:
     enabled: true
+    image:
+      registry: docker.io
+      repository: jaegertracing/all-in-one
+      tag: 1.67.0
+      pullPolicy: IfNotPresent
     # Service configuration
     service:
       type: ClusterIP
@@ -312,14 +304,32 @@ securityContext:
   runAsNonRoot: false
   runAsUser: 0
 
-# Database configuration
-database:
+## Daytona External Database Configuration
+## All of these values are only used if `postgresql.enabled=false`
+externalDatabase:
   host: "daytona-postgresql"
   port: 5432
   name: "daytona"
   user: "user"
+  # Enable TLS/SSL for database connection
+  enableTLS: true
+  # Allow self-signed or internal certificates
+  allowSelfSignedCert: true
+  # Ignored if existingSecret is provided
   password: "pass"
-  sslMode: "disable"
+  # If existingSecret is provided, it should contain key: database-password
+  existingSecret: ""
+
+# External Redis Configuration
+# All of these values are only used if `redis.enabled=false`
+externalRedis:
+  host: "daytona-redis-master"
+  port: 6379
+  tls: false
+  # Ignored if existingSecret is provided
+  password: ""
+  # If existingSecret is provided, it should contain key: redis-password
+  existingSecret: ""
 
 # Redis configuration
 redis:
@@ -383,8 +393,130 @@ harbor:
         nginx.ingress.kubernetes.io/proxy-body-size: "0"
       hosts:
         core: "harbor.daytona.example.com"
-  externalURL: "https://harbor.daytona.example.com"
+  existingSecretAdminPassword: ""
+  existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
   harborAdminPassword: "Harbor12345"
+  externalURL: "https://harbor.daytona.example.com"
+  # The persistence is enabled by default and a default StorageClass
+# is needed in the k8s cluster to provision volumes dynamically.
+# Specify another StorageClass in the "storageClass" or set "existingClaim"
+# if you already have existing persistent volumes to use
+#
+# For storing images and charts, you can also use "azure", "gcs", "s3",
+# "swift" or "oss". Set it in the "imageChartStorage" section
+persistence:
+  enabled: true
+  # Setting it to "keep" to avoid removing PVCs during a helm delete
+  # operation. Leaving it empty will delete PVCs after the chart deleted
+  # (this does not apply for PVCs that are created for internal database
+  # and redis components, i.e. they are never deleted automatically)
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      # Use the existing PVC which must be created manually before bound,
+      # and specify the "subPath" if the PVC is shared with other components
+      existingClaim: ""
+      # Specify the "storageClass" used to provision the volume. Or the default
+      # StorageClass will be used (the default).
+      # Set it to "-" to disable dynamic provisioning
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      annotations: {}
+    jobservice:
+      jobLog:
+        existingClaim: ""
+        storageClass: ""
+        subPath: ""
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        annotations: {}
+    # If external database is used, the following settings for database will
+    # be ignored
+    database:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      annotations: {}
+    # If external Redis is used, the following settings for Redis will
+    # be ignored
+    redis:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 1Gi
+      annotations: {}
+    trivy:
+      existingClaim: ""
+      storageClass: ""
+      subPath: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      annotations: {}
+  # Define which storage backend is used for registry to store
+  # images and charts. Refer to
+  # https://github.com/distribution/distribution/blob/release/2.8/docs/configuration.md#storage
+  # for the detail.
+  imageChartStorage:
+    # Specify whether to disable `redirect` for images and chart storage, for
+    # backends which not supported it (such as using minio for `s3` storage type), please disable
+    # it. To disable redirects, simply set `disableredirect` to `true` instead.
+    # Refer to
+    # https://github.com/distribution/distribution/blob/release/2.8/docs/configuration.md#redirect
+    # for the detail.
+    disableredirect: false
+    # Specify the "caBundleSecretName" if the storage service uses a self-signed certificate.
+    # The secret must contain keys named "ca.crt" which will be injected into the trust store
+    # of registry's containers.
+    # caBundleSecretName:
+
+    # Specify the type of storage: "filesystem", "azure", "gcs", "s3", "swift",
+    # "oss" and fill the information needed in the corresponding section. The type
+    # must be "filesystem" if you want to use persistent volumes for registry
+    type: filesystem
+    filesystem:
+      rootdirectory: /storage
+      #maxthreads: 100
+    azure:
+      accountname: accountname
+      accountkey: base64encodedaccountkey
+      container: containername
+      #realm: core.windows.net
+      # To use existing secret, the key must be AZURE_STORAGE_ACCESS_KEY
+      existingSecret: ""
+    gcs:
+      bucket: bucketname
+      # The base64 encoded json file which contains the key
+      encodedkey: base64-encoded-json-key-file
+      #rootdirectory: /gcs/object/name/prefix
+      #chunksize: "5242880"
+      # To use existing secret, the key must be GCS_KEY_DATA
+      existingSecret: ""
+      useWorkloadIdentity: false
+    s3:
+      # Set an existing secret for S3 accesskey and secretkey
+      # keys in the secret should be REGISTRY_STORAGE_S3_ACCESSKEY and REGISTRY_STORAGE_S3_SECRETKEY for registry
+      #existingSecret: ""
+      region: us-west-1
+      bucket: bucketname
+      #accesskey: awsaccesskey
+      #secretkey: awssecretkey
+      #regionendpoint: http://myobjects.local
+      #encrypt: false
+      #keyid: mykeyid
+      #secure: true
+      #skipverify: false
+      #v4auth: true
+      #chunksize: "5242880"
+      #rootdirectory: /s3/object/name/prefix
+      #storageclass: STANDARD
+      #multipartcopychunksize: "33554432"
+      #multipartcopymaxconcurrency: 100
+      #multipartcopythresholdsize: "33554432"
   trivy:
     enabled: false
   database:
@@ -426,19 +558,24 @@ minio:
     type: ClusterIP
     port: 9001
 
-# Jaeger configuration
-jaeger:
-  enabled: true
-
 # Keycloak subchart configuration
 keycloak:
   enabled: true
   #nameOverride: "watkins-keycloak"
-
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/keycloak
+    tag: 26.3.3-debian-12-r0
   keycloakConfigCli:
     enabled: true
     existingConfigmap: daytona-keycloak-realm-config
-
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/keycloak-config-cli
+      tag: 6.4.0-debian-12-r11
   production: true
   proxyHeaders: "xforwarded"
   httpRelativePath: /idp/
@@ -464,11 +601,25 @@ keycloak:
 
   postgresql:
     enabled: true
+    global:
+      security:
+        allowInsecureImages: true
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/postgresql
+      tag: 17.6.0-debian-12-r0
     nameOverride: "keycloak-postgresql"
 
 # PostgreSQL subchart
 postgresql:
   enabled: true
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: 17.6.0-debian-12-r0
   auth:
     postgresPassword: "pass"
     username: "user"

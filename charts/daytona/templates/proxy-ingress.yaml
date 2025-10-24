@@ -8,7 +8,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}-proxy
-  namespace: "{{ include "daytona.namespace" . }}"
+  namespace: {{ include "daytona.namespace" . }}
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: proxy
