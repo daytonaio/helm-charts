@@ -434,11 +434,20 @@ jaeger:
 keycloak:
   enabled: true
   #nameOverride: "watkins-keycloak"
-
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/keycloak
+    tag: 26.3.3-debian-12-r0
   keycloakConfigCli:
     enabled: true
     existingConfigmap: daytona-keycloak-realm-config
-
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/keycloak-config-cli
+      tag: 6.4.0-debian-12-r11
   production: true
   proxyHeaders: "xforwarded"
   httpRelativePath: /idp/
@@ -464,11 +473,25 @@ keycloak:
 
   postgresql:
     enabled: true
+    global:
+      security:
+        allowInsecureImages: true
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/postgresql
+      tag: 17.6.0-debian-12-r0
     nameOverride: "keycloak-postgresql"
 
 # PostgreSQL subchart
 postgresql:
   enabled: true
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: 17.6.0-debian-12-r0
   auth:
     postgresPassword: "pass"
     username: "user"
