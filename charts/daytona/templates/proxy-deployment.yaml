@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: "{{ include "daytona.namespace" . }}"
+  namespace: {{ include "daytona.namespace" . }}
   name: {{ include "daytona.fullname" . }}-proxy
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
@@ -37,7 +37,7 @@ spec:
         - name: proxy
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.services.proxy.image.registry }}/{{ .Values.services.proxy.image.repository }}:{{ .Values.services.proxy.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.proxy.image.registry) }}/{{ .Values.services.proxy.image.repository }}:{{ .Values.services.proxy.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.services.proxy.image.pullPolicy }}
           ports:
             - name: http
@@ -45,22 +45,53 @@ spec:
               protocol: TCP
           env:
             {{- range $key, $value := .Values.services.proxy.env }}
-            {{- if and (eq $key "REDIS_HOST") (eq $value "") }}
-            {{- else }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-            {{- end }}
-            {{- if eq .Values.services.proxy.env.REDIS_HOST "" }}
+            # Redis configuration
+            {{- if .Values.redis.enabled }}
+            # Internal Redis (subchart)
             - name: REDIS_HOST
               value: {{ printf "%s-redis-master" .Release.Name | quote }}
-            {{- end }}
+            - name: REDIS_PORT
+              value: "6379"
             {{- if .Values.redis.auth.enabled }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ printf "%s-redis" .Release.Name }}
                   key: redis-password
+            {{- else }}
+            - name: REDIS_PASSWORD
+              value: ""
+            {{- end }}
+
+            {{- else }}
+            # External Redis
+            - name: REDIS_HOST
+              value: {{ .Values.externalRedis.host | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.externalRedis.port | quote }}
+            - name: REDIS_TLS
+              value: {{ .Values.externalRedis.tls | quote }}
+            {{- if .Values.externalRedis.existingSecret }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalRedis.existingSecret | quote }}
+                  key: redis-password
+            {{- else if and .Values.externalRedis.password (ne .Values.externalRedis.password "") }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.secretName" . }}-redis
+                  key: redis-password
+            {{- else }}
+            - name: REDIS_PASSWORD
+              value: ""
+            {{- end }}
+            - name: REDIS_TLS
+              value: "false"
             {{- end }}
             - name: DAYTONA_API_URL
               value: http://{{ include "daytona.fullname" . }}-api:{{ .Values.services.api.env.PORT }}/api

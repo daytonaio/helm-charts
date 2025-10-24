@@ -2,8 +2,8 @@ apiVersion: v2
 name: daytona
 description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
 type: application
-version: 0.0.5
-appVersion: "v0.111.0-rc.3"
+version: 0.0.7
+appVersion: "v0.113.0-rc.1"
 keywords:
   - ai
   - infrastructure
@@ -32,7 +32,7 @@ dependencies:
   - name: pgadmin4
     version: "1.50.0"
     repository: "https://helm.runix.net/"
-    condition: pgadmin.enabled
+    condition: pgadmin4.enabled
   - name: harbor
     version: "1.18.0"
     repository: "https://helm.goharbor.io"

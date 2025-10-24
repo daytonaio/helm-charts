@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: "{{ include "daytona.namespace" . }}"
+  namespace: {{ include "daytona.namespace" . }}
   name: {{ include "daytona.fullname" . }}-api
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
@@ -38,7 +38,7 @@ spec:
           securityContext:
             privileged: true
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.services.api.image.registry }}/{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.api.image.registry) }}/{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.services.api.image.pullPolicy }}
           ports:
             - name: http
@@ -46,30 +46,95 @@ spec:
               protocol: TCP
           env:
             {{- range $key, $value := .Values.services.api.env }}
-            {{- if and (eq $key "REDIS_HOST") (eq $value "") }}
-            {{- else if eq $key "DB_PASSWORD" }}
-            {{- else }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            # Database configuration
+            {{- if .Values.postgresql.enabled }}
+            - name: DB_HOST
+              value: {{ printf "%s-postgresql" .Release.Name | quote }}
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_DATABASE
+              value: {{ .Values.postgresql.auth.database | default "daytona" | quote }}
+            - name: DB_USERNAME
+              value: {{ .Values.postgresql.auth.username | default "user" | quote }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-postgresql" .Release.Name }}
+                  key: password
+            {{- else }}
+            # External database
+            - name: DB_HOST
+              value: {{ .Values.externalDatabase.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.externalDatabase.port | quote }}
+            - name: DB_TLS_ENABLED
+              value: {{ .Values.externalDatabase.enableTLS | quote }}
+            - name: DB_TLS_REJECT_UNAUTHORIZED
+              value: {{ not .Values.externalDatabase.allowSelfSignedCert | quote }}
+            - name: DB_DATABASE
+              value: {{ .Values.externalDatabase.name | quote }}
+            - name: DB_USERNAME
+              value: {{ .Values.externalDatabase.user | quote }}
+            {{- if .Values.externalDatabase.existingSecret }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalDatabase.existingSecret | quote }}
+                  key: database-password
+            {{- else }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.secretName" . }}-db
+                  key: database-password
             {{- end }}
-            {{- if eq .Values.services.api.env.REDIS_HOST "" }}
+            {{- end }}
+            # Redis configuration
+            {{- if .Values.redis.enabled }}
+            # Internal Redis (subchart)
             - name: REDIS_HOST
               value: {{ printf "%s-redis-master" .Release.Name | quote }}
-            {{- end }}
+            - name: REDIS_PORT
+              value: "6379"
             {{- if .Values.redis.auth.enabled }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ printf "%s-redis" .Release.Name }}
                   key: redis-password
+            {{- else }}
+            - name: REDIS_PASSWORD
+              value: ""
             {{- end }}
-            {{- if not (hasKey .Values.services.api.env "DB_PASSWORD") }}
-            - name: DB_PASSWORD
+            {{- else }}
+            # External Redis
+            - name: REDIS_HOST
+              value: {{ .Values.externalRedis.host | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.externalRedis.port | quote }}
+            - name: REDIS_TLS
+              value: {{ .Values.externalRedis.tls | quote }}
+            {{- if .Values.externalRedis.existingSecret }}
+            - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "daytona.secretName" . }}
-                  key: database-password
+                  name: {{ .Values.externalRedis.existingSecret | quote }}
+                  key: redis-password
+            {{- else if and .Values.externalRedis.password (ne .Values.externalRedis.password "") }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.secretName" . }}-redis
+                  key: redis-password
+            {{- else }}
+            - name: REDIS_PASSWORD
+              value: ""
+            {{- end }}
+            - name: REDIS_TLS
+              value: "false"
             {{- end }}
             - name: PROXY_DOMAIN
               value: {{ .Values.services.proxy.env.PROXY_DOMAIN | quote }}
@@ -80,7 +145,7 @@ spec:
             - name: PROXY_TEMPLATE_URL
               value: "{{ .Values.services.proxy.env.PROXY_PROTOCOL }}://{{`{{PORT}}`}}-{{`{{sandboxId}}`}}.{{ .Values.services.proxy.env.PROXY_DOMAIN }}"
             - name: SSH_GATEWAY_COMMAND
-              value: "ssh -p {{ (index .Values.services "ssh-gateway").env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ (index .Values.services "ssh-gateway").env.SSH_GATEWAY_HOST }}"
+              value: "ssh -p {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}"
             - name: SSH_GATEWAY_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
@@ -91,6 +156,42 @@ spec:
                 secretKeyRef:
                   name: {{ include "daytona.secretName" . }}-ssh
                   key: API_KEY
+            # Harbor Registry Configuration
+            {{- if .Values.harbor.enabled }}
+            # Use Harbor configuration (overrides any values from services.api.env)
+            - name: TRANSIENT_REGISTRY_URL
+              value: {{ .Values.harbor.externalURL | quote }}
+            - name: TRANSIENT_REGISTRY_ADMIN
+              value: "admin"
+            {{- if .Values.harbor.existingSecretAdminPassword }}
+            - name: TRANSIENT_REGISTRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harbor.existingSecretAdminPassword | quote }}
+                  key: {{ .Values.harbor.existingSecretAdminPasswordKey | default "HARBOR_ADMIN_PASSWORD" | quote }}
+            {{- else }}
+            - name: TRANSIENT_REGISTRY_PASSWORD
+              value: {{ .Values.harbor.harborAdminPassword | quote }}
+            {{- end }}
+            - name: TRANSIENT_REGISTRY_PROJECT_ID
+              value: "library"
+            - name: INTERNAL_REGISTRY_URL
+              value: {{ .Values.harbor.externalURL | quote }}
+            - name: INTERNAL_REGISTRY_ADMIN
+              value: "admin"
+            {{- if .Values.harbor.existingSecretAdminPassword }}
+            - name: INTERNAL_REGISTRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harbor.existingSecretAdminPassword | quote }}
+                  key: {{ .Values.harbor.existingSecretAdminPasswordKey | default "HARBOR_ADMIN_PASSWORD" | quote }}
+            {{- else }}
+            - name: INTERNAL_REGISTRY_PASSWORD
+              value: {{ .Values.harbor.harborAdminPassword | quote }}
+            {{- end }}
+            - name: INTERNAL_REGISTRY_PROJECT_ID
+              value: "library"
+            {{- end }}
           resources:
             {{- toYaml .Values.services.api.resources | nindent 12 }}
           volumeMounts:

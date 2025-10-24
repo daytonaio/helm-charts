@@ -1,4 +1,4 @@
-{{- if (index .Values.services "ssh-gateway").enabled }}
+{{- if .Values.services.sshGateway.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,19 +7,19 @@ metadata:
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: ssh-gateway
-  {{- with (index .Values.services "ssh-gateway").annotations }}
+  {{- with .Values.services.sshGateway.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ (index .Values.services "ssh-gateway").replicaCount }}
+  replicas: {{ .Values.services.sshGateway.replicaCount }}
   selector:
     matchLabels:
       {{- include "daytona.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: ssh-gateway
   template:
     metadata:
-      {{- with (index .Values.services "ssh-gateway").podAnnotations }}
+      {{- with .Values.services.sshGateway.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -31,21 +31,21 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "ssh-gateway" "Chart" .Chart "Release" .Release) }}
+      serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "sshGateway" "Chart" .Chart "Release" .Release) }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: ssh-gateway
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ (index .Values.services "ssh-gateway").image.registry }}/{{ (index .Values.services "ssh-gateway").image.repository }}:{{ (index .Values.services "ssh-gateway").image.tag | default .Chart.AppVersion }}
-          imagePullPolicy: {{ (index .Values.services "ssh-gateway").image.pullPolicy }}
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.sshGateway.image.registry) }}/{{ .Values.services.sshGateway.image.repository }}:{{ .Values.services.sshGateway.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.sshGateway.image.pullPolicy }}
           ports:
             - name: ssh
               containerPort: 2222
               protocol: TCP
           env:
-            {{- range $key, $value := (index .Values.services "ssh-gateway").env }}
+            {{- range $key, $value := .Values.services.sshGateway.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
@@ -55,16 +55,16 @@ spec:
             - secretRef:
                 name: {{ include "daytona.secretName" . }}-ssh
           resources:
-            {{- toYaml (index .Values.services "ssh-gateway").resources | nindent 12 }}
-      {{- with (index .Values.services "ssh-gateway").nodeSelector | default .Values.nodeSelector }}
+            {{- toYaml .Values.services.sshGateway.resources | nindent 12 }}
+      {{- with .Values.services.sshGateway.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with (index .Values.services "ssh-gateway").affinity | default .Values.affinity }}
+      {{- with .Values.services.sshGateway.affinity | default .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with (index .Values.services "ssh-gateway").tolerations | default .Values.tolerations }}
+      {{- with .Values.services.sshGateway.tolerations | default .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

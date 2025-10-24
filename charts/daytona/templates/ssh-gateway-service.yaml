@@ -1,4 +1,4 @@
-{{- if (index .Values.services "ssh-gateway").enabled }}
+{{- if .Values.services.sshGateway.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,14 +7,14 @@ metadata:
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: ssh-gateway
-  {{- with (index .Values.services "ssh-gateway").service.annotations }}
+  {{- with .Values.services.sshGateway.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  type: {{ (index .Values.services "ssh-gateway").service.type }}
+  type: {{ .Values.services.sshGateway.service.type }}
   ports:
-    - port: {{ (index .Values.services "ssh-gateway").service.port }}
+    - port: {{ .Values.services.sshGateway.service.port }}
       targetPort: ssh
       protocol: TCP
       name: ssh
