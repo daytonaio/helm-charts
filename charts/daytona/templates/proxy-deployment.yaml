@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: "{{ include "daytona.namespace" . }}"
+  namespace: {{ include "daytona.namespace" . }}
   name: {{ include "daytona.fullname" . }}-proxy
   labels:
     {{- include "daytona.labels" . | nindent 4 }}

@@ -71,7 +71,7 @@ services:
       OIDC_MANAGEMENT_API_AUDIENCE: ""
 
       # Workspace configuration
-      DEFAULT_SNAPSHOT: "ubuntu:22.04"
+      DEFAULT_SNAPSHOT: "daytonaio/sandbox:0.5.0"
       DASHBOARD_URL: "https://daytona.example.com/dashboard"
       DASHBOARD_BASE_API_URL: "https://daytona.example.com"
 
@@ -215,7 +215,7 @@ services:
       annotations: {}
       name: ""
 
-  ssh-gateway:
+  sshGateway:
     enabled: true
     # Image configuration
     image:

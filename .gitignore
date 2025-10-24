@@ -79,8 +79,6 @@ dev-values.yaml
 dev-values.yml
 
 # Secrets and sensitive files
-secrets.yaml
-secrets.yml
 *.secret
 *.key
 *.pem
@@ -103,8 +101,6 @@ temp-charts/
 tmp/
 
 # Values files with sensitive data
-*secret*.yaml
-*secret*.yml
 *password*.yaml
 *password*.yml
 *credential*.yaml

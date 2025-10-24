@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: "{{ include "daytona.namespace" . }}"
+  namespace: {{ include "daytona.namespace" . }}
   name: {{ include "daytona.fullname" . }}-api
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
@@ -80,7 +80,7 @@ spec:
             - name: PROXY_TEMPLATE_URL
               value: "{{ .Values.services.proxy.env.PROXY_PROTOCOL }}://{{`{{PORT}}`}}-{{`{{sandboxId}}`}}.{{ .Values.services.proxy.env.PROXY_DOMAIN }}"
             - name: SSH_GATEWAY_COMMAND
-              value: "ssh -p {{ (index .Values.services "ssh-gateway").env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ (index .Values.services "ssh-gateway").env.SSH_GATEWAY_HOST }}"
+              value: "ssh -p {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}"
             - name: SSH_GATEWAY_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:

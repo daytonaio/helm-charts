@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: "{{ include "daytona.namespace" . }}"
+  namespace: {{ include "daytona.namespace" . }}
   name: {{ include "daytona.fullname" . }}-jaeger
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
