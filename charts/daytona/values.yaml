@@ -266,6 +266,11 @@ services:
 
   jaeger:
     enabled: true
+    image:
+      registry: docker.io
+      repository: jaegertracing/all-in-one
+      tag: 1.67.0
+      pullPolicy: IfNotPresent
     # Service configuration
     service:
       type: ClusterIP
