@@ -10,12 +10,11 @@ global:
   namespace: "" # If not set, will default to Release.Namespace
 
 # Base domain Daytona
-domain: "daytona.example.com"
+baseDomain: "daytona.example.com"
 
 # Service-specific configurations
 services:
   api:
-    enabled: true
     # Image configuration
     image:
       registry: docker.io
@@ -31,17 +30,42 @@ services:
     ingress:
       enabled: true
       className: "nginx"
-      annotations:
-        nginx.ingress.kubernetes.io/ssl-redirect: "true"
-      hosts:
-        - host: "daytona.example.com"
-          paths:
-            - path: /
-              pathType: Prefix
-      tls:
-        - hosts:
-            - "daytona.example.com"
-          secretName: "daytona.example.com-tls"
+      annotations: {}
+        # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      # If not set, defaults to .Values.baseDomain
+      hostname: ""
+      path: "/"
+      pathType: "Prefix"
+      # Additional hosts to be added to the ingress record
+      extraHosts: []
+      # Additional paths to be added to the ingress under the main host
+      extraPaths: []
+      # Additional TLS configuration for additional hostnames
+      extraTls: []
+      # Additional ingress rules
+      extraRules: []
+      # Enable TLS
+      tls: true
+      # Enable self-signed certificates
+      selfSigned: true
+      # Custom TLS certificates as secrets
+      # NOTE: 'key' and 'certificate' are expected in PEM format
+      # NOTE: 'name' should match the secretName used in ingress TLS configuration
+      # If it is not set and you're using cert-manager, this is unneeded, as it will create a secret for you with valid certificates
+      # If it is not set and you're NOT using cert-manager either, set selfSigned: true to generate self-signed certificates
+      # It is also possible to create and manage the certificates outside of this helm chart
+      # e.g:
+      # secrets:
+      #   - name: daytona.example.com-tls
+      #     key: |-
+      #       -----BEGIN RSA PRIVATE KEY-----
+      #       ...
+      #       -----END RSA PRIVATE KEY-----
+      #     certificate: |-
+      #       -----BEGIN CERTIFICATE-----
+      #       ...
+      #       -----END CERTIFICATE-----
+      secrets: []
     # Environment variables (can be overridden via Helm values)
     env:
       # Application configuration
@@ -50,8 +74,10 @@ services:
 
       # OIDC configuration
       OIDC_CLIENT_ID: "daytona"
-      OIDC_ISSUER_BASE_URL: "https://daytona.example.com/idp/realms/daytona"
-      PUBLIC_OIDC_DOMAIN: "https://daytona.example.com/idp/realms/daytona"
+      # Auto-generated as "https://{{.Values.baseDomain}}/idp/realms/daytona" if not set or empty
+      OIDC_ISSUER_BASE_URL: ""
+      # Auto-generated as "https://{{.Values.baseDomain}}/idp/realms/daytona" if not set or empty
+      PUBLIC_OIDC_DOMAIN: ""
       OIDC_AUDIENCE: "daytona"
       OIDC_MANAGEMENT_API_ENABLED: "false"
       OIDC_MANAGEMENT_API_CLIENT_ID: ""
@@ -60,23 +86,21 @@ services:
 
       # Workspace configuration
       DEFAULT_SNAPSHOT: "daytonaio/sandbox:0.5.0"
-      DASHBOARD_URL: "https://daytona.example.com/dashboard"
-      DASHBOARD_BASE_API_URL: "https://daytona.example.com"
-
-      # OTEL configuration
-      OTEL_ENABLED: "true"
-      OTEL_COLLECTOR_URL: "http://daytona-jaeger:4318/v1/traces"
+      # Auto-generated as "https://{{.Values.baseDomain}}/dashboard" if not set or empty
+      DASHBOARD_URL: ""
+      # Auto-generated as "https://{{.Values.baseDomain}}" if not set or empty
+      DASHBOARD_BASE_API_URL: ""
 
       # Registry configuration (Harbor)
-      # If Harbor is enabled, will use Harbor ingress URL and credentials
-      TRANSIENT_REGISTRY_URL: ""
-      TRANSIENT_REGISTRY_ADMIN: ""
-      TRANSIENT_REGISTRY_PASSWORD: ""
-      TRANSIENT_REGISTRY_PROJECT_ID: ""
-      INTERNAL_REGISTRY_URL: ""
-      INTERNAL_REGISTRY_ADMIN: ""
-      INTERNAL_REGISTRY_PASSWORD: ""
-      INTERNAL_REGISTRY_PROJECT_ID: ""
+      # If Harbor is enabled, will use Harbor ingress URL and credentials. If external registry is use, then disable Harbor in this chart and set the external registry URL and credentials here.
+      # TRANSIENT_REGISTRY_URL: ""
+      # TRANSIENT_REGISTRY_ADMIN: ""
+      # TRANSIENT_REGISTRY_PASSWORD: ""
+      # TRANSIENT_REGISTRY_PROJECT_ID: ""
+      # INTERNAL_REGISTRY_URL: ""
+      # INTERNAL_REGISTRY_ADMIN: ""
+      # INTERNAL_REGISTRY_PASSWORD: ""
+      # INTERNAL_REGISTRY_PROJECT_ID: ""
 
       # SMTP configuration
       SMTP_HOST: ""
@@ -87,11 +111,12 @@ services:
       SMTP_EMAIL_FROM: ""
 
       # S3 configuration
-      S3_ENDPOINT: "http://daytona-minio:9000"
-      S3_STS_ENDPOINT: "http://daytona-minio:9000/minio/v1/assume-role"
-      S3_REGION: "us-east-1"
-      S3_ACCESS_KEY: "minioadmin"
-      S3_SECRET_KEY: "minioadmin"
+      # If MinIO is enabled, will use MinIO service URL and credentials.  If external S3 storage is used, then disable MinIO in this chart and set the external S3 storage URL and credentials here.
+      # S3_ENDPOINT: ""
+      # S3_STS_ENDPOINT: ""
+      # S3_REGION: "us-east-1"
+      # S3_ACCESS_KEY: ""
+      # S3_SECRET_KEY: ""
 
       # Runner configuration
       DEFAULT_RUNNER_DOMAIN: ""
@@ -106,6 +131,25 @@ services:
       DEFAULT_RUNNER_CAPACITY: "100"
       DEFAULT_RUNNER_REGION: "us"
       DEFAULT_RUNNER_CLASS: "small"
+
+    # Extra environment variables (for valueFrom or additional custom vars)
+    # Use this for environment variables that need valueFrom (secretKeyRef, configMapKeyRef)
+    # or additional custom environment variables beyond the standard env section
+    # Example:
+    # extraEnv:
+    #   - name: CUSTOM_SECRET
+    #     valueFrom:
+    #       secretKeyRef:
+    #         name: my-secret
+    #         key: my-key
+    #   - name: CUSTOM_CONFIGMAP
+    #     valueFrom:
+    #       configMapKeyRef:
+    #         name: my-configmap
+    #         key: my-key
+    #   - name: CUSTOM_VALUE
+    #     value: "custom-value"
+    extraEnv: []
 
     # Resource limits and requests
     resources:
@@ -133,7 +177,6 @@ services:
       name: ""
 
   proxy:
-    enabled: true
     # Image configuration
     image:
       registry: docker.io
@@ -146,35 +189,64 @@ services:
       port: 4000
       annotations: {}
     # Ingress configuration
+    # NOTE: Proxy ingress automatically includes a wildcard host (*.hostname) to support
+    # unique subdomains per sandbox workspace. Each workspace requires its own subdomain,
+    # so the wildcard pattern is hardcoded in the template (e.g., *.proxy.daytona.example.com).
     ingress:
       enabled: true
       className: "nginx"
-      annotations:
-        nginx.ingress.kubernetes.io/ssl-redirect: "true"
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      hosts:
-        - host: "proxy.daytona.example.com"
-          paths:
-            - path: /
-              pathType: Prefix
-        - host: "*.proxy.daytona.example.com"
-          paths:
-            - path: /
-              pathType: Prefix
-      tls:
-        - hosts:
-            - "proxy.daytona.example.com"
-            - "*.proxy.daytona.example.com"
-          secretName: "daytona.example.com-tls"
+      annotations: {}
+        #nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        #nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        #nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      # If not set, defaults to "proxy.{{.Values.baseDomain}}"
+      # Wildcard host (*.hostname) is automatically added for sandbox subdomains
+      hostname: ""
+      path: "/"
+      pathType: "Prefix"
+      # Additional hosts to be added to the ingress record
+      # NOTE: Wildcard host (*.hostname) is already hardcoded in the template, no need to add it here
+      extraHosts: []
+      # Additional paths to be added to the ingress under the main host
+      extraPaths: []
+      # Additional TLS configuration for additional hostnames
+      extraTls: []
+      # Additional ingress rules
+      extraRules: []
+      # Enable TLS
+      tls: true
+      # Enable self-signed certificates
+      selfSigned: false
+      # Custom TLS certificates as secrets
+      # NOTE: 'key' and 'certificate' are expected in PEM format
+      # NOTE: 'name' should match the secretName used in ingress TLS configuration
+      # NOTE: For proxy ingress, the certificate MUST include both the domain and its wildcard (*.domain) in the Subject Alternative Names (SAN)
+      #       since the ingress template automatically adds both hostname and *.hostname rules
+      # If it is not set and you're using cert-manager, this is unneeded, as it will create a secret for you with valid certificates
+      # If it is not set and you're NOT using cert-manager either, set selfSigned: true to generate self-signed certificates (includes wildcard)
+      # It is also possible to create and manage the certificates outside of this helm chart
+      # e.g:
+      # secrets:
+      #   - name: proxy.daytona.example.com-tls
+      #     key: |-
+      #       -----BEGIN RSA PRIVATE KEY-----
+      #       ...
+      #       -----END RSA PRIVATE KEY-----
+      #     certificate: |-
+      #       -----BEGIN CERTIFICATE-----
+      #       ...
+      #       -----END CERTIFICATE-----
+      secrets: []
     # Environment variables
     env:
       OIDC_CLIENT_ID: "daytona"
       OIDC_CLIENT_SECRET: ""
-      OIDC_DOMAIN: "https://daytona.example.com/idp/realms/daytona"
+      # Auto-generated as "https://{{.Values.baseDomain}}/idp/realms/daytona" if not set or empty
+      OIDC_DOMAIN: ""
       OIDC_AUDIENCE: "daytona"
       PROXY_PORT: 80
-      PROXY_DOMAIN: proxy.daytona.example.com:80
+      # Auto-generated as "proxy.{{.Values.baseDomain}}:{{PROXY_PORT}}" if not set or empty
+      PROXY_DOMAIN: ""
       PROXY_API_KEY: "super_secret_key"
       PROXY_PROTOCOL: http
     # Resource limits and requests
@@ -224,7 +296,8 @@ services:
       privGatewaySSHKey: ""
     env:
       SSH_GATEWAY_PORT: "2222"
-      SSH_GATEWAY_HOST: "ssh.daytona.example.com"
+      # Auto-generated as "ssh.{{.Values.baseDomain}}" if not set or empty
+      SSH_GATEWAY_HOST: ""
     # Resource limits and requests
     resources:
       limits:
@@ -250,37 +323,6 @@ services:
       create: true
       annotations: {}
       name: ""
-
-  jaeger:
-    enabled: true
-    image:
-      registry: docker.io
-      repository: jaegertracing/all-in-one
-      tag: 1.67.0
-      pullPolicy: IfNotPresent
-    # Service configuration
-    service:
-      type: ClusterIP
-      port: 4318
-    # Resource limits and requests
-    resources:
-      limits:
-        memory: 256Mi
-      requests:
-        cpu: 10m
-        memory: 64Mi
-    # Node selector
-    nodeSelector: {}
-    # Tolerations
-    tolerations: []
-    # Affinity
-    affinity: {}
-    # Annotations
-    annotations: {}
-    # Pod annotations
-    podAnnotations: {}
-    # Replica count
-    replicaCount: 1
 
 # Global node selector (fallback)
 nodeSelector: {}
@@ -398,139 +440,131 @@ harbor:
   harborAdminPassword: "Harbor12345"
   externalURL: "https://harbor.daytona.example.com"
   # The persistence is enabled by default and a default StorageClass
-# is needed in the k8s cluster to provision volumes dynamically.
-# Specify another StorageClass in the "storageClass" or set "existingClaim"
-# if you already have existing persistent volumes to use
-#
-# For storing images and charts, you can also use "azure", "gcs", "s3",
-# "swift" or "oss". Set it in the "imageChartStorage" section
-persistence:
-  enabled: true
-  # Setting it to "keep" to avoid removing PVCs during a helm delete
-  # operation. Leaving it empty will delete PVCs after the chart deleted
-  # (this does not apply for PVCs that are created for internal database
-  # and redis components, i.e. they are never deleted automatically)
-  resourcePolicy: "keep"
-  persistentVolumeClaim:
-    registry:
-      # Use the existing PVC which must be created manually before bound,
-      # and specify the "subPath" if the PVC is shared with other components
-      existingClaim: ""
-      # Specify the "storageClass" used to provision the volume. Or the default
-      # StorageClass will be used (the default).
-      # Set it to "-" to disable dynamic provisioning
-      storageClass: ""
-      subPath: ""
-      accessMode: ReadWriteOnce
-      size: 5Gi
-      annotations: {}
-    jobservice:
-      jobLog:
+  # is needed in the k8s cluster to provision volumes dynamically.
+  # Specify another StorageClass in the "storageClass" or set "existingClaim"
+  # if you already have existing persistent volumes to use
+  #
+  # For storing images and charts, you can also use "azure", "gcs", "s3",
+  # "swift" or "oss". Set it in the "imageChartStorage" section
+  persistence:
+    enabled: true
+    # Setting it to "keep" to avoid removing PVCs during a helm delete
+    # operation. Leaving it empty will delete PVCs after the chart deleted
+    # (this does not apply for PVCs that are created for internal database
+    # and redis components, i.e. they are never deleted automatically)
+    resourcePolicy: "keep"
+    persistentVolumeClaim:
+      registry:
+        # Use the existing PVC which must be created manually before bound,
+        # and specify the "subPath" if the PVC is shared with other components
+        existingClaim: ""
+        # Specify the "storageClass" used to provision the volume. Or the default
+        # StorageClass will be used (the default).
+        # Set it to "-" to disable dynamic provisioning
+        storageClass: ""
+        subPath: ""
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        annotations: {}
+      jobservice:
+        jobLog:
+          existingClaim: ""
+          storageClass: ""
+          subPath: ""
+          accessMode: ReadWriteOnce
+          size: 1Gi
+          annotations: {}
+      # If external database is used, the following settings for database will
+      # be ignored
+      database:
         existingClaim: ""
         storageClass: ""
         subPath: ""
         accessMode: ReadWriteOnce
         size: 1Gi
         annotations: {}
-    # If external database is used, the following settings for database will
-    # be ignored
-    database:
-      existingClaim: ""
-      storageClass: ""
-      subPath: ""
-      accessMode: ReadWriteOnce
-      size: 1Gi
-      annotations: {}
-    # If external Redis is used, the following settings for Redis will
-    # be ignored
-    redis:
-      existingClaim: ""
-      storageClass: ""
-      subPath: ""
-      accessMode: ReadWriteOnce
-      size: 1Gi
-      annotations: {}
-    trivy:
-      existingClaim: ""
-      storageClass: ""
-      subPath: ""
-      accessMode: ReadWriteOnce
-      size: 5Gi
-      annotations: {}
-  # Define which storage backend is used for registry to store
-  # images and charts. Refer to
-  # https://github.com/distribution/distribution/blob/release/2.8/docs/configuration.md#storage
-  # for the detail.
-  imageChartStorage:
-    # Specify whether to disable `redirect` for images and chart storage, for
-    # backends which not supported it (such as using minio for `s3` storage type), please disable
-    # it. To disable redirects, simply set `disableredirect` to `true` instead.
-    # Refer to
-    # https://github.com/distribution/distribution/blob/release/2.8/docs/configuration.md#redirect
+      # If external Redis is used, the following settings for Redis will
+      # be ignored
+      redis:
+        existingClaim: ""
+        storageClass: ""
+        subPath: ""
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        annotations: {}
+      trivy:
+        existingClaim: ""
+        storageClass: ""
+        subPath: ""
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        annotations: {}
+    # Define which storage backend is used for registry to store
+    # images and charts. Refer to
+    # https://github.com/distribution/distribution/blob/release/2.8/docs/configuration.md#storage
     # for the detail.
-    disableredirect: false
-    # Specify the "caBundleSecretName" if the storage service uses a self-signed certificate.
-    # The secret must contain keys named "ca.crt" which will be injected into the trust store
-    # of registry's containers.
-    # caBundleSecretName:
+    imageChartStorage:
+      # Specify whether to disable `redirect` for images and chart storage, for
+      # backends which not supported it (such as using minio for `s3` storage type), please disable
+      # it. To disable redirects, simply set `disableredirect` to `true` instead.
+      # Refer to
+      # https://github.com/distribution/distribution/blob/release/2.8/docs/configuration.md#redirect
+      # for the detail.
+      disableredirect: false
+      # Specify the "caBundleSecretName" if the storage service uses a self-signed certificate.
+      # The secret must contain keys named "ca.crt" which will be injected into the trust store
+      # of registry's containers.
+      # caBundleSecretName:
 
-    # Specify the type of storage: "filesystem", "azure", "gcs", "s3", "swift",
-    # "oss" and fill the information needed in the corresponding section. The type
-    # must be "filesystem" if you want to use persistent volumes for registry
-    type: filesystem
-    filesystem:
-      rootdirectory: /storage
-      #maxthreads: 100
-    azure:
-      accountname: accountname
-      accountkey: base64encodedaccountkey
-      container: containername
-      #realm: core.windows.net
-      # To use existing secret, the key must be AZURE_STORAGE_ACCESS_KEY
-      existingSecret: ""
-    gcs:
-      bucket: bucketname
-      # The base64 encoded json file which contains the key
-      encodedkey: base64-encoded-json-key-file
-      #rootdirectory: /gcs/object/name/prefix
-      #chunksize: "5242880"
-      # To use existing secret, the key must be GCS_KEY_DATA
-      existingSecret: ""
-      useWorkloadIdentity: false
-    s3:
-      # Set an existing secret for S3 accesskey and secretkey
-      # keys in the secret should be REGISTRY_STORAGE_S3_ACCESSKEY and REGISTRY_STORAGE_S3_SECRETKEY for registry
-      #existingSecret: ""
-      region: us-west-1
-      bucket: bucketname
-      #accesskey: awsaccesskey
-      #secretkey: awssecretkey
-      #regionendpoint: http://myobjects.local
-      #encrypt: false
-      #keyid: mykeyid
-      #secure: true
-      #skipverify: false
-      #v4auth: true
-      #chunksize: "5242880"
-      #rootdirectory: /s3/object/name/prefix
-      #storageclass: STANDARD
-      #multipartcopychunksize: "33554432"
-      #multipartcopymaxconcurrency: 100
-      #multipartcopythresholdsize: "33554432"
+      # Specify the type of storage: "filesystem", "azure", "gcs", "s3", "swift",
+      # "oss" and fill the information needed in the corresponding section. The type
+      # must be "filesystem" if you want to use persistent volumes for registry
+      type: filesystem
+      filesystem:
+        rootdirectory: /storage
+        #maxthreads: 100
+      azure:
+        accountname: accountname
+        accountkey: base64encodedaccountkey
+        container: containername
+        #realm: core.windows.net
+        # To use existing secret, the key must be AZURE_STORAGE_ACCESS_KEY
+        existingSecret: ""
+      gcs:
+        bucket: bucketname
+        # The base64 encoded json file which contains the key
+        encodedkey: base64-encoded-json-key-file
+        #rootdirectory: /gcs/object/name/prefix
+        #chunksize: "5242880"
+        # To use existing secret, the key must be GCS_KEY_DATA
+        existingSecret: ""
+        useWorkloadIdentity: false
+      s3:
+        # Set an existing secret for S3 accesskey and secretkey
+        # keys in the secret should be REGISTRY_STORAGE_S3_ACCESSKEY and REGISTRY_STORAGE_S3_SECRETKEY for registry
+        #existingSecret: ""
+        region: us-west-1
+        bucket: bucketname
+        #accesskey: awsaccesskey
+        #secretkey: awssecretkey
+        #regionendpoint: http://myobjects.local
+        #encrypt: false
+        #keyid: mykeyid
+        #secure: true
+        #skipverify: false
+        #v4auth: true
+        #chunksize: "5242880"
+        #rootdirectory: /s3/object/name/prefix
+        #storageclass: STANDARD
+        #multipartcopychunksize: "33554432"
+        #multipartcopymaxconcurrency: 100
+        #multipartcopythresholdsize: "33554432"
   trivy:
     enabled: false
   database:
     type: internal
   redis:
     type: internal
-  persistence:
-    enabled: true
-    resourcePolicy: "keep"
-    persistentVolumeClaim:
-      registry:
-        size: 10Gi
-      jobservice:
-        size: 1Gi
 
 # MinIO subchart configuration
 minio:
@@ -561,7 +595,6 @@ minio:
 # Keycloak subchart configuration
 keycloak:
   enabled: true
-  #nameOverride: "watkins-keycloak"
   global:
     security:
       allowInsecureImages: true
@@ -578,6 +611,7 @@ keycloak:
       tag: 6.4.0-debian-12-r11
   production: true
   proxyHeaders: "xforwarded"
+  httpEnabled: false
   httpRelativePath: /idp/
 
   service:
@@ -586,8 +620,8 @@ keycloak:
   ingress:
     enabled: true
     ingressClassName: nginx
-    annotations:
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    annotations: {}
+      # nginx.ingress.kubernetes.io/ssl-redirect: "true"
     hostname: "daytona.example.com"
     tls: true
     extraTls:

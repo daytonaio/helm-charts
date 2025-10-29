@@ -1,6 +1,7 @@
 {{- if .Values.services.api.ingress.enabled -}}
 {{- $fullName := include "daytona.fullname" . -}}
 {{- $svcPort := .Values.services.api.service.port -}}
+{{- $hostname := .Values.services.api.ingress.hostname | default .Values.baseDomain -}}
 {{- if and .Values.services.api.ingress.className (not (hasKey .Values.services.api.ingress.annotations "kubernetes.io/ingress.class")) }}
   {{- $_ := set .Values.services.api.ingress.annotations "kubernetes.io/ingress.class" .Values.services.api.ingress.className}}
 {{- end }}
@@ -20,31 +21,46 @@ spec:
   {{- if .Values.services.api.ingress.className }}
   ingressClassName: {{ .Values.services.api.ingress.className }}
   {{- end }}
-  {{- if .Values.services.api.ingress.tls }}
-  tls:
-    {{- range .Values.services.api.ingress.tls }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
-    {{- end }}
-  {{- end }}
   rules:
-    {{- range .Values.services.api.ingress.hosts }}
-    - host: {{ .host | quote }}
+    {{- if $hostname }}
+    - host: {{ tpl $hostname $ | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- if .pathType }}
-            pathType: {{ .pathType }}
-            {{- end }}
+          {{- if .Values.services.api.ingress.extraPaths }}
+          {{- toYaml .Values.services.api.ingress.extraPaths | nindent 10 }}
+          {{- end }}
+          - path: {{ .Values.services.api.ingress.path | default "/" }}
+            pathType: {{ .Values.services.api.ingress.pathType | default "Prefix" }}
             backend:
               service:
                 name: {{ $fullName }}-api
                 port:
                   number: {{ $svcPort }}
-          {{- end }}
     {{- end }}
+    {{- range .Values.services.api.ingress.extraHosts }}
+    - host: {{ tpl .name $ | quote }}
+      http:
+        paths:
+          - path: {{ default "/" .path }}
+            pathType: {{ default "ImplementationSpecific" .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-api
+                port:
+                  number: {{ $svcPort }}
+    {{- end }}
+    {{- if .Values.services.api.ingress.extraRules }}
+    {{- toYaml .Values.services.api.ingress.extraRules | nindent 4 }}
+    {{- end }}
+  {{- if .Values.services.api.ingress.tls }}
+  tls:
+    {{- if $hostname }}
+    - hosts:
+        - {{ tpl $hostname $ | quote }}
+      secretName: {{ printf "%s-tls" (tpl $hostname $) }}
+    {{- end }}
+    {{- if .Values.services.api.ingress.extraTls }}
+    {{- toYaml .Values.services.api.ingress.extraTls | nindent 4 }}
+    {{- end }}
+  {{- end }}
 {{- end }}
