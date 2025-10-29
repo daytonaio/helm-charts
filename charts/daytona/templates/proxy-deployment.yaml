@@ -45,8 +45,10 @@ spec:
               protocol: TCP
           env:
             {{- range $key, $value := .Values.services.proxy.env }}
+            {{- if and $value (ne ($value | toString) "") }}
             - name: {{ $key }}
               value: {{ $value | quote }}
+            {{- end }}
             {{- end }}
             # Redis configuration
             {{- if .Values.redis.enabled }}
@@ -65,7 +67,6 @@ spec:
             - name: REDIS_PASSWORD
               value: ""
             {{- end }}
-
             {{- else }}
             # External Redis
             - name: REDIS_HOST
@@ -93,8 +94,18 @@ spec:
             - name: REDIS_TLS
               value: "false"
             {{- end }}
+            # OIDC Configuration
+            {{- if not .Values.services.proxy.env.OIDC_DOMAIN }}
+            - name: OIDC_DOMAIN
+              value: {{ printf "https://%s/idp/realms/daytona" .Values.baseDomain | quote }}
+            {{- end }}
+            # Proxy Configuration
+            {{- if not .Values.services.proxy.env.PROXY_DOMAIN }}
+            - name: PROXY_DOMAIN
+              value: {{ printf "proxy.%s:%s" .Values.baseDomain ((.Values.services.proxy.env.PROXY_PORT | default 80) | toString) | quote }}
+            {{- end }}
             - name: DAYTONA_API_URL
-              value: http://{{ include "daytona.fullname" . }}-api:{{ .Values.services.api.env.PORT }}/api
+              value: "http://{{ include "daytona.fullname" . }}-api:{{ .Values.services.api.env.PORT }}/api"
           resources:
             {{- toYaml .Values.services.proxy.resources | nindent 12 }}
       {{- with .Values.services.proxy.nodeSelector | default .Values.nodeSelector }}

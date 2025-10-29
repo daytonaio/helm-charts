@@ -46,9 +46,13 @@ spec:
               protocol: TCP
           env:
             {{- range $key, $value := .Values.services.api.env }}
+            {{- if and $value (ne ($value | toString) "") }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            {{- end }}
+            - name: OTEL_ENABLED
+              value: "false"
             # Database configuration
             {{- if .Values.postgresql.enabled }}
             - name: DB_HOST
@@ -133,19 +137,29 @@ spec:
             - name: REDIS_PASSWORD
               value: ""
             {{- end }}
-            - name: REDIS_TLS
-              value: "false"
             {{- end }}
+            {{- if not .Values.services.proxy.env.PROXY_DOMAIN }}
+            - name: PROXY_DOMAIN
+              value: {{ printf "proxy.%s:%s" .Values.baseDomain ((.Values.services.proxy.env.PROXY_PORT | default 80) | toString) | quote }}
+            {{- else }}
             - name: PROXY_DOMAIN
               value: {{ .Values.services.proxy.env.PROXY_DOMAIN | quote }}
+            {{- end }}
             - name: PROXY_PROTOCOL
               value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | quote }}
             - name: PROXY_API_KEY
               value: {{ .Values.services.proxy.env.PROXY_API_KEY | quote }}
+            {{- $proxyDomain := .Values.services.proxy.env.PROXY_DOMAIN | default (printf "proxy.%s:%s" .Values.baseDomain ((.Values.services.proxy.env.PROXY_PORT | default 80) | toString)) }}
             - name: PROXY_TEMPLATE_URL
-              value: "{{ .Values.services.proxy.env.PROXY_PROTOCOL }}://{{`{{PORT}}`}}-{{`{{sandboxId}}`}}.{{ .Values.services.proxy.env.PROXY_DOMAIN }}"
+              value: "{{ .Values.services.proxy.env.PROXY_PROTOCOL }}://{{`{{PORT}}`}}-{{`{{sandboxId}}`}}.{{ $proxyDomain }}"
+            {{- if .Values.services.sshGateway.enabled }}
+            # SSH Gateway Configuration
+            {{- if not .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}
+            - name: SSH_GATEWAY_HOST
+              value: {{ printf "ssh.%s" .Values.baseDomain | quote }}
             - name: SSH_GATEWAY_COMMAND
-              value: "ssh -p {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}"
+              value: "ssh -p {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ printf "ssh.%s" .Values.baseDomain  }}"
+            {{- end }}
             - name: SSH_GATEWAY_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
@@ -156,6 +170,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "daytona.secretName" . }}-ssh
                   key: API_KEY
+            {{- end }}
             # Harbor Registry Configuration
             {{- if .Values.harbor.enabled }}
             # Use Harbor configuration (overrides any values from services.api.env)
@@ -191,6 +206,39 @@ spec:
             {{- end }}
             - name: INTERNAL_REGISTRY_PROJECT_ID
               value: "library"
+            {{- end }}
+            # OIDC Configuration
+            {{- if not .Values.services.api.env.OIDC_ISSUER_BASE_URL }}
+            - name: OIDC_ISSUER_BASE_URL
+              value: {{ printf "https://%s/idp/realms/daytona" .Values.baseDomain | quote }}
+            {{- end }}
+            {{- if not .Values.services.api.env.PUBLIC_OIDC_DOMAIN }}
+            - name: PUBLIC_OIDC_DOMAIN
+              value: {{ printf "https://%s/idp/realms/daytona" .Values.baseDomain | quote }}
+            {{- end }}
+            # Dashboard Configuration
+            {{- if not .Values.services.api.env.DASHBOARD_URL }}
+            - name: DASHBOARD_URL
+              value: {{ printf "https://%s/dashboard" .Values.baseDomain | quote }}
+            {{- end }}
+            {{- if not .Values.services.api.env.DASHBOARD_BASE_API_URL }}
+            - name: DASHBOARD_BASE_API_URL
+              value: {{ printf "https://%s" .Values.baseDomain | quote }}
+            {{- end }}
+            # S3 Configuration (MinIO)
+            {{- if .Values.minio.enabled }}
+            # Use MinIO configuration when enabled (overrides any values from services.api.env)
+            - name: S3_ENDPOINT
+              value: {{ printf "http://%s-minio:%s" .Release.Name ((.Values.minio.service.port | default 9000) | toString) | quote }}
+            - name: S3_STS_ENDPOINT
+              value: {{ printf "http://%s-minio:%s/minio/v1/assume-role" .Release.Name ((.Values.minio.service.port | default 9000) | toString) | quote }}
+            - name: S3_ACCESS_KEY
+              value: {{ .Values.minio.rootUser | quote }}
+            - name: S3_SECRET_KEY
+              value: {{ .Values.minio.rootPassword | quote }}
+            {{- end }}
+            {{- if .Values.services.api.extraEnv }}
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraEnv "context" $) | nindent 12 }}
             {{- end }}
           resources:
             {{- toYaml .Values.services.api.resources | nindent 12 }}
