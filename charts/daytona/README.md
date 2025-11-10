@@ -2,6 +2,75 @@
 
 This Helm chart deploys the complete Daytona platform on Kubernetes - a secure infrastructure for running AI code, including all necessary services and dependencies.
 
+## Architecture
+
+The following diagram illustrates the architecture of Daytona Core Services within a Kubernetes Cluster, showing its interactions with users, Daytona Runners, and various supporting services:
+
+**Note:** While the diagram shows supporting services (PostgreSQL, Redis, S3 Storage) as external components, the Helm chart can deploy these as built-in subcharts within the same Kubernetes cluster. You can choose to use the included subcharts (PostgreSQL, Redis, MinIO) or configure the chart to use external services by setting the appropriate values in `values.yaml`.
+
+```mermaid
+graph TB
+    subgraph External["AI Agent/User"]
+        User[AI Agent/User]
+    end
+
+    subgraph K8s["Kubernetes Cluster"]
+        subgraph CoreServices["Daytona Core Services"]
+            SSHGateway[SSH Gateway<br/>SSH PRoxy]
+            ProxyIngress[Proxy<br/>HTTP Proxy]
+            API[API<br/>NextJS REST API]
+            Harbor[Harbor<br/>Sandbox Image Registry]
+        end
+    end
+
+    subgraph Runners["Daytona Runners"]
+        RunnerNodes[Daytona Runners<br/>Bare-metal or VMs]
+    end
+
+    subgraph ExternalServices["External Services"]
+        IdP[External IdP<br/>Google, OAuth, Okta, etc.]
+        Redis[Redis Cache & Sessions]
+        PostgreSQL[PostgreSQL Database]
+        S3[S3 Object Storage]
+    end
+
+    %% User to Core Services
+    User -->|SSH| SSHGateway
+    User -->|HTTPS| ProxyIngress
+    User -->|API calls| API
+
+    %% Internal Core Services connections
+    SSHGateway --> API
+    ProxyIngress --> API
+    API -->|Build Images| Harbor
+    Harbor -->|Pull Images| API
+
+    %% Core Services to Runners
+    API <-->|API Calls| RunnerNodes
+
+    %% Core Services to External Services
+    API <-->|Redirect to IdP / Auth Success| IdP
+    API <-->|Cache/Sessions| Redis
+    API <-->|Metadata/Config| PostgreSQL
+    API -->|Volumes| S3
+
+    %% Harbor to External Services
+    Harbor <-->|Metadata| PostgreSQL
+    Harbor <-->|Image Storage| S3
+    Harbor <-->|Cache/Job Queue| Redis
+
+    %% Styling
+    classDef coreService fill:#7b2cbf,stroke:#5a189a,stroke-width:2px,color:#ffffff
+    classDef external fill:#f77f00,stroke:#d62828,stroke-width:2px,color:#ffffff
+    classDef runner fill:#2d6a4f,stroke:#1b4332,stroke-width:2px,color:#ffffff
+    classDef service fill:#1e88e5,stroke:#1565c0,stroke-width:2px,color:#ffffff
+
+    class SSHGateway,ProxyIngress,API,Harbor coreService
+    class User external
+    class RunnerNodes runner
+    class IdP,Redis,PostgreSQL,S3 service
+```
+
 ## Prerequisites
 
 - Kubernetes 1.19+
