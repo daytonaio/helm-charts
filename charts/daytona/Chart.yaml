@@ -2,7 +2,7 @@ apiVersion: v2
 name: daytona
 description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
 type: application
-version: 0.0.7
+version: 0.0.8
 appVersion: "v0.113.0-rc.1"
 keywords:
   - ai
