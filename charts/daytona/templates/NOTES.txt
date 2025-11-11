@@ -3,37 +3,46 @@
 📋 ACCESS GUIDE:
 
 1. 🚀 Daytona Services:
-   # Dashboard: https://{{ .Values.domain }}
-   # API: https://{{ .Values.domain }}/api
+   # Dashboard: https://{{ .Values.baseDomain }}/dashboard
+   # API: https://{{ .Values.baseDomain }}/api
 
 2. 🐳 Harbor Portal (Container Registry):
-   # Web UI: https://harbor.{{ .Values.domain }}
+   # Web UI: {{ .Values.harbor.externalURL }}
    # Username: admin
-   # Password: Harbor12345
+   # Password: {{ .Values.harbor.harborAdminPassword }}
 
-3. 📦 MinIO Console (Object Storage):
-   kubectl port-forward svc/{{ include "daytona.fullname" . }}-minio-console 9001:{{ .Values.minio.consoleService.port }}
+{{- $sectionNum := 2 }}
+{{- if .Values.minio.enabled }}
+{{- $sectionNum = add $sectionNum 1 }}
+{{ $sectionNum }}. 📦 MinIO Console (Object Storage):
+   kubectl port-forward -n {{ include "daytona.namespace" . }} svc/{{ include "daytona.fullname" . }}-minio-console 9001:{{ .Values.minio.consoleService.port }}
    # Then access: http://localhost:9001
    # Username: {{ .Values.minio.rootUser }}
    # Password: {{ .Values.minio.rootPassword }}
 
-4. 🔐 Keycloak (Identity Provider):
-   # Web UI: https://{{ .Values.domain }}/idp
+{{- end }}
+{{- if .Values.keycloak.enabled }}
+{{- $sectionNum = add $sectionNum 1 }}
+{{ $sectionNum }}. 🔐 Keycloak (Identity Provider):
+   # Web UI: https://{{ .Values.baseDomain }}/idp
    # Username: admin
    # Password: admin
 
-5. 🗄️ PgAdmin (Database Management):
-   kubectl port-forward svc/{{ include "daytona.fullname" . }}-pgadmin4 8083:80
+{{- end }}
+
+{{- $sectionNum = add $sectionNum 1 }}
+{{ $sectionNum }}. 🗄️ PgAdmin (Database Management):
+   kubectl port-forward -n {{ include "daytona.namespace" . }} svc/{{ include "daytona.fullname" . }}-pgadmin4 8083:80
    # Then access: http://localhost:8083
    # Username: {{ .Values.pgadmin4.env.email }}
    # Password: {{ .Values.pgadmin4.env.password }}
 
-💡 TIP: Run 'kubectl get pods' to check if all services are running!
+💡 TIP: Run 'kubectl get pods -n {{ include "daytona.namespace" . }}' to check if all services are running!
 
 🔑 GENERATE ADMIN API KEY:
 
-   # Get the API key
-   kubectl exec $(kubectl get pods -l "app.kubernetes.io/name={{ include "daytona.fullname" . }},app.kubernetes.io/component=api" -o jsonpath='{.items[0].metadata.name}') -- node dist/apps/api/main.js --create-admin-api-key "your-key-name" 2>/dev/null | grep "dtn"
+   # Get the API key (extracts only the key value)
+   kubectl exec -n {{ include "daytona.namespace" . }} $(kubectl get pods -n {{ include "daytona.namespace" . }} -l "app.kubernetes.io/name={{ include "daytona.fullname" . }},app.kubernetes.io/component=api" -o jsonpath='{.items[0].metadata.name}') -- node dist/apps/api/main.js --create-admin-api-key "admin-$(date +%s)" 2>&1 | grep -oE "dtn_[a-zA-Z0-9]{64,}" | head -1
 
 🏃 DEPLOY DAYTONA RUNNER:
 
@@ -43,7 +52,7 @@
    curl -sSL https://download.daytona.io/install.sh | sudo bash
 
    # The script will prompt for:
-   # - Daytona API URL: https://{{ .Values.domain }}
+   # - Daytona API URL: https://{{ .Values.baseDomain }}/api
    # - Admin API Key: (use the key generated above)
 
    This will install the Daytona runner binary and connect it to your Daytona API.
