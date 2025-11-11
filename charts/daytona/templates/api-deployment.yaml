@@ -236,6 +236,23 @@ spec:
               value: {{ .Values.minio.rootUser | quote }}
             - name: S3_SECRET_KEY
               value: {{ .Values.minio.rootPassword | quote }}
+            {{- else }}
+            - name: S3_ENDPOINT
+              value: {{ .Values.services.api.env.S3_ENDPOINT | default "" | quote }}
+            - name: S3_STS_ENDPOINT
+              value: {{ .Values.services.api.env.S3_STS_ENDPOINT | default "" | quote }}
+            - name: S3_REGION
+              value: {{ .Values.services.api.env.S3_REGION | default "" | quote }}
+            - name: S3_ACCESS_KEY
+              value: {{ .Values.services.api.env.S3_ACCESS_KEY | default "" | quote }}
+            - name: S3_SECRET_KEY
+              value: {{ .Values.services.api.env.S3_SECRET_KEY | default "" | quote }}
+            - name: S3_DEFAULT_BUCKET
+              value: {{ .Values.services.api.env.S3_DEFAULT_BUCKET | default "" | quote }}
+            - name: S3_ACCOUNT_ID
+              value: {{ .Values.services.api.env.S3_ACCOUNT_ID | default "" | quote }}
+            - name: S3_ROLE_NAME
+              value: {{ .Values.services.api.env.S3_ROLE_NAME | default "" | quote }}
             {{- end }}
             {{- if .Values.services.api.extraEnv }}
             {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraEnv "context" $) | nindent 12 }}
