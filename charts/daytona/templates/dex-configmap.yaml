@@ -1,0 +1,67 @@
+{{- if .Values.dex.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "daytona.fullname" . }}-dex-config
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+data:
+  config.yaml: |
+    {{- $dexHostname := .Values.dex.ingress.hostname | default (printf "dex.%s" .Values.baseDomain) -}}
+    {{- $templatedDexHostname := tpl $dexHostname $ -}}
+    {{- $dexIssuer := "" -}}
+    {{- if .Values.dex.config.issuer -}}
+      {{- $dexIssuer = .Values.dex.config.issuer -}}
+    {{- else if and .Values.dex.enabled .Values.dex.ingress.enabled -}}
+      {{- $dexIssuer = printf "https://%s/dex" $templatedDexHostname -}}
+    {{- else -}}
+      {{- $dexIssuer = printf "http://%s-dex:%s/dex" (include "daytona.fullname" .) (.Values.dex.service.port | default 5556 | toString) -}}
+    {{- end }}
+    issuer: {{ $dexIssuer }}
+    storage:
+      type: sqlite3
+      config:
+        file: /var/dex/dex.db
+    web:
+      http: 0.0.0.0:{{ .Values.dex.service.port | default 5556 }}
+      allowedOrigins: {{ .Values.dex.config.allowedOrigins | default (list "*") | toJson }}
+      allowedHeaders: {{ .Values.dex.config.allowedHeaders | default (list "x-requested-with") | toJson }}
+    staticClients:
+      - id: {{ .Values.dex.config.clientId | default "daytona" }}
+        redirectURIs:
+          {{- if .Values.dex.config.redirectURIs }}
+          {{- range .Values.dex.config.redirectURIs }}
+          - {{ . | quote }}
+          {{- end }}
+          {{- else }}
+          {{- $apiHostname := .Values.services.api.ingress.hostname | default .Values.baseDomain }}
+          {{- $templatedApiHostname := tpl $apiHostname $ }}
+          {{- $apiPort := .Values.services.api.service.port | default 3000 | toString }}
+          {{- $proxyPort := .Values.services.proxy.service.port | default 4000 | toString }}
+          {{- $fullName := include "daytona.fullname" . }}
+          - {{ printf "http://%s-api:%s" $fullName $apiPort | quote }}
+          - {{ printf "http://%s-api:%s/api/oauth2-redirect.html" $fullName $apiPort | quote }}
+          - {{ printf "http://%s-proxy:%s/callback" $fullName $proxyPort | quote }}
+          {{- if and .Values.services.api.ingress.enabled $templatedApiHostname }}
+          - {{ printf "https://%s" $templatedApiHostname | quote }}
+          - {{ printf "https://%s/api/oauth2-redirect.html" $templatedApiHostname | quote }}
+          - {{ printf "https://proxy.%s/callback" $templatedApiHostname | quote }}
+          - {{ printf "https://proxy.%s" $templatedApiHostname | quote }}
+          {{- end }}
+          - "http://localhost:8080"
+          - "http://localhost:8080/api/oauth2-redirect.html"
+          - "http://localhost:3009/callback"
+          {{- end }}
+        name: {{ .Values.dex.config.clientName | default "Daytona" | quote }}
+        public: true
+    enablePasswordDB: true
+    staticPasswords:
+      {{- range .Values.dex.config.staticPasswords | default (list (dict "email" "dev@daytona.io" "password" "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" "username" "admin" "userID" "1234")) }}
+      - email: {{ .email | quote }}
+        hash: {{ .password | quote }}
+        username: {{ .username | quote }}
+        userID: {{ .userID | quote }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,69 @@
+{{- if and .Values.dex.enabled .Values.dex.ingress.enabled -}}
+{{- $fullName := include "daytona.fullname" . -}}
+{{- $svcPort := .Values.dex.service.port | default 5556 -}}
+{{- $hostname := .Values.dex.ingress.hostname | default (printf "dex.%s" .Values.baseDomain) -}}
+{{- $templatedHostname := tpl $hostname $ -}}
+{{- if and .Values.dex.ingress.className (not (hasKey .Values.dex.ingress.annotations "kubernetes.io/ingress.class")) }}
+  {{- $_ := set .Values.dex.ingress.annotations "kubernetes.io/ingress.class" .Values.dex.ingress.className}}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-dex
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+  {{- with .Values.dex.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.dex.ingress.className }}
+  ingressClassName: {{ .Values.dex.ingress.className }}
+  {{- end }}
+  rules:
+    {{- if $hostname }}
+    - host: {{ $templatedHostname | quote }}
+      http:
+        paths:
+          {{- if .Values.dex.ingress.extraPaths }}
+          {{- toYaml .Values.dex.ingress.extraPaths | nindent 10 }}
+          {{- end }}
+          - path: {{ .Values.dex.ingress.path | default "/" }}
+            pathType: {{ .Values.dex.ingress.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $fullName }}-dex
+                port:
+                  number: {{ $svcPort }}
+    {{- end }}
+    {{- range .Values.dex.ingress.extraHosts }}
+    - host: {{ tpl .name $ | quote }}
+      http:
+        paths:
+          - path: {{ default "/" .path }}
+            pathType: {{ default "ImplementationSpecific" .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-dex
+                port:
+                  number: {{ $svcPort }}
+    {{- end }}
+    {{- if .Values.dex.ingress.extraRules }}
+    {{- toYaml .Values.dex.ingress.extraRules | nindent 4 }}
+    {{- end }}
+  {{- if .Values.dex.ingress.tls }}
+  tls:
+    {{- if $hostname }}
+    {{- $baseDomain := .Values.baseDomain -}}
+    {{- $templatedBaseDomain := tpl $baseDomain $ }}
+    - hosts:
+        - {{ $templatedHostname | quote }}
+      secretName: {{ printf "%s-tls" $templatedBaseDomain }}
+    {{- end }}
+    {{- if .Values.dex.ingress.extraTls }}
+    {{- toYaml .Values.dex.ingress.extraTls | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

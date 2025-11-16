@@ -41,15 +41,9 @@ spec:
           imagePullPolicy: {{ .Values.services.proxy.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: {{ .Values.services.proxy.env.PROXY_PORT | default 80 | toString }}
               protocol: TCP
           env:
-            {{- range $key, $value := .Values.services.proxy.env }}
-            {{- if and $value (ne ($value | toString) "") }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
-            {{- end }}
             # Redis configuration
             {{- if .Values.redis.enabled }}
             # Internal Redis (subchart)
@@ -93,17 +87,60 @@ spec:
             {{- end }}
             {{- end }}
             # OIDC Configuration
-            {{- if not .Values.services.proxy.env.OIDC_DOMAIN }}
+            {{- if .Values.dex.enabled }}
+            # Dex is enabled - use Dex configuration
+            {{- $dexHostname := .Values.dex.ingress.hostname | default (printf "dex.%s" .Values.baseDomain) -}}
+            {{- $templatedDexHostname := tpl $dexHostname $ -}}
+            {{- $dexIssuerUrl := "" -}}
+            {{- if .Values.dex.config.issuer -}}
+              {{- $dexIssuerUrl = .Values.dex.config.issuer -}}
+            {{- else if and .Values.dex.enabled .Values.dex.ingress.enabled -}}
+              {{- $dexIssuerUrl = printf "https://%s/dex" $templatedDexHostname -}}
+            {{- else -}}
+              {{- $dexIssuerUrl = printf "http://%s-dex:%s/dex" (include "daytona.fullname" .) (.Values.dex.service.port | default 5556 | toString) -}}
+            {{- end }}
+            {{- $dexPublicUrl := "" -}}
+            {{- if and .Values.dex.enabled .Values.dex.ingress.enabled -}}
+              {{- $dexPublicUrl = printf "https://%s/dex" $templatedDexHostname -}}
+            {{- else -}}
+              {{- $dexPublicUrl = "http://localhost:5556/dex" -}}
+            {{- end }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.dex.config.clientId | default "daytona" | quote }}
+            - name: OIDC_CLIENT_SECRET
+              value: {{ .Values.services.proxy.env.OIDC_CLIENT_SECRET | default "" | quote }}
             - name: OIDC_DOMAIN
-              value: {{ printf "https://%s/idp/realms/daytona" .Values.baseDomain | quote }}
+              value: {{ $dexIssuerUrl | quote }}
+            - name: OIDC_PUBLIC_DOMAIN
+              value: {{ $dexPublicUrl | quote }}
+            - name: OIDC_AUDIENCE
+              value: {{ .Values.dex.config.clientId | default "daytona" | quote }}
+            {{- else }}
+            # Dex is disabled - use values from env or defaults
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.services.api.env.OIDC_CLIENT_ID | default "daytona" | quote }}
+            - name: OIDC_CLIENT_SECRET
+              value: {{ .Values.services.proxy.env.OIDC_CLIENT_SECRET | default "" | quote }}
+            - name: OIDC_DOMAIN
+              value: {{ .Values.services.api.env.OIDC_ISSUER_BASE_URL | default "" | quote }}
+            - name: OIDC_PUBLIC_DOMAIN
+              value: {{ .Values.services.api.env.PUBLIC_OIDC_DOMAIN | default "" | quote }}
+            - name: OIDC_AUDIENCE
+              value: {{ .Values.services.api.env.OIDC_AUDIENCE | default "daytona" | quote }}
             {{- end }}
             # Proxy Configuration
-            {{- if not .Values.services.proxy.env.PROXY_DOMAIN }}
+            - name: PROXY_API_KEY
+              value: {{ .Values.services.proxy.env.PROXY_API_KEY | default "super_secret_key" | quote }}
+            - name: PROXY_PORT
+              value: {{ .Values.services.proxy.env.PROXY_PORT | default 80 | toString | quote }}
+            - name: PROXY_PROTOCOL
+              value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | quote }}
             - name: PROXY_DOMAIN
-              value: {{ printf "proxy.%s:%s" .Values.baseDomain ((.Values.services.proxy.env.PROXY_PORT | default 80) | toString) | quote }}
-            {{- end }}
+              value: {{ include "daytona.proxyDomain" . | quote }}
             - name: DAYTONA_API_URL
               value: "http://{{ include "daytona.fullname" . }}-api:{{ .Values.services.api.env.PORT }}/api"
+            - name: COOKIE_DOMAIN
+              value: {{ .Values.services.proxy.env.COOKIE_DOMAIN | default .Values.baseDomain | quote }}
           resources:
             {{- toYaml .Values.services.proxy.resources | nindent 12 }}
       {{- with .Values.services.proxy.nodeSelector | default .Values.nodeSelector }}

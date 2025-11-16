@@ -2,8 +2,8 @@ apiVersion: v2
 name: daytona
 description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
 type: application
-version: 0.0.8
-appVersion: "v0.114.0-rc.2"
+version: 0.0.9
+appVersion: "v0.116.1-rc.1"
 keywords:
   - ai
   - infrastructure
@@ -37,7 +37,3 @@ dependencies:
     version: "1.18.0"
     repository: "https://helm.goharbor.io"
     condition: harbor.enabled
-  - name: keycloak
-    version: "25.2.0"
-    repository: https://charts.bitnami.com/bitnami
-    condition: keycloak.enabled

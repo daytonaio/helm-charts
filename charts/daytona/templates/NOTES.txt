@@ -3,8 +3,40 @@
 📋 ACCESS GUIDE:
 
 1. 🚀 Daytona Services:
-   # Dashboard: https://{{ .Values.baseDomain }}/dashboard
-   # API: https://{{ .Values.baseDomain }}/api
+{{- $apiIngressEnabled := and .Values.services.api.ingress.enabled .Values.services.api.ingress.tls }}
+{{- $apiHostname := .Values.services.api.ingress.hostname | default .Values.baseDomain }}
+{{- $templatedApiHostname := tpl $apiHostname $ }}
+{{- $dexIngressEnabled := and .Values.dex.enabled .Values.dex.ingress.enabled .Values.dex.ingress.tls }}
+{{- $dexHostname := .Values.dex.ingress.hostname | default (printf "dex.%s" .Values.baseDomain) }}
+{{- $templatedDexHostname := tpl $dexHostname $ }}
+{{- if $apiIngressEnabled }}
+   # Access via Ingress (TLS enabled):
+   # Dashboard: https://{{ $templatedApiHostname }}/dashboard
+   # API: https://{{ $templatedApiHostname }}/api
+{{- if .Values.dex.enabled }}
+   # Dex OIDC: https://{{ $templatedDexHostname }}/dex
+   # Dashboard Login Credentials:
+   # Username: {{ (index .Values.dex.config.staticPasswords 0).username | default "admin" }}
+   # Password: password (or whatever is set via hash)
+{{- end }}
+{{- else }}
+   # For local development, set up port-forwards:
+   # Port-forward API service to localhost:8080
+   kubectl port-forward -n {{ include "daytona.namespace" . }} svc/{{ include "daytona.fullname" . }}-api 8080:{{ .Values.services.api.service.port | default 3000 }}
+{{- if .Values.dex.enabled }}
+   # Port-forward Dex service to localhost:5556
+   kubectl port-forward -n {{ include "daytona.namespace" . }} svc/{{ include "daytona.fullname" . }}-dex 5556:{{ .Values.dex.service.port | default 5556 }}
+{{- end }}
+   # Then access:
+   # Dashboard: http://localhost:8080/dashboard
+   # API: http://localhost:8080/api
+{{- if .Values.dex.enabled }}
+   # Dex OIDC: http://localhost:5556/dex
+   # Dashboard Login Credentials:
+   # Username: {{ (index .Values.dex.config.staticPasswords 0).username | default "admin" }}
+   # Password: password (or whatever is set via hash)
+{{- end }}
+{{ end }}
 
 2. 🐳 Harbor Portal (Container Registry):
    # Web UI: {{ .Values.harbor.externalURL }}
@@ -19,24 +51,15 @@
    # Then access: http://localhost:9001
    # Username: {{ .Values.minio.rootUser }}
    # Password: {{ .Values.minio.rootPassword }}
-
-{{- end }}
-{{- if .Values.keycloak.enabled }}
-{{- $sectionNum = add $sectionNum 1 }}
-{{ $sectionNum }}. 🔐 Keycloak (Identity Provider):
-   # Web UI: https://{{ .Values.baseDomain }}/idp
-   # Username: admin
-   # Password: admin
-
-{{- end }}
-
+{{ end }}
+{{- if .Values.pgadmin4.enabled }}
 {{- $sectionNum = add $sectionNum 1 }}
 {{ $sectionNum }}. 🗄️ PgAdmin (Database Management):
    kubectl port-forward -n {{ include "daytona.namespace" . }} svc/{{ include "daytona.fullname" . }}-pgadmin4 8083:80
    # Then access: http://localhost:8083
    # Username: {{ .Values.pgadmin4.env.email }}
    # Password: {{ .Values.pgadmin4.env.password }}
-
+{{ end }}
 💡 TIP: Run 'kubectl get pods -n {{ include "daytona.namespace" . }}' to check if all services are running!
 
 🔑 GENERATE ADMIN API KEY:
@@ -52,7 +75,11 @@
    curl -sSL https://download.daytona.io/install.sh | sudo bash
 
    # The script will prompt for:
-   # - Daytona API URL: https://{{ .Values.baseDomain }}/api
+{{- if $apiIngressEnabled }}
+   # - Daytona API URL: https://{{ $templatedApiHostname }}/api
+{{- else }}
+   # - Daytona API URL: http://localhost:8080/api (or your API endpoint)
+{{- end }}
    # - Admin API Key: (use the key generated above)
 
    This will install the Daytona runner binary and connect it to your Daytona API.

@@ -51,8 +51,10 @@ services:
       # Custom TLS certificates as secrets
       # NOTE: 'key' and 'certificate' are expected in PEM format
       # NOTE: 'name' should match the secretName used in ingress TLS configuration
+      # NOTE: The certificate MUST include both the base domain and its wildcard (*.baseDomain) in the Subject Alternative Names (SAN)
+      #       since both API and Proxy ingresses use the same TLS secret covering: daytona.example.com and *.daytona.example.com
       # If it is not set and you're using cert-manager, this is unneeded, as it will create a secret for you with valid certificates
-      # If it is not set and you're NOT using cert-manager either, set selfSigned: true to generate self-signed certificates
+      # If it is not set and you're NOT using cert-manager either, set selfSigned: true to generate self-signed certificates (includes wildcard)
       # It is also possible to create and manage the certificates outside of this helm chart
       # e.g:
       # secrets:
@@ -73,16 +75,11 @@ services:
       PORT: "3000"
 
       # OIDC configuration
-      OIDC_CLIENT_ID: "daytona"
-      # Auto-generated as "https://{{.Values.baseDomain}}/idp/realms/daytona" if not set or empty
+      OIDC_CLIENT_ID: ""
       OIDC_ISSUER_BASE_URL: ""
-      # Auto-generated as "https://{{.Values.baseDomain}}/idp/realms/daytona" if not set or empty
       PUBLIC_OIDC_DOMAIN: ""
-      OIDC_AUDIENCE: "daytona"
-      OIDC_MANAGEMENT_API_ENABLED: "false"
-      OIDC_MANAGEMENT_API_CLIENT_ID: ""
-      OIDC_MANAGEMENT_API_CLIENT_SECRET: ""
-      OIDC_MANAGEMENT_API_AUDIENCE: ""
+      OIDC_AUDIENCE: ""
+      SKIP_USER_EMAIL_VERIFICATION: "false"
 
       # Workspace configuration
       DEFAULT_SNAPSHOT: "daytonaio/sandbox:0.5.0"
@@ -111,29 +108,16 @@ services:
       SMTP_EMAIL_FROM: ""
 
       # S3 configuration
-      # If MinIO is enabled, will use MinIO service URL and credentials.  If external S3 storage is used, then disable MinIO in this chart and set the external S3 storage URL and credentials here.
-      S3_ENDPOINT: ""
-      S3_STS_ENDPOINT: ""
-      S3_REGION: ""
-      S3_ACCESS_KEY: ""
-      S3_SECRET_KEY: ""
-      S3_DEFAULT_BUCKET: ""
-      S3_ACCOUNT_ID: ""
-      S3_ROLE_NAME: ""
-
-      # Runner configuration
-      DEFAULT_RUNNER_DOMAIN: ""
-      DEFAULT_RUNNER_API_URL: ""
-      DEFAULT_RUNNER_PROXY_URL: ""
-      DEFAULT_RUNNER_API_KEY: ""
-      DEFAULT_RUNNER_CPU: "4"
-      DEFAULT_RUNNER_MEMORY: "8"
-      DEFAULT_RUNNER_DISK: "50"
-      DEFAULT_RUNNER_GPU: "0"
-      DEFAULT_RUNNER_GPU_TYPE: "none"
-      DEFAULT_RUNNER_CAPACITY: "100"
-      DEFAULT_RUNNER_REGION: "us"
-      DEFAULT_RUNNER_CLASS: "small"
+      # NOTE: Currently we dont suppoert Declarative Builder File System Operations (https://www.daytona.io/docs/en/declarative-builder/) and Volumes (https://www.daytona.io/docs/en/volumes/) feature in self-hosted daytona.
+      # If MinIO is enabled, will use MinIO service URL and credentials. If external S3 storage is used, then disable MinIO in this chart and set the external S3 storage URL and credentials here.
+      # S3_ENDPOINT: ""
+      # S3_STS_ENDPOINT: ""
+      # S3_REGION: ""
+      # S3_ACCESS_KEY: ""
+      # S3_SECRET_KEY: ""
+      # S3_DEFAULT_BUCKET: ""
+      # S3_ACCOUNT_ID: ""
+      # S3_ROLE_NAME: ""
 
     # Extra environment variables (for valueFrom or additional custom vars)
     # Use this for environment variables that need valueFrom (secretKeyRef, configMapKeyRef)
@@ -192,9 +176,11 @@ services:
       port: 4000
       annotations: {}
     # Ingress configuration
-    # NOTE: Proxy ingress automatically includes a wildcard host (*.hostname) to support
-    # unique subdomains per sandbox workspace. Each workspace requires its own subdomain,
-    # so the wildcard pattern is hardcoded in the template (e.g., *.proxy.daytona.example.com).
+    # NOTE: Proxy ingress uses wildcard host (*.baseDomain) to support
+    # unique subdomains per sandbox. Each sandbox requires its own subdomain,
+    # so the wildcard pattern is hardcoded in the template (e.g., *.daytona.example.com).
+    # Base domain (daytona.example.com) routes to API, all subdomains route to Proxy.
+    # Both ingresses use the same TLS secret that covers base domain + wildcard.
     ingress:
       enabled: true
       className: "nginx"
@@ -202,13 +188,13 @@ services:
         #nginx.ingress.kubernetes.io/ssl-redirect: "true"
         #nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
         #nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      # If not set, defaults to "proxy.{{.Values.baseDomain}}"
-      # Wildcard host (*.hostname) is automatically added for sandbox subdomains
+      # Proxy ingress uses wildcard pattern (*.baseDomain) - hostname setting is ignored
+      # All subdomains of baseDomain route to proxy service
       hostname: ""
       path: "/"
       pathType: "Prefix"
       # Additional hosts to be added to the ingress record
-      # NOTE: Wildcard host (*.hostname) is already hardcoded in the template, no need to add it here
+      # NOTE: Wildcard host (*.baseDomain) is already hardcoded in the template, no need to add it here
       extraHosts: []
       # Additional paths to be added to the ingress under the main host
       extraPaths: []
@@ -223,14 +209,14 @@ services:
       # Custom TLS certificates as secrets
       # NOTE: 'key' and 'certificate' are expected in PEM format
       # NOTE: 'name' should match the secretName used in ingress TLS configuration
-      # NOTE: For proxy ingress, the certificate MUST include both the domain and its wildcard (*.domain) in the Subject Alternative Names (SAN)
-      #       since the ingress template automatically adds both hostname and *.hostname rules
+      # NOTE: The certificate MUST include both the base domain and its wildcard (*.baseDomain) in the Subject Alternative Names (SAN)
+      #       since both API and Proxy ingresses use the same TLS secret covering: daytona.example.com and *.daytona.example.com
       # If it is not set and you're using cert-manager, this is unneeded, as it will create a secret for you with valid certificates
       # If it is not set and you're NOT using cert-manager either, set selfSigned: true to generate self-signed certificates (includes wildcard)
       # It is also possible to create and manage the certificates outside of this helm chart
       # e.g:
       # secrets:
-      #   - name: proxy.daytona.example.com-tls
+      #   - name: daytona.example.com-tls
       #     key: |-
       #       -----BEGIN RSA PRIVATE KEY-----
       #       ...
@@ -242,16 +228,13 @@ services:
       secrets: []
     # Environment variables
     env:
-      OIDC_CLIENT_ID: "daytona"
-      OIDC_CLIENT_SECRET: ""
-      # Auto-generated as "https://{{.Values.baseDomain}}/idp/realms/daytona" if not set or empty
-      OIDC_DOMAIN: ""
-      OIDC_AUDIENCE: "daytona"
-      PROXY_PORT: 80
+      # Proxy port service will listen on. Defaults to 80 if not set.
+      PROXY_PORT: ""
       # Auto-generated as "proxy.{{.Values.baseDomain}}:{{PROXY_PORT}}" if not set or empty
       PROXY_DOMAIN: ""
       PROXY_API_KEY: "super_secret_key"
       PROXY_PROTOCOL: http
+      OIDC_CLIENT_SECRET: ""
     # Resource limits and requests
     resources:
       limits:
@@ -292,7 +275,7 @@ services:
       annotations: {}
     # Set api key for ssh gateway. This key is used to authenticate the ssh gateway against api
     apiKey: supersecretapikey
-    # Generate ssh keys to be used for the ssh gateway. These keys are stored in the secret and used to authenticate the ssh gateway. Generate keys using ssh-keygen and store them as base64 values here
+    # Generate ssh keys to be used for the ssh gateway. These keys are stored in the secret and used to authenticate the ssh gateway. Generate keys using ssh-keygen (ssh-keygen -t ed25519 -f gateway_host_key -N "") and store them as base64 (cat gateway_host_key | base64 -w 0) values here. You will need 2 groups of keys - one for the client and one for the gateway.
     sshKeys:
       privClientSSHKey: ""
       pubClientSSHKey: ""
@@ -376,6 +359,86 @@ externalRedis:
   # If existingSecret is provided, it should contain key: redis-password
   existingSecret: ""
 
+# Dex configuration (simple IdP for testing)
+dex:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: dexidp/dex
+    tag: "v2.42.0"
+  service:
+    port: 5556
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  # Ingress configuration
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations: {}
+      #nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # If not set, defaults to "dex.{{.Values.baseDomain}}"
+    hostname: ""
+    path: "/"
+    pathType: "Prefix"
+    # Additional hosts to be added to the ingress record
+    extraHosts: []
+    # Additional paths to be added to the ingress under the main host
+    extraPaths: []
+    # Additional TLS configuration for additional hostnames
+    extraTls: []
+    # Additional ingress rules
+    extraRules: []
+    # Enable TLS
+    tls: true
+    # Enable self-signed certificates
+    selfSigned: false
+    # Custom TLS certificates as secrets
+    # NOTE: 'key' and 'certificate' are expected in PEM format
+    # NOTE: 'name' should match the secretName used in ingress TLS configuration
+    # NOTE: The certificate can use the same secret as API/Proxy (covers base domain + wildcard)
+    #       or a separate certificate for dex subdomain
+    # If it is not set and you're using cert-manager, this is unneeded, as it will create a secret for you with valid certificates
+    # If it is not set and you're NOT using cert-manager either, set selfSigned: true to generate self-signed certificates
+    # It is also possible to create and manage the certificates outside of this helm chart
+    # e.g:
+    # secrets:
+    #   - name: dex.daytona.example.com-tls
+    #     key: |-
+    #       -----BEGIN RSA PRIVATE KEY-----
+    #       ...
+    #       -----END RSA PRIVATE KEY-----
+    #     certificate: |-
+    #       -----BEGIN CERTIFICATE-----
+    #       ...
+    #       -----END CERTIFICATE-----
+    secrets: []
+  config:
+    # Issuer URL (auto-generated if not set)
+    issuer: ""
+    # OIDC client ID
+    clientId: "daytona"
+    # Client name
+    clientName: "Daytona"
+    # Redirect URIs for OIDC client (auto-generated if not set)
+    # Defaults to:
+    # - http://[fullname]-api:[api-port]
+    # - http://[fullname]-api:[api-port]/api/oauth2-redirect.html
+    # - http://localhost:8080 (for port-forward)
+    # - http://localhost:8080/api/oauth2-redirect.html (for port-forward)
+    # - http://localhost:3009/callback
+    # - http://[fullname]-proxy:[proxy-port]/callback
+    redirectURIs: []
+    # Static passwords (for development/testing)
+    # Password hash can be generated with: echo password | htpasswd -BinC 10 admin | cut -d: -f2
+    # default username/password is admin/password
+    staticPasswords:
+      - email: "dev@daytona.io"
+        username: "admin"
+        password: "$2y$10$pQ8jbpk6RWHx/uYJtDey.uCTzVl2ZXg569tp63PE9uisbCYzoARW6"
+        userID: "1234"
+
 # Redis configuration
 redis:
   enabled: true
@@ -442,9 +505,8 @@ harbor:
   existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
   harborAdminPassword: "Harbor12345"
   externalURL: "https://harbor.daytona.example.com"
-  jobservice:
-    updateStrategy:
-      type: Recreate
+  updateStrategy:
+    type: Recreate
   # The persistence is enabled by default and a default StorageClass
   # is needed in the k8s cluster to provision volumes dynamically.
   # Specify another StorageClass in the "storageClass" or set "existingClaim"
@@ -568,13 +630,161 @@ harbor:
   trivy:
     enabled: false
   database:
+    # if external database is used, set "type" to "external"
+    # and fill the connection information in "external" section
     type: internal
+    internal:
+      image:
+        repository: goharbor/harbor-db
+        tag: v2.14.0
+      # set the service account to be used, default if left empty
+      serviceAccountName: ""
+      # mount the service account token
+      automountServiceAccountToken: false
+      # resources:
+      #  requests:
+      #    memory: 256Mi
+      #    cpu: 100m
+      # The timeout used in livenessProbe; 1 to 5 seconds
+      livenessProbe:
+        timeoutSeconds: 1
+      # The timeout used in readinessProbe; 1 to 5 seconds
+      readinessProbe:
+        timeoutSeconds: 1
+      extraEnvVars: []
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
+      ## The priority class to run the pod as
+      priorityClassName:
+      # containers to be run before the controller's container starts.
+      extrInitContainers: []
+      # Example:
+      #
+      # - name: wait
+      #   image: busybox
+      #   command: [ 'sh', '-c', "sleep 20" ]
+      # The initial superuser password for internal database
+      password: "changeit"
+      # The size limit for Shared memory, pgSQL use it for shared_buffer
+      # More details see:
+      # https://github.com/goharbor/harbor/issues/15034
+      shmSizeLimit: 512Mi
+      initContainer:
+        migrator: {}
+        # resources:
+        #  requests:
+        #    memory: 128Mi
+        #    cpu: 100m
+        permissions: {}
+        # resources:
+        #  requests:
+        #    memory: 128Mi
+        #    cpu: 100m
+    external:
+      host: "192.168.0.1"
+      port: "5432"
+      username: "user"
+      password: "password"
+      coreDatabase: "registry"
+      # if using existing secret, the key must be "password"
+      existingSecret: ""
+      # "disable" - No SSL
+      # "require" - Always SSL (skip verification)
+      # "verify-ca" - Always SSL (verify that the certificate presented by the
+      # server was signed by a trusted CA)
+      # "verify-full" - Always SSL (verify that the certification presented by the
+      # server was signed by a trusted CA and the server host name matches the one
+      # in the certificate)
+      sslmode: "disable"
+    # The maximum number of connections in the idle connection pool per pod (core+exporter).
+    # If it <=0, no idle connections are retained.
+    maxIdleConns: 100
+    # The maximum number of open connections to the database per pod (core+exporter).
+    # If it <= 0, then there is no limit on the number of open connections.
+    # Note: the default number of connections is 1024 for harbor's postgres.
+    maxOpenConns: 900
+    ## Additional deployment annotations
+    podAnnotations: {}
+    ## Additional deployment labels
+    podLabels: {}
   redis:
+    # if external Redis is used, set "type" to "external"
+    # and fill the connection information in "external" section
     type: internal
+    internal:
+      image:
+        repository: goharbor/redis-photon
+        tag: v2.14.0
+      # set the service account to be used, default if left empty
+      serviceAccountName: ""
+      # mount the service account token
+      automountServiceAccountToken: false
+      # resources:
+      #  requests:
+      #    memory: 256Mi
+      #    cpu: 100m
+      extraEnvVars: []
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
+      ## The priority class to run the pod as
+      priorityClassName:
+      # containers to be run before the controller's container starts.
+      initContainers: []
+      # Example:
+      #
+      # - name: wait
+      #   image: busybox
+      #   command: [ 'sh', '-c', "sleep 20" ]
+      # # jobserviceDatabaseIndex defaults to "1"
+      # # registryDatabaseIndex defaults to "2"
+      # # trivyAdapterIndex defaults to "5"
+      # # harborDatabaseIndex defaults to "0", but it can be configured to "6", this config is optional
+      # # cacheLayerDatabaseIndex defaults to "0", but it can be configured to "7", this config is optional
+      jobserviceDatabaseIndex: "1"
+      registryDatabaseIndex: "2"
+      trivyAdapterIndex: "5"
+      # harborDatabaseIndex: "6"
+      # cacheLayerDatabaseIndex: "7"
+    external:
+      # support redis, redis+sentinel
+      # addr for redis: <host_redis>:<port_redis>
+      # addr for redis+sentinel: <host_sentinel1>:<port_sentinel1>,<host_sentinel2>:<port_sentinel2>,<host_sentinel3>:<port_sentinel3>
+      addr: "192.168.0.2:6379"
+      # The name of the set of Redis instances to monitor, it must be set to support redis+sentinel
+      sentinelMasterSet: ""
+      # TLS configuration for redis connection
+      # only server-authentication is supported, mTLS for redis connection is not supported
+      # tls connection will be disable by default
+      # Once `tlsOptions.enable` set as true, tls/ssl connection will be used for redis
+      # Please set the `caBundleSecretName` in this configuration file which conatins redis server rootCA if it is self-signed.
+      # The secret must contain keys named "ca.crt" which will be injected into the trust store
+      tlsOptions:
+        enable: false
+      # The "coreDatabaseIndex" must be "0" as the library Harbor
+      # used doesn't support configuring it
+      # harborDatabaseIndex defaults to "0", but it can be configured to "6", this config is optional
+      # cacheLayerDatabaseIndex defaults to "0", but it can be configured to "7", this config is optional
+      coreDatabaseIndex: "0"
+      jobserviceDatabaseIndex: "1"
+      registryDatabaseIndex: "2"
+      trivyAdapterIndex: "5"
+      # harborDatabaseIndex: "6"
+      # cacheLayerDatabaseIndex: "7"
+      # username field can be an empty string, and it will be authenticated against the default user
+      username: ""
+      password: ""
+      # If using existingSecret, the key must be REDIS_PASSWORD, if ACL mode enabled, also inlcudes data of username, the keys must be REDIS_USERNAME
+      existingSecret: ""
+    ## Additional deployment annotations
+    podAnnotations: {}
+    ## Additional deployment labels
+    podLabels: {}
 
 # MinIO subchart configuration
 minio:
-  enabled: true
+  enabled: false
   mode: standalone
   rootUser: "minioadmin"
   rootPassword: "minioadmin"
@@ -597,58 +807,6 @@ minio:
   consoleService:
     type: ClusterIP
     port: 9001
-
-# Keycloak subchart configuration
-keycloak:
-  enabled: true
-  global:
-    security:
-      allowInsecureImages: true
-  image:
-    registry: docker.io
-    repository: bitnamilegacy/keycloak
-    tag: 26.3.3-debian-12-r0
-  keycloakConfigCli:
-    enabled: true
-    existingConfigmap: daytona-keycloak-realm-config
-    image:
-      registry: docker.io
-      repository: bitnamilegacy/keycloak-config-cli
-      tag: 6.4.0-debian-12-r11
-  production: true
-  proxyHeaders: "xforwarded"
-  httpEnabled: false
-  httpRelativePath: /idp/
-
-  service:
-    type: ClusterIP
-
-  ingress:
-    enabled: true
-    ingressClassName: nginx
-    annotations: {}
-      # nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    hostname: "daytona.example.com"
-    tls: true
-    extraTls:
-      - hosts:
-          - "daytona.example.com"
-        secretName: "daytona.example.com-tls"
-
-  auth:
-    adminUser: admin
-    adminPassword: "admin"
-
-  postgresql:
-    enabled: true
-    global:
-      security:
-        allowInsecureImages: true
-    image:
-      registry: docker.io
-      repository: bitnamilegacy/postgresql
-      tag: 17.6.0-debian-12-r0
-    nameOverride: "keycloak-postgresql"
 
 # PostgreSQL subchart
 postgresql:

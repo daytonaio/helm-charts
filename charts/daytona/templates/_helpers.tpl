@@ -124,3 +124,40 @@ Usage:
     {{- $value }}
 {{- end }}
 {{- end -}}
+
+{{/*
+Build PROXY_DOMAIN with correct port handling.
+- For HTTPS: Always omits port (HTTPS URLs typically don't include ports)
+- For HTTP: Omits port for default port 80, includes port for non-default ports
+- If PROXY_DOMAIN is manually set and already contains a port, it's used as-is.
+Usage:
+{{ include "daytona.proxyDomain" . }}
+*/}}
+{{- define "daytona.proxyDomain" -}}
+{{- $proxyPort := (.Values.services.proxy.env.PROXY_PORT | default 80 | toString | int) -}}
+{{- $proxyProtocol := .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | toString | lower -}}
+{{- $shouldOmitPort := or (eq $proxyProtocol "https") (and (eq $proxyProtocol "http") (eq $proxyPort 80)) -}}
+{{- $baseDomain := "" -}}
+{{- if .Values.services.proxy.env.PROXY_DOMAIN -}}
+  {{- $baseDomain = .Values.services.proxy.env.PROXY_DOMAIN -}}
+  {{- if contains ":" $baseDomain -}}
+    {{- /* PROXY_DOMAIN already contains a port, use as-is */ -}}
+    {{- $baseDomain -}}
+  {{- else -}}
+    {{- /* PROXY_DOMAIN set but no port, conditionally append */ -}}
+    {{- if $shouldOmitPort -}}
+      {{- $baseDomain -}}
+    {{- else -}}
+      {{- printf "%s:%d" $baseDomain $proxyPort -}}
+    {{- end -}}
+  {{- end -}}
+{{- else -}}
+  {{- /* Auto-generate proxy.{{baseDomain}} */ -}}
+  {{- $baseDomain = printf "proxy.%s" .Values.baseDomain -}}
+  {{- if $shouldOmitPort -}}
+    {{- $baseDomain -}}
+  {{- else -}}
+    {{- printf "%s:%d" $baseDomain $proxyPort -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
