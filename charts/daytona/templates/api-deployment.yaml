@@ -45,14 +45,15 @@ spec:
               containerPort: 3000
               protocol: TCP
           env:
-            {{- range $key, $value := .Values.services.api.env }}
-            {{- if and $value (ne ($value | toString) "") }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
-            {{- end }}
+            # Application configuration
+            - name: ENVIRONMENT
+              value: {{ .Values.services.api.env.ENVIRONMENT | default "production" | quote }}
+            - name: PORT
+              value: {{ .Values.services.api.env.PORT | default "3000" | quote }}
             - name: OTEL_ENABLED
-              value: "false"
+              value: {{ .Values.services.api.env.OTEL_ENABLED | default "false" | quote }}
+            - name: SKIP_USER_EMAIL_VERIFICATION
+              value: {{ .Values.services.api.env.SKIP_USER_EMAIL_VERIFICATION | default "false" | quote }}
             # Database configuration
             {{- if .Values.postgresql.enabled }}
             - name: DB_HOST
@@ -69,19 +70,19 @@ spec:
                   name: {{ printf "%s-postgresql" .Release.Name }}
                   key: password
             {{- else }}
-            # External database
+            # External database - use externalDatabase values if set, otherwise use env or defaults
             - name: DB_HOST
-              value: {{ .Values.externalDatabase.host | quote }}
+              value: {{ .Values.externalDatabase.host | default (.Values.services.api.env.DB_HOST | default "") | quote }}
             - name: DB_PORT
-              value: {{ .Values.externalDatabase.port | quote }}
+              value: {{ .Values.externalDatabase.port | default (.Values.services.api.env.DB_PORT | default "5432") | quote }}
             - name: DB_TLS_ENABLED
-              value: {{ .Values.externalDatabase.enableTLS | quote }}
+              value: {{ .Values.externalDatabase.enableTLS | default (.Values.services.api.env.DB_TLS_ENABLED | default "false") | quote }}
             - name: DB_TLS_REJECT_UNAUTHORIZED
-              value: {{ not .Values.externalDatabase.allowSelfSignedCert | quote }}
+              value: {{ if .Values.services.api.env.DB_TLS_REJECT_UNAUTHORIZED }}{{ .Values.services.api.env.DB_TLS_REJECT_UNAUTHORIZED | quote }}{{ else }}{{ if .Values.externalDatabase.allowSelfSignedCert }}"false"{{ else }}"true"{{ end }}{{ end }}
             - name: DB_DATABASE
-              value: {{ .Values.externalDatabase.name | quote }}
+              value: {{ .Values.externalDatabase.name | default (.Values.services.api.env.DB_DATABASE | default "") | quote }}
             - name: DB_USERNAME
-              value: {{ .Values.externalDatabase.user | quote }}
+              value: {{ .Values.externalDatabase.user | default (.Values.services.api.env.DB_USERNAME | default "") | quote }}
             {{- if .Values.externalDatabase.existingSecret }}
             - name: DB_PASSWORD
               valueFrom:
@@ -114,13 +115,13 @@ spec:
               value: ""
             {{- end }}
             {{- else }}
-            # External Redis
+            # External Redis - use externalRedis values if set, otherwise use env or defaults
             - name: REDIS_HOST
-              value: {{ .Values.externalRedis.host | quote }}
+              value: {{ .Values.externalRedis.host | default (.Values.services.api.env.REDIS_HOST | default "") | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.externalRedis.port | quote }}
+              value: {{ .Values.externalRedis.port | default (.Values.services.api.env.REDIS_PORT | default "6379") | quote }}
             - name: REDIS_TLS
-              value: {{ .Values.externalRedis.tls | quote }}
+              value: {{ .Values.externalRedis.tls | default (.Values.services.api.env.REDIS_TLS | default "false") | quote }}
             {{- if .Values.externalRedis.existingSecret }}
             - name: REDIS_PASSWORD
               valueFrom:
@@ -138,20 +139,13 @@ spec:
               value: ""
             {{- end }}
             {{- end }}
-            {{- if not .Values.services.proxy.env.PROXY_DOMAIN }}
+            # Proxy Configuration
             - name: PROXY_DOMAIN
-              value: {{ printf "proxy.%s:%s" .Values.baseDomain ((.Values.services.proxy.env.PROXY_PORT | default 80) | toString) | quote }}
-            {{- else }}
-            - name: PROXY_DOMAIN
-              value: {{ .Values.services.proxy.env.PROXY_DOMAIN | quote }}
-            {{- end }}
+              value: {{ .Values.baseDomain | quote }}
             - name: PROXY_PROTOCOL
-              value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | quote }}
+              value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | quote }}
             - name: PROXY_API_KEY
-              value: {{ .Values.services.proxy.env.PROXY_API_KEY | quote }}
-            {{- $proxyDomain := .Values.services.proxy.env.PROXY_DOMAIN | default (printf "proxy.%s:%s" .Values.baseDomain ((.Values.services.proxy.env.PROXY_PORT | default 80) | toString)) }}
-            - name: PROXY_TEMPLATE_URL
-              value: "{{ .Values.services.proxy.env.PROXY_PROTOCOL }}://{{`{{PORT}}`}}-{{`{{sandboxId}}`}}.{{ $proxyDomain }}"
+              value: {{ .Values.services.proxy.env.PROXY_API_KEY | default "" | quote }}
             {{- if .Values.services.sshGateway.enabled }}
             # SSH Gateway Configuration
             {{- if not .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}
@@ -173,7 +167,7 @@ spec:
             {{- end }}
             # Harbor Registry Configuration
             {{- if .Values.harbor.enabled }}
-            # Use Harbor configuration (overrides any values from services.api.env)
+            # Use Harbor configuration when enabled (overrides any values from services.api.env)
             - name: TRANSIENT_REGISTRY_URL
               value: {{ .Values.harbor.externalURL | quote }}
             - name: TRANSIENT_REGISTRY_ADMIN
@@ -206,25 +200,68 @@ spec:
             {{- end }}
             - name: INTERNAL_REGISTRY_PROJECT_ID
               value: "library"
+            {{- else }}
+            # External registry - use env or defaults when Harbor is disabled
+            - name: TRANSIENT_REGISTRY_URL
+              value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_URL | default "" | quote }}
+            - name: TRANSIENT_REGISTRY_ADMIN
+              value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_ADMIN | default "" | quote }}
+            - name: TRANSIENT_REGISTRY_PASSWORD
+              value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_PASSWORD | default "" | quote }}
+            - name: TRANSIENT_REGISTRY_PROJECT_ID
+              value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_PROJECT_ID | default "" | quote }}
+            - name: INTERNAL_REGISTRY_URL
+              value: {{ .Values.services.api.env.INTERNAL_REGISTRY_URL | default "" | quote }}
+            - name: INTERNAL_REGISTRY_ADMIN
+              value: {{ .Values.services.api.env.INTERNAL_REGISTRY_ADMIN | default "" | quote }}
+            - name: INTERNAL_REGISTRY_PASSWORD
+              value: {{ .Values.services.api.env.INTERNAL_REGISTRY_PASSWORD | default "" | quote }}
+            - name: INTERNAL_REGISTRY_PROJECT_ID
+              value: {{ .Values.services.api.env.INTERNAL_REGISTRY_PROJECT_ID | default "" | quote }}
             {{- end }}
             # OIDC Configuration
-            {{- if not .Values.services.api.env.OIDC_ISSUER_BASE_URL }}
-            - name: OIDC_ISSUER_BASE_URL
-              value: {{ printf "https://%s/idp/realms/daytona" .Values.baseDomain | quote }}
+            {{- if .Values.dex.enabled }}
+            # Dex is enabled - use Dex configuration
+            {{- $dexHostname := .Values.dex.ingress.hostname | default (printf "dex.%s" .Values.baseDomain) -}}
+            {{- $templatedDexHostname := tpl $dexHostname $ -}}
+            {{- $dexIssuerUrl := "" -}}
+            {{- if .Values.dex.config.issuer -}}
+              {{- $dexIssuerUrl = .Values.dex.config.issuer -}}
+            {{- else if and .Values.dex.enabled .Values.dex.ingress.enabled -}}
+              {{- $dexIssuerUrl = printf "https://%s/dex" $templatedDexHostname -}}
+            {{- else -}}
+              {{- $dexIssuerUrl = printf "http://%s-dex:%s/dex" (include "daytona.fullname" .) (.Values.dex.service.port | default 5556 | toString) -}}
             {{- end }}
-            {{- if not .Values.services.api.env.PUBLIC_OIDC_DOMAIN }}
+            {{- $dexPublicUrl := "" -}}
+            {{- if and .Values.dex.enabled .Values.dex.ingress.enabled -}}
+              {{- $dexPublicUrl = printf "https://%s/dex" $templatedDexHostname -}}
+            {{- else -}}
+              {{- $dexPublicUrl = "http://localhost:5556/dex" -}}
+            {{- end }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.dex.config.clientId | default "daytona" | quote }}
+            - name: OIDC_ISSUER_BASE_URL
+              value: {{ $dexIssuerUrl | quote }}
             - name: PUBLIC_OIDC_DOMAIN
-              value: {{ printf "https://%s/idp/realms/daytona" .Values.baseDomain | quote }}
+              value: {{ $dexPublicUrl | quote }}
+            - name: OIDC_AUDIENCE
+              value: {{ .Values.dex.config.clientId | default "daytona" | quote }}
+            {{- else }}
+            # Dex is disabled - use values from env or defaults
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.services.api.env.OIDC_CLIENT_ID | default "daytona" | quote }}
+            - name: OIDC_ISSUER_BASE_URL
+              value: {{ .Values.services.api.env.OIDC_ISSUER_BASE_URL | default "" | quote }}
+            - name: PUBLIC_OIDC_DOMAIN
+              value: {{ .Values.services.api.env.PUBLIC_OIDC_DOMAIN | default "" | quote }}
+            - name: OIDC_AUDIENCE
+              value: {{ .Values.services.api.env.OIDC_AUDIENCE | default "daytona" | quote }}
             {{- end }}
             # Dashboard Configuration
-            {{- if not .Values.services.api.env.DASHBOARD_URL }}
             - name: DASHBOARD_URL
-              value: {{ printf "https://%s/dashboard" .Values.baseDomain | quote }}
-            {{- end }}
-            {{- if not .Values.services.api.env.DASHBOARD_BASE_API_URL }}
+              value: {{ if .Values.services.api.env.DASHBOARD_URL }}{{ .Values.services.api.env.DASHBOARD_URL | quote }}{{ else }}{{ printf "https://%s/dashboard" .Values.baseDomain | quote }}{{ end }}
             - name: DASHBOARD_BASE_API_URL
-              value: {{ printf "https://%s" .Values.baseDomain | quote }}
-            {{- end }}
+              value: {{ if .Values.services.api.env.DASHBOARD_BASE_API_URL }}{{ .Values.services.api.env.DASHBOARD_BASE_API_URL | quote }}{{ else }}{{ printf "https://%s" .Values.baseDomain | quote }}{{ end }}
             # S3 Configuration (MinIO)
             {{- if .Values.minio.enabled }}
             # Use MinIO configuration when enabled (overrides any values from services.api.env)
@@ -254,6 +291,24 @@ spec:
             - name: S3_ROLE_NAME
               value: {{ .Values.services.api.env.S3_ROLE_NAME | default "" | quote }}
             {{- end }}
+            # SMTP Configuration
+            - name: SMTP_HOST
+              value: {{ .Values.services.api.env.SMTP_HOST | default "" | quote }}
+            - name: SMTP_PORT
+              value: {{ .Values.services.api.env.SMTP_PORT | default "587" | quote }}
+            - name: SMTP_USER
+              value: {{ .Values.services.api.env.SMTP_USER | default "" | quote }}
+            - name: SMTP_PASSWORD
+              value: {{ .Values.services.api.env.SMTP_PASSWORD | default "" | quote }}
+            - name: SMTP_SECURE
+              value: {{ .Values.services.api.env.SMTP_SECURE | default "false" | quote }}
+            - name: SMTP_EMAIL_FROM
+              value: {{ .Values.services.api.env.SMTP_EMAIL_FROM | default "noreply@mail.daytona.io" | quote }}
+            # APP Configuration
+            - name: DEFAULT_SNAPSHOT
+              value: {{ .Values.services.api.env.DEFAULT_SNAPSHOT | default "daytonaio/sandbox:0.5.0" | quote }}
+            - name: DEFAULT_RUNNER_DOMAIN
+              value: {{ .Values.services.api.env.DEFAULT_RUNNER_DOMAIN | default "" | quote }}
             {{- if .Values.services.api.extraEnv }}
             {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraEnv "context" $) | nindent 12 }}
             {{- end }}

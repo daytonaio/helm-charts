@@ -1,0 +1,27 @@
+{{- if and .Values.dex.enabled .Values.dex.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "daytona.fullname" . }}-dex
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.dex.persistence.size | default "1Gi" }}
+  {{- if .Values.dex.persistence.storageClass }}
+  {{- if (eq "-" .Values.dex.persistence.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.dex.persistence.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+
+
+
+

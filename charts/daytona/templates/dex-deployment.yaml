@@ -1,0 +1,71 @@
+{{- if .Values.dex.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ include "daytona.namespace" . }}
+  name: {{ include "daytona.fullname" . }}-dex
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "daytona.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: dex
+  template:
+    metadata:
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: dex
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: volume-permissions
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /var/dex
+              chmod 777 /var/dex
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: dex-db
+              mountPath: /var/dex
+      containers:
+        - name: dex
+          image: "{{ if .Values.dex.image.registry }}{{ .Values.dex.image.registry }}/{{ end }}{{ .Values.dex.image.repository }}:{{ .Values.dex.image.tag | default "v2.42.0" }}"
+          imagePullPolicy: {{ .Values.dex.image.pullPolicy | default "IfNotPresent" }}
+          command:
+            - sh
+            - -c
+            - touch /var/dex/dex.db && exec dex serve /etc/dex/config.yaml
+          ports:
+            - name: http
+              containerPort: {{ .Values.dex.service.port | default 5556 }}
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/dex/config.yaml
+              subPath: config.yaml
+            - name: dex-db
+              mountPath: /var/dex
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "daytona.fullname" . }}-dex-config
+        - name: dex-db
+          {{- if .Values.dex.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "daytona.fullname" . }}-dex
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

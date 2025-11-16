@@ -1,9 +1,10 @@
 {{- if .Values.services.proxy.ingress.enabled -}}
 {{- $fullName := include "daytona.fullname" . -}}
 {{- $svcPort := .Values.services.proxy.service.port -}}
-{{- $hostname := .Values.services.proxy.ingress.hostname | default (printf "proxy.%s" .Values.baseDomain) -}}
-{{- $templatedHostname := tpl $hostname $ -}}
-{{- $wildcardHostname := printf "*.%s" $templatedHostname -}}
+{{- $baseDomain := .Values.baseDomain -}}
+{{- $templatedBaseDomain := tpl $baseDomain $ -}}
+{{- $proxyHostname := printf "proxy.%s" $templatedBaseDomain -}}
+{{- $wildcardBaseDomain := printf "*.%s" $templatedBaseDomain -}}
 {{- if and .Values.services.proxy.ingress.className (not (hasKey .Values.services.proxy.ingress.annotations "kubernetes.io/ingress.class")) }}
   {{- $_ := set .Values.services.proxy.ingress.annotations "kubernetes.io/ingress.class" .Values.services.proxy.ingress.className}}
 {{- end }}
@@ -24,8 +25,8 @@ spec:
   ingressClassName: {{ .Values.services.proxy.ingress.className }}
   {{- end }}
   rules:
-    {{- if $hostname }}
-    - host: {{ $templatedHostname | quote }}
+    # Proxy subdomain (exact match, e.g., proxy.daytona.example.com)
+    - host: {{ $proxyHostname | quote }}
       http:
         paths:
           {{- if .Values.services.proxy.ingress.extraPaths }}
@@ -38,10 +39,14 @@ spec:
                 name: {{ $fullName }}-proxy
                 port:
                   number: {{ $svcPort }}
-    # Wildcard host required for unique subdomains per sandbox
-    - host: {{ $wildcardHostname | quote }}
+    # Wildcard host for all subdomains - routes to proxy service
+    # This handles sandbox subdomains like: 3000-sandbox-id.daytona.example.com
+    - host: {{ $wildcardBaseDomain | quote }}
       http:
         paths:
+          {{- if .Values.services.proxy.ingress.extraPaths }}
+          {{- toYaml .Values.services.proxy.ingress.extraPaths | nindent 10 }}
+          {{- end }}
           - path: {{ .Values.services.proxy.ingress.path | default "/" }}
             pathType: {{ .Values.services.proxy.ingress.pathType | default "Prefix" }}
             backend:
@@ -49,7 +54,6 @@ spec:
                 name: {{ $fullName }}-proxy
                 port:
                   number: {{ $svcPort }}
-    {{- end }}
     {{- range .Values.services.proxy.ingress.extraHosts }}
     - host: {{ tpl .name $ | quote }}
       http:
@@ -67,12 +71,11 @@ spec:
     {{- end }}
   {{- if .Values.services.proxy.ingress.tls }}
   tls:
-    {{- if $hostname }}
+    # Use same TLS secret as API ingress (covers base domain + wildcard)
     - hosts:
-        - {{ $templatedHostname | quote }}
-        - {{ $wildcardHostname | quote }}
-      secretName: {{ printf "%s-tls" $templatedHostname }}
-    {{- end }}
+        - {{ $proxyHostname | quote }}
+        - {{ $wildcardBaseDomain | quote }}
+      secretName: {{ printf "%s-tls" $templatedBaseDomain }}
     {{- if .Values.services.proxy.ingress.extraTls }}
     {{- toYaml .Values.services.proxy.ingress.extraTls | nindent 4 }}
     {{- end }}
