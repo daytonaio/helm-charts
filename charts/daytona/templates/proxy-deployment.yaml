@@ -41,7 +41,7 @@ spec:
           imagePullPolicy: {{ .Values.services.proxy.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.services.proxy.env.PROXY_PORT | default 80 | toString }}
+              containerPort: {{ .Values.services.proxy.env.PROXY_PORT | default 4000 | toString }}
               protocol: TCP
           env:
             # Redis configuration
@@ -132,7 +132,7 @@ spec:
             - name: PROXY_API_KEY
               value: {{ .Values.services.proxy.env.PROXY_API_KEY | default "super_secret_key" | quote }}
             - name: PROXY_PORT
-              value: {{ .Values.services.proxy.env.PROXY_PORT | default 80 | toString | quote }}
+              value: {{ .Values.services.proxy.env.PROXY_PORT | default 4000 | toString | quote }}
             - name: PROXY_PROTOCOL
               value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | quote }}
             - name: PROXY_DOMAIN

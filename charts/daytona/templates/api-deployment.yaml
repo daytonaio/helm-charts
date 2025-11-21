@@ -36,7 +36,6 @@ spec:
       containers:
         - name: api
           securityContext:
-            privileged: true
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.api.image.registry) }}/{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.services.api.image.pullPolicy }}
