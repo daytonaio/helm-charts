@@ -228,7 +228,7 @@ services:
       secrets: []
     # Environment variables
     env:
-      # Proxy port service will listen on. Defaults to 80 if not set.
+      # Proxy port container service will listen on. Defaults to 4000 if not set.
       PROXY_PORT: ""
       # Auto-generated as "proxy.{{.Values.baseDomain}}:{{PROXY_PORT}}" if not set or empty
       PROXY_DOMAIN: ""

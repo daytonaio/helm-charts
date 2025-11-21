@@ -134,7 +134,7 @@ Usage:
 {{ include "daytona.proxyDomain" . }}
 */}}
 {{- define "daytona.proxyDomain" -}}
-{{- $proxyPort := (.Values.services.proxy.env.PROXY_PORT | default 80 | toString | int) -}}
+{{- $proxyPort := (.Values.services.proxy.env.PROXY_PORT | default 4000 | toString | int) -}}
 {{- $proxyProtocol := .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | toString | lower -}}
 {{- $shouldOmitPort := or (eq $proxyProtocol "https") (and (eq $proxyProtocol "http") (eq $proxyPort 80)) -}}
 {{- $baseDomain := "" -}}
