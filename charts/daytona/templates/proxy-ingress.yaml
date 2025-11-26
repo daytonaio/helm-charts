@@ -75,7 +75,7 @@ spec:
     - hosts:
         - {{ $proxyHostname | quote }}
         - {{ $wildcardBaseDomain | quote }}
-      secretName: {{ printf "%s-tls" $templatedBaseDomain }}
+      secretName: {{ printf "proxy.%s-tls" $templatedBaseDomain }}
     {{- if .Values.services.proxy.ingress.extraTls }}
     {{- toYaml .Values.services.proxy.ingress.extraTls | nindent 4 }}
     {{- end }}

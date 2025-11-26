@@ -56,11 +56,9 @@ spec:
   {{- if .Values.dex.ingress.tls }}
   tls:
     {{- if $hostname }}
-    {{- $baseDomain := .Values.baseDomain -}}
-    {{- $templatedBaseDomain := tpl $baseDomain $ }}
     - hosts:
         - {{ $templatedHostname | quote }}
-      secretName: {{ printf "%s-tls" $templatedBaseDomain }}
+      secretName: {{ printf "%s-tls" $templatedHostname }}
     {{- end }}
     {{- if .Values.dex.ingress.extraTls }}
     {{- toYaml .Values.dex.ingress.extraTls | nindent 4 }}
