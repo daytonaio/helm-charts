@@ -11,7 +11,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
+  {{- if not .Values.services.proxy.autoscaling.enabled }}
   replicas: {{ .Values.services.proxy.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "daytona.selectorLabels" . | nindent 6 }}

@@ -82,7 +82,7 @@ services:
       SKIP_USER_EMAIL_VERIFICATION: "false"
 
       # Workspace configuration
-      DEFAULT_SNAPSHOT: "daytonaio/sandbox:0.5.0"
+      DEFAULT_SNAPSHOT: "daytonaio/sandbox:0.5.1-slim"
       # Auto-generated as "https://{{.Values.baseDomain}}/dashboard" if not set or empty
       DASHBOARD_URL: ""
       # Auto-generated as "https://{{.Values.baseDomain}}" if not set or empty
@@ -157,6 +157,34 @@ services:
     podAnnotations: {}
     # Replica count
     replicaCount: 1
+    # Horizontal Pod Autoscaler configuration
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+      # Custom metrics (optional)
+      # metrics: []
+      # Scaling behavior (optional)
+      # behavior:
+      #   scaleDown:
+      #     stabilizationWindowSeconds: 300
+      #     policies:
+      #     - type: Percent
+      #       value: 50
+      #       periodSeconds: 15
+      #   scaleUp:
+      #     stabilizationWindowSeconds: 0
+      #     policies:
+      #     - type: Percent
+      #       value: 100
+      #       periodSeconds: 15
+      #     - type: Pods
+      #       value: 4
+      #       periodSeconds: 15
+      #     selectPolicy: Max
+      annotations: {}
     # Service account
     serviceAccount:
       create: true
@@ -254,6 +282,34 @@ services:
     podAnnotations: {}
     # Replica count
     replicaCount: 1
+    # Horizontal Pod Autoscaler configuration
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+      # Custom metrics (optional)
+      # metrics: []
+      # Scaling behavior (optional)
+      # behavior:
+      #   scaleDown:
+      #     stabilizationWindowSeconds: 300
+      #     policies:
+      #     - type: Percent
+      #       value: 50
+      #       periodSeconds: 15
+      #   scaleUp:
+      #     stabilizationWindowSeconds: 0
+      #     policies:
+      #     - type: Percent
+      #       value: 100
+      #       periodSeconds: 15
+      #     - type: Pods
+      #       value: 4
+      #       periodSeconds: 15
+      #     selectPolicy: Max
+      annotations: {}
     # Service account
     serviceAccount:
       create: true
