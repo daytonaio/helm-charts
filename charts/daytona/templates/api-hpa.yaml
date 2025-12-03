@@ -1,0 +1,47 @@
+{{- if .Values.services.api.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "daytona.fullname" . }}-api
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  {{- with .Values.services.api.autoscaling.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "daytona.fullname" . }}-api
+  minReplicas: {{ .Values.services.api.autoscaling.minReplicas | default 1 }}
+  maxReplicas: {{ .Values.services.api.autoscaling.maxReplicas | default 10 }}
+  {{- if or .Values.services.api.autoscaling.targetCPUUtilizationPercentage .Values.services.api.autoscaling.targetMemoryUtilizationPercentage .Values.services.api.autoscaling.metrics }}
+  metrics:
+    {{- if .Values.services.api.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.services.api.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.services.api.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.services.api.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.services.api.autoscaling.metrics }}
+    {{- toYaml .Values.services.api.autoscaling.metrics | nindent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.services.api.autoscaling.behavior }}
+  behavior:
+    {{- toYaml .Values.services.api.autoscaling.behavior | nindent 4 }}
+  {{- end }}
+{{- end }}

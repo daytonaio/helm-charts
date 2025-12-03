@@ -6,7 +6,7 @@ This Helm chart deploys the complete Daytona platform on Kubernetes - a secure i
 
 The following diagram illustrates the architecture of Daytona Core Services within a Kubernetes Cluster, showing its interactions with users, Daytona Runners, and various supporting services:
 
-**Note:** While the diagram shows supporting services (PostgreSQL, Redis, S3 Storage) as external components, the Helm chart can deploy these as built-in subcharts within the same Kubernetes cluster. You can choose to use the included subcharts (PostgreSQL, Redis, MinIO) or configure the chart to use external services by setting the appropriate values in `values.yaml`.
+**Note:** While the diagram shows supporting services (PostgreSQL, Redis, S3 Storage, IdP) as external components, the Helm chart can deploy these as built-in subcharts within the same Kubernetes cluster. You can choose to use the included subcharts (PostgreSQL, Redis, Dex) or configure the chart to use external services by setting the appropriate values in `values.yaml`. MinIO is disabled by default.
 
 ```mermaid
 graph TB
@@ -130,13 +130,21 @@ The following table lists the configurable parameters and their default values.
 | `services.api.ingress.path` | API ingress path | `"/"` |
 | `services.api.ingress.pathType` | API ingress path type | `"Prefix"` |
 | `services.api.ingress.tls` | Enable TLS | `true` |
-| `services.api.ingress.selfSigned` | Enable self-signed certificates | `true` |
+| `services.api.ingress.selfSigned` | Enable self-signed certificates | `false` |
 | `services.api.ingress.secrets` | Custom TLS certificates | `[]` |
 | `services.api.ingress.extraHosts` | Additional ingress hosts | `[]` |
 | `services.api.ingress.extraPaths` | Additional ingress paths | `[]` |
 | `services.api.ingress.extraTls` | Additional TLS configuration | `[]` |
 | `services.api.ingress.extraRules` | Additional ingress rules | `[]` |
 | `services.api.replicaCount` | API replica count | `1` |
+| `services.api.autoscaling.enabled` | Enable Horizontal Pod Autoscaler (HPA) | `false` |
+| `services.api.autoscaling.minReplicas` | Minimum number of replicas | `1` |
+| `services.api.autoscaling.maxReplicas` | Maximum number of replicas | `10` |
+| `services.api.autoscaling.targetCPUUtilizationPercentage` | Target CPU utilization percentage | `80` |
+| `services.api.autoscaling.targetMemoryUtilizationPercentage` | Target memory utilization percentage | `""` (disabled) |
+| `services.api.autoscaling.metrics` | Custom metrics for autoscaling | `[]` |
+| `services.api.autoscaling.behavior` | Scaling behavior configuration | `{}` |
+| `services.api.autoscaling.annotations` | HPA annotations | `{}` |
 | `services.api.resources` | API resource limits/requests | See values.yaml |
 | `services.api.nodeSelector` | API node selector | `{}` |
 | `services.api.tolerations` | API tolerations | `[]` |
@@ -158,14 +166,11 @@ The following environment variables can be set in `services.api.env`. Empty valu
 - `PORT`: API port | `"3000"`
 
 **OIDC Configuration:**
-- `OIDC_CLIENT_ID`: OIDC client ID | `"daytona"`
-- `OIDC_ISSUER_BASE_URL`: OIDC issuer URL (auto-generated as `https://{{baseDomain}}/idp/realms/daytona` if empty)
-- `PUBLIC_OIDC_DOMAIN`: Public OIDC domain (auto-generated as `https://{{baseDomain}}/idp/realms/daytona` if empty)
-- `OIDC_AUDIENCE`: OIDC audience | `"daytona"`
-- `OIDC_MANAGEMENT_API_ENABLED`: Enable OIDC management API | `"false"`
-- `OIDC_MANAGEMENT_API_CLIENT_ID`: OIDC management API client ID | `""`
-- `OIDC_MANAGEMENT_API_CLIENT_SECRET`: OIDC management API client secret | `""`
-- `OIDC_MANAGEMENT_API_AUDIENCE`: OIDC management API audience | `""`
+- `OIDC_CLIENT_ID`: OIDC client ID | `""` (auto-generated from Dex if empty)
+- `OIDC_ISSUER_BASE_URL`: OIDC issuer URL (auto-generated as `https://{{baseDomain}}/idp` if empty)
+- `PUBLIC_OIDC_DOMAIN`: Public OIDC domain (auto-generated as `https://{{baseDomain}}/idp` if empty)
+- `OIDC_AUDIENCE`: OIDC audience | `""`
+- `SKIP_USER_EMAIL_VERIFICATION`: Skip user email verification | `"false"`
 
 **Dashboard Configuration:**
 - `DASHBOARD_URL`: Dashboard URL (auto-generated as `https://{{baseDomain}}/dashboard` if empty)
@@ -183,16 +188,16 @@ When Harbor is enabled, registry URLs and credentials are automatically configur
 - `INTERNAL_REGISTRY_PROJECT_ID`: Internal registry project ID | `""`
 
 **S3 Configuration (MinIO):**
-When MinIO is enabled, S3 endpoint and credentials are automatically configured. If using external S3 storage, disable MinIO and set these values:
+**Note:** MinIO is disabled by default (`minio.enabled=false`). Currently, Declarative Builder File System Operations and Volumes features are not supported in self-hosted Daytona. If MinIO is enabled, S3 endpoint and credentials are automatically configured. If using external S3 storage, disable MinIO and set these values:
 - `S3_ENDPOINT`: S3 endpoint URL | `""`
 - `S3_STS_ENDPOINT`: S3 STS endpoint URL | `""`
-- `S3_REGION`: S3 region | `"us-east-1"`
+- `S3_REGION`: S3 region | `""`
 - `S3_ACCESS_KEY`: S3 access key | `""`
 - `S3_SECRET_KEY`: S3 secret key | `""`
+- `S3_DEFAULT_BUCKET`: S3 default bucket | `""`
+- `S3_ACCOUNT_ID`: S3 account ID | `""`
+- `S3_ROLE_NAME`: S3 role name | `""`
 
-**OTEL Configuration:**
-- `OTEL_ENABLED`: Enable OTEL | `"true"`
-- `OTEL_COLLECTOR_URL`: OTEL collector URL (auto-generated from Jaeger service if Jaeger enabled and empty)
 
 **SMTP Configuration:**
 - `SMTP_HOST`: SMTP host | `""`
@@ -202,19 +207,7 @@ When MinIO is enabled, S3 endpoint and credentials are automatically configured.
 - `SMTP_SECURE`: SMTP secure connection | `""`
 - `SMTP_EMAIL_FROM`: SMTP email from address | `""`
 
-**Runner Configuration:**
-- `DEFAULT_RUNNER_DOMAIN`: Default runner domain | `""`
-- `DEFAULT_RUNNER_API_URL`: Default runner API URL | `""`
-- `DEFAULT_RUNNER_PROXY_URL`: Default runner proxy URL | `""`
-- `DEFAULT_RUNNER_API_KEY`: Default runner API key | `""`
-- `DEFAULT_RUNNER_CPU`: Default runner CPU | `"4"`
-- `DEFAULT_RUNNER_MEMORY`: Default runner memory (GB) | `"8"`
-- `DEFAULT_RUNNER_DISK`: Default runner disk (GB) | `"50"`
-- `DEFAULT_RUNNER_GPU`: Default runner GPU count | `"0"`
-- `DEFAULT_RUNNER_GPU_TYPE`: Default runner GPU type | `"none"`
-- `DEFAULT_RUNNER_CAPACITY`: Default runner capacity | `"100"`
-- `DEFAULT_RUNNER_REGION`: Default runner region | `"us"`
-- `DEFAULT_RUNNER_CLASS`: Default runner class | `"small"`
+**Sandbox Configuration:**
 - `DEFAULT_SNAPSHOT`: Default snapshot image | `"daytonaio/sandbox:0.5.0"`
 
 **Database Configuration:**
@@ -226,6 +219,15 @@ Database configuration is automatically handled based on `postgresql.enabled`:
 Redis configuration is automatically handled based on `redis.enabled`:
 - If `redis.enabled=true`: Uses internal Redis subchart
 - If `redis.enabled=false`: Uses `externalRedis` configuration
+
+**Horizontal Pod Autoscaler (HPA):**
+When `services.api.autoscaling.enabled=true`, the HPA will manage the replica count automatically based on CPU and/or memory utilization. The `replicaCount` value is ignored when HPA is enabled. The HPA supports:
+- CPU-based scaling via `targetCPUUtilizationPercentage`
+- Memory-based scaling via `targetMemoryUtilizationPercentage`
+- Custom metrics via the `metrics` array
+- Custom scaling behavior (scale up/down policies) via `behavior`
+
+**Note:** When HPA is enabled, ensure that resource requests are set in `services.api.resources.requests` for accurate scaling decisions.
 
 ### Proxy Service Configuration
 
@@ -241,7 +243,7 @@ Redis configuration is automatically handled based on `redis.enabled`:
 | `services.proxy.ingress.enabled` | Enable Proxy ingress | `true` |
 | `services.proxy.ingress.className` | Proxy ingress class | `"nginx"` |
 | `services.proxy.ingress.annotations` | Proxy ingress annotations | `{}` |
-| `services.proxy.ingress.hostname` | Proxy ingress hostname | `""` (defaults to `proxy.{{baseDomain}}`) |
+| `services.proxy.ingress.hostname` | Proxy ingress hostname | `""` (ignored - wildcard `*.{{baseDomain}}` is hardcoded) |
 | `services.proxy.ingress.path` | Proxy ingress path | `"/"` |
 | `services.proxy.ingress.pathType` | Proxy ingress path type | `"Prefix"` |
 | `services.proxy.ingress.tls` | Enable TLS | `true` |
@@ -252,6 +254,14 @@ Redis configuration is automatically handled based on `redis.enabled`:
 | `services.proxy.ingress.extraTls` | Additional TLS configuration | `[]` |
 | `services.proxy.ingress.extraRules` | Additional ingress rules | `[]` |
 | `services.proxy.replicaCount` | Proxy replica count | `1` |
+| `services.proxy.autoscaling.enabled` | Enable Horizontal Pod Autoscaler (HPA) | `false` |
+| `services.proxy.autoscaling.minReplicas` | Minimum number of replicas | `1` |
+| `services.proxy.autoscaling.maxReplicas` | Maximum number of replicas | `10` |
+| `services.proxy.autoscaling.targetCPUUtilizationPercentage` | Target CPU utilization percentage | `80` |
+| `services.proxy.autoscaling.targetMemoryUtilizationPercentage` | Target memory utilization percentage | `""` (disabled) |
+| `services.proxy.autoscaling.metrics` | Custom metrics for autoscaling | `[]` |
+| `services.proxy.autoscaling.behavior` | Scaling behavior configuration | `{}` |
+| `services.proxy.autoscaling.annotations` | HPA annotations | `{}` |
 | `services.proxy.resources` | Proxy resource limits/requests | See values.yaml |
 | `services.proxy.nodeSelector` | Proxy node selector | `{}` |
 | `services.proxy.tolerations` | Proxy tolerations | `[]` |
@@ -265,16 +275,22 @@ Redis configuration is automatically handled based on `redis.enabled`:
 
 #### Proxy Environment Variables
 
-- `OIDC_CLIENT_ID`: OIDC client ID | `"daytona"`
-- `OIDC_CLIENT_SECRET`: OIDC client secret | `""`
-- `OIDC_DOMAIN`: OIDC domain (auto-generated as `https://{{baseDomain}}/idp/realms/daytona` if empty)
-- `OIDC_AUDIENCE`: OIDC audience | `"daytona"`
-- `PROXY_PORT`: Proxy port | `80`
+- `PROXY_PORT`: Proxy port | `""` (defaults to 4000 if not set)
 - `PROXY_DOMAIN`: Proxy domain (auto-generated as `proxy.{{baseDomain}}:{{PROXY_PORT}}` if empty)
 - `PROXY_API_KEY`: Proxy API key | `"super_secret_key"`
 - `PROXY_PROTOCOL`: Proxy protocol | `"http"`
+- `OIDC_CLIENT_SECRET`: OIDC client secret | `""`
 
 **Note:** Proxy ingress automatically includes a wildcard host (`*.hostname`) to support unique subdomains per sandbox workspace. Custom TLS certificates must include both the domain and its wildcard in the Subject Alternative Names (SAN).
+
+**Horizontal Pod Autoscaler (HPA):**
+When `services.proxy.autoscaling.enabled=true`, the HPA will manage the replica count automatically based on CPU and/or memory utilization. The `replicaCount` value is ignored when HPA is enabled. The HPA supports:
+- CPU-based scaling via `targetCPUUtilizationPercentage`
+- Memory-based scaling via `targetMemoryUtilizationPercentage`
+- Custom metrics via the `metrics` array
+- Custom scaling behavior (scale up/down policies) via `behavior`
+
+**Note:** When HPA is enabled, ensure that resource requests are set in `services.proxy.resources.requests` for accurate scaling decisions.
 
 ### SSH Gateway Service Configuration
 
@@ -383,7 +399,7 @@ Used when `redis.enabled=false`:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `minio.enabled` | Enable MinIO subchart | `true` |
+| `minio.enabled` | Enable MinIO subchart | `false` |
 | `minio.mode` | MinIO mode | `"standalone"` |
 | `minio.rootUser` | MinIO root user | `"minioadmin"` |
 | `minio.rootPassword` | MinIO root password | `"minioadmin"` |
@@ -395,26 +411,35 @@ Used when `redis.enabled=false`:
 | `minio.buckets` | MinIO buckets configuration | See values.yaml |
 | `minio.persistence.enabled` | Enable MinIO persistence | `true` |
 | `minio.persistence.size` | MinIO persistence size | `8Gi` |
+| `minio.resources.requests.memory` | MinIO memory request | `2Gi` |
 
-### Keycloak Subchart Configuration
+### Dex Subchart Configuration
+
+Dex is a simple IdP (Identity Provider) used for testing and development. For production, consider using an external IdP.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `keycloak.enabled` | Enable Keycloak subchart | `true` |
-| `keycloak.production` | Enable production mode | `true` |
-| `keycloak.httpEnabled` | Enable HTTP | `false` |
-| `keycloak.httpRelativePath` | Keycloak HTTP relative path | `"/idp/"` |
-| `keycloak.proxyHeaders` | Keycloak proxy headers | `"xforwarded"` |
-| `keycloak.service.type` | Keycloak service type | `ClusterIP` |
-| `keycloak.ingress.enabled` | Enable Keycloak ingress | `true` |
-| `keycloak.ingress.ingressClassName` | Keycloak ingress class | `"nginx"` |
-| `keycloak.ingress.hostname` | Keycloak ingress hostname | `"daytona.example.com"` |
-| `keycloak.ingress.tls` | Enable Keycloak TLS | `true` |
-| `keycloak.auth.adminUser` | Keycloak admin user | `"admin"` |
-| `keycloak.auth.adminPassword` | Keycloak admin password | `"admin"` |
-| `keycloak.keycloakConfigCli.enabled` | Enable Keycloak config CLI | `true` |
-| `keycloak.keycloakConfigCli.existingConfigmap` | Existing Keycloak realm configmap | `"daytona-keycloak-realm-config"` |
-| `keycloak.postgresql.enabled` | Enable Keycloak PostgreSQL | `true` |
+| `dex.enabled` | Enable Dex subchart | `true` |
+| `dex.image.registry` | Dex image registry | `docker.io` |
+| `dex.image.repository` | Dex image repository | `dexidp/dex` |
+| `dex.image.tag` | Dex image tag | `"v2.42.0"` |
+| `dex.service.port` | Dex service port | `5556` |
+| `dex.persistence.enabled` | Enable Dex persistence | `true` |
+| `dex.persistence.size` | Dex persistence size | `1Gi` |
+| `dex.persistence.storageClass` | Dex persistence storage class | `""` |
+| `dex.ingress.enabled` | Enable Dex ingress | `true` |
+| `dex.ingress.className` | Dex ingress class | `"nginx"` |
+| `dex.ingress.hostname` | Dex ingress hostname | `""` (defaults to `dex.{{baseDomain}}`) |
+| `dex.ingress.path` | Dex ingress path | `"/"` |
+| `dex.ingress.pathType` | Dex ingress path type | `"Prefix"` |
+| `dex.ingress.tls` | Enable Dex TLS | `true` |
+| `dex.ingress.selfSigned` | Enable self-signed certificates | `false` |
+| `dex.ingress.secrets` | Custom TLS certificates | `[]` |
+| `dex.config.issuer` | Issuer URL (auto-generated if not set) | `""` |
+| `dex.config.clientId` | OIDC client ID | `"daytona"` |
+| `dex.config.clientName` | Client name | `"Daytona"` |
+| `dex.config.redirectURIs` | Redirect URIs (auto-generated if not set) | `[]` |
+| `dex.config.staticPasswords` | Static passwords for development/testing | See values.yaml |
 
 ### PgAdmin Subchart Configuration
 
@@ -443,8 +468,8 @@ Used when `redis.enabled=false`:
 
 The following values are automatically generated from `baseDomain` if not set or empty in `services.api.env`:
 
-- `OIDC_ISSUER_BASE_URL`: `https://{{baseDomain}}/idp/realms/daytona`
-- `PUBLIC_OIDC_DOMAIN`: `https://{{baseDomain}}/idp/realms/daytona`
+- `OIDC_ISSUER_BASE_URL`: `https://{{baseDomain}}/idp`
+- `PUBLIC_OIDC_DOMAIN`: `https://{{baseDomain}}/idp`
 - `DASHBOARD_URL`: `https://{{baseDomain}}/dashboard`
 - `DASHBOARD_BASE_API_URL`: `https://{{baseDomain}}`
 - `SSH_GATEWAY_HOST`: `ssh.{{baseDomain}}`
@@ -461,8 +486,9 @@ When MinIO is enabled, the following are automatically configured:
 - `S3_ACCESS_KEY`: Uses `minio.rootUser`
 - `S3_SECRET_KEY`: Uses `minio.rootPassword`
 
-When Jaeger is enabled, the following is automatically configured:
-- `OTEL_COLLECTOR_URL`: Uses Jaeger service URL
+When Dex is enabled, the following are automatically configured:
+- `OIDC_CLIENT_ID`: Uses `dex.config.clientId` (defaults to `"daytona"`)
+- Dex issuer URL and redirect URIs are auto-generated
 
 ## Services
 
@@ -474,18 +500,114 @@ The chart deploys the following services:
 - **PostgreSQL**: Database for Daytona (via Bitnami chart)
 - **Redis**: Cache and session store (via Bitnami chart)
 - **Harbor**: Enterprise-grade container registry (via Official Harbor chart)
-- **MinIO**: S3-compatible object storage (via Official MinIO chart)
-- **Keycloak**: Identity and access management (via Bitnami chart)
+- **MinIO**: S3-compatible object storage (via Official MinIO chart, disabled by default)
+- **Dex**: Simple IdP for testing and development (via built-in Dex deployment)
 - **PgAdmin**: PostgreSQL administration interface (via Runix community chart)
+
+## Core Services Overview
+
+### API Service (`daytona-api`)
+
+The API service is the central control plane of Daytona, providing a REST API for managing the entire platform.
+
+**Responsibilities:**
+- **Sandbox Management**: Create, start, stop, delete, and manage sandboxes. Handles sandbox lifecycle operations including state synchronization with runners
+- **Snapshot Management**: Manage sandbox templates (snapshots) - create, validate, and distribute snapshots to runners
+- **Runner Management**: Register and manage Daytona runners, track runner health and metrics, assign sandboxes to runners
+- **Organization & User Management**: Handle organizations, users, roles, permissions, and API keys
+- **Backup Management**: Create and manage sandbox backups stored in Harbor registry
+- **Authentication & Authorization**: Integrate with IdP (Identity Providers) for OIDC authentication, enforce organization-level permissions
+
+**Key Interactions:**
+- Communicates with **Runners** via REST API to create/manage sandboxes
+- Stores metadata in **PostgreSQL** (sandboxes, snapshots, organizations, users)
+- Uses **Redis** for caching, session storage, and distributed locking
+- Pushes/pulls images to/from **Harbor** for snapshots and backups
+- Provides endpoints consumed by **Proxy** and **SSH Gateway** for sandbox routing
+
+**Endpoints:**
+- Dashboard UI: `https://daytona.example.com/dashboard`
+- REST API: `https://daytona.example.com/api` (Swagger documentation available)
+- Internal service: `daytona-api.daytona.svc.local:3000`
+
+### Proxy Service (`daytona-proxy`)
+
+The Proxy service provides secure HTTP/HTTPS access to sandboxes running on Daytona runners.
+
+**Responsibilities:**
+- **Request Routing**: Routes HTTP/HTTPS requests to sandboxes based on subdomain patterns (e.g., `3000-<sandbox-id>.daytona.example.com`)
+- **Authentication**: Validates access to sandboxes using auth keys, bearer tokens, or cookies. Redirects unauthenticated users to authentication flow
+- **Runner Discovery**: Resolves sandbox IDs to runner endpoints by querying the API service
+- **Request Forwarding**: Proxies requests to the appropriate runner's sandbox toolbox service
+- **Toolbox Access**: Provides access to sandbox toolbox endpoints for development tools and services
+
+**Key Interactions:**
+- Queries **API Service** to get runner information and sandbox metadata
+- Uses **Redis** for caching runner info and sandbox authentication status
+- Forwards requests to **Daytona Runners** where sandboxes are actually running
+- Handles authentication callbacks and cookie management
+
+**Access Pattern:**
+- Public endpoint: `https://*.daytona.example.com` (wildcard subdomain)
+- Routes to: `daytona-proxy.daytona.svc.local:4000`
+- Example: `https://3000-abc123.daytona.example.com` → routes to port 3000 of sandbox `abc123`
+
+### SSH Gateway Service (`daytona-ssh-gateway`)
+
+The SSH Gateway provides secure SSH access to sandboxes, forwarding SSH connections from clients to the appropriate runner.
+
+**Responsibilities:**
+- **SSH Connection Handling**: Accepts SSH connections from clients using sandbox ID as username
+- **Public Key Authentication**: Validates SSH public keys against the API service
+- **Connection Forwarding**: Establishes SSH connections to runners and forwards channels bidirectionally
+- **Runner Routing**: Resolves sandbox IDs to runner endpoints and connects to the runner's SSH gateway
+
+**Key Interactions:**
+- Validates authentication with **API Service** to verify sandbox access
+- Forwards SSH connections to **Daytona Runners** where sandboxes are running
+- Maintains persistent SSH tunnels for interactive terminal sessions
+
+**Access Pattern:**
+- Public endpoint: `ssh.daytona.example.com:2222` (TCP protocol)
+- Routes to: `daytona-ssh-gateway.daytona.svc.local:2222`
+- Usage: `ssh <sandbox-id>@ssh.daytona.example.com -p 2222`
+
+### Harbor Registry (`daytona-harbor`)
+
+Harbor is the container registry used for storing sandbox snapshot images and backup images.
+
+**Responsibilities:**
+- **Snapshot Storage**: Stores sandbox template images (snapshots) that are used to create new sandboxes
+- **Backup Storage**: Stores backup images created from running or stopped sandboxes for disaster recovery
+- **Image Distribution**: Provides images to runners when creating sandboxes or restoring from backups
+- **Image Management**: Handles image versioning, tagging, and lifecycle management
+
+**Key Interactions:**
+- **API Service** pushes snapshot images and backup images to Harbor
+- **API Service** pulls images from Harbor when creating sandboxes or restoring backups
+- **Daytona Runners** pull snapshot images from Harbor when creating sandboxes
+- Stores image metadata in **PostgreSQL** (via Harbor's internal database)
+- Stores image layers in **S3** object storage
+
+**Access Pattern:**
+- Public endpoint: `https://harbor.daytona.example.com`
+- Internal service: `daytona-harbor-core.daytona.svc.local:80`
+- Used for: Snapshot templates, sandbox backups, image distribution to runners
+
+**Backup Workflow:**
+1. When a sandbox is stopped or archived, the API service triggers a backup
+2. The runner creates a Docker image from the sandbox container
+3. The image is pushed to Harbor with a timestamped tag
+4. The backup image reference is stored in the sandbox metadata
+5. When restoring, the API service pulls the backup image from Harbor and creates a new sandbox
 
 ## Dependencies
 
 - PostgreSQL (via Bitnami chart)
 - Redis (via Bitnami chart)
-- MinIO (via Official MinIO chart)
-- PgAdmin (via Runix community chart)
 - Harbor (via Official Harbor chart)
-- Keycloak (via Bitnami chart)
+- MinIO (via Official MinIO chart, disabled by default)
+
 
 ## Access Guide
 
@@ -505,13 +627,13 @@ kubectl port-forward svc/daytona-api 3000:3000
 kubectl port-forward svc/harbor 8080:80
 # Access: http://localhost:8080 (admin / Harbor12345)
 
-# MinIO Console
+# MinIO Console (if enabled)
 kubectl port-forward svc/daytona-minio-console 9001:9001
 # Access: http://localhost:9001 (minioadmin / minioadmin)
 
-# Keycloak
-kubectl port-forward svc/daytona-keycloak 8082:80
-# Access: http://localhost:8082 (admin / admin)
+# Dex (if enabled)
+kubectl port-forward svc/daytona-dex 8082:5556
+# Access: http://localhost:8082
 
 # PgAdmin
 kubectl port-forward svc/daytona-pgadmin4 8083:80
