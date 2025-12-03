@@ -2,6 +2,49 @@ apiVersion: v1
 entries:
   daytona:
   - apiVersion: v2
+    appVersion: v0.121.0
+    created: "2025-12-03T16:15:27.04832393Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 16.7.27
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 22.0.7
+    - condition: minio.enabled
+      name: minio
+      repository: https://charts.min.io
+      version: 5.4.0
+    - condition: pgadmin4.enabled
+      name: pgadmin4
+      repository: https://helm.runix.net/
+      version: 1.50.0
+    - condition: harbor.enabled
+      name: harbor
+      repository: https://helm.goharbor.io
+      version: 1.18.0
+    description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
+    digest: 3e7310adc2da4ede233d9cbcabb8749ad4e459f2b813b7bd43024a3fdd0584a3
+    home: https://daytona.io
+    keywords:
+    - ai
+    - infrastructure
+    - security
+    - cloud
+    - sandbox
+    maintainers:
+    - email: engineering@daytona.io
+      name: Daytona
+    name: daytona
+    sources:
+    - https://github.com/daytonaio/daytona
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/daytona-0.0.12.tgz
+    version: 0.0.12
+  - apiVersion: v2
     appVersion: v0.116.1-rc.1
     created: "2025-11-26T14:49:23.241238343Z"
     dependencies:
@@ -459,4 +502,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/daytona-0.0.1.tgz
     version: 0.0.1
-generated: "2025-11-26T14:49:23.222924949Z"
+generated: "2025-12-03T16:15:27.030109524Z"
