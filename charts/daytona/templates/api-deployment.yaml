@@ -184,7 +184,7 @@ spec:
               value: {{ .Values.harbor.harborAdminPassword | quote }}
             {{- end }}
             - name: TRANSIENT_REGISTRY_PROJECT_ID
-              value: "library"
+              value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_PROJECT_ID | default "library" | quote }}
             - name: INTERNAL_REGISTRY_URL
               value: {{ .Values.harbor.externalURL | quote }}
             - name: INTERNAL_REGISTRY_ADMIN
@@ -200,7 +200,7 @@ spec:
               value: {{ .Values.harbor.harborAdminPassword | quote }}
             {{- end }}
             - name: INTERNAL_REGISTRY_PROJECT_ID
-              value: "library"
+              value: {{ .Values.services.api.env.INTERNAL_REGISTRY_PROJECT_ID | default "library" | quote }}
             {{- else }}
             # External registry - use env or defaults when Harbor is disabled
             - name: TRANSIENT_REGISTRY_URL
@@ -210,7 +210,7 @@ spec:
             - name: TRANSIENT_REGISTRY_PASSWORD
               value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_PASSWORD | default "" | quote }}
             - name: TRANSIENT_REGISTRY_PROJECT_ID
-              value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_PROJECT_ID | default "" | quote }}
+              value: {{ .Values.services.api.env.TRANSIENT_REGISTRY_PROJECT_ID | default "library" | quote }}
             - name: INTERNAL_REGISTRY_URL
               value: {{ .Values.services.api.env.INTERNAL_REGISTRY_URL | default "" | quote }}
             - name: INTERNAL_REGISTRY_ADMIN
@@ -218,7 +218,7 @@ spec:
             - name: INTERNAL_REGISTRY_PASSWORD
               value: {{ .Values.services.api.env.INTERNAL_REGISTRY_PASSWORD | default "" | quote }}
             - name: INTERNAL_REGISTRY_PROJECT_ID
-              value: {{ .Values.services.api.env.INTERNAL_REGISTRY_PROJECT_ID | default "" | quote }}
+              value: {{ .Values.services.api.env.INTERNAL_REGISTRY_PROJECT_ID | default "library" | quote }}
             {{- end }}
             # OIDC Configuration
             {{- if .Values.dex.enabled }}
