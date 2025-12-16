@@ -705,7 +705,7 @@ The node pool should be **scaled to 0 initially**. The runner-manager will trigg
 
 #### 4. Disk Size
 
-Nodes should have **at least 100GB disk size**. This should be adjusted based on the planned number of sandboxes per runner node, as each sandbox container requires storage for its filesystem and any data generated during execution.
+Nodes should have **at least 1000GB disk size**. This should be adjusted based on the planned number of sandboxes per runner node, as each sandbox container requires storage for its filesystem and any data generated during execution.
 
 ### How It Works
 
@@ -732,7 +732,7 @@ Nodes should have **at least 100GB disk size**. This should be adjusted based on
 gcloud container node-pools create sandbox-pool \
   --cluster=your-cluster \
   --machine-type=n2-standard-8 \
-  --disk-size=100GB \
+  --disk-size=1000GB \
   --num-nodes=0 \
   --enable-autoscaling \
   --min-nodes=0 \
@@ -752,7 +752,7 @@ metadata:
 managedNodeGroups:
   - name: sandbox-pool
     instanceType: m5.2xlarge
-    volumeSize: 100
+    volumeSize: 1000
     desiredCapacity: 0
     minSize: 0
     maxSize: 10
@@ -771,7 +771,7 @@ az aks nodepool add \
   --resource-group your-rg \
   --cluster-name your-cluster \
   --name sandboxpool \
-  --node-osdisk-size 100 \
+  --node-osdisk-size 1000 \
   --node-count 0 \
   --enable-cluster-autoscaler \
   --min-count 0 \
