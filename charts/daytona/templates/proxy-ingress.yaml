@@ -4,7 +4,7 @@
 {{- $baseDomain := .Values.baseDomain -}}
 {{- $templatedBaseDomain := tpl $baseDomain $ -}}
 {{- $proxyHostname := printf "proxy.%s" $templatedBaseDomain -}}
-{{- $wildcardBaseDomain := printf "*.%s" $templatedBaseDomain -}}
+{{- $wildcardBaseDomain := printf "*.proxy.%s" $templatedBaseDomain -}}
 {{- if and .Values.services.proxy.ingress.className (not (hasKey .Values.services.proxy.ingress.annotations "kubernetes.io/ingress.class")) }}
   {{- $_ := set .Values.services.proxy.ingress.annotations "kubernetes.io/ingress.class" .Values.services.proxy.ingress.className}}
 {{- end }}

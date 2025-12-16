@@ -142,7 +142,7 @@ spec:
             {{- end }}
             # Proxy Configuration
             - name: PROXY_DOMAIN
-              value: {{ .Values.baseDomain | quote }}
+              value: {{ printf "proxy.%s" .Values.baseDomain | quote }}
             - name: PROXY_PROTOCOL
               value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | quote }}
             - name: PROXY_API_KEY
@@ -154,6 +154,8 @@ spec:
               value: {{ printf "ssh.%s" .Values.baseDomain | quote }}
             - name: SSH_GATEWAY_COMMAND
               value: "ssh -p {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ printf "ssh.%s" .Values.baseDomain  }}"
+            - name: SSH_GATEWAY_URL
+              value: {{ printf "ssh.%s:%s" .Values.baseDomain (.Values.services.sshGateway.env.SSH_GATEWAY_PORT | toString) | quote }}
             {{- end }}
             - name: SSH_GATEWAY_PUBLIC_KEY
               valueFrom:
@@ -306,10 +308,14 @@ spec:
             - name: SMTP_EMAIL_FROM
               value: {{ .Values.services.api.env.SMTP_EMAIL_FROM | default "noreply@mail.daytona.io" | quote }}
             # APP Configuration
-            - name: DEFAULT_SNAPSHOT
-              value: {{ .Values.services.api.env.DEFAULT_SNAPSHOT | default "daytonaio/sandbox:0.5.0" | quote }}
+            - name: DEFAULT_SNAPSHOT_IMAGE_NAME
+              value: {{ .Values.services.api.env.DEFAULT_SNAPSHOT_IMAGE_NAME | default "daytonaio/sandbox:0.5.1-slim" | quote }}
+            - name: DEFAULT_SNAPSHOT_NAME
+              value: {{ .Values.services.api.env.DEFAULT_SNAPSHOT_NAME | default "default-snapshot" | quote }}
             - name: DEFAULT_RUNNER_DOMAIN
               value: {{ .Values.services.api.env.DEFAULT_RUNNER_DOMAIN | default "" | quote }}
+            - name: RUNNER_MANAGER_API_KEY
+              value: {{ .Values.services.api.env.RUNNER_MANAGER_API_KEY | default "runner_manager_secret_key" | quote }}
             {{- if .Values.services.api.extraEnv }}
             {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraEnv "context" $) | nindent 12 }}
             {{- end }}
