@@ -703,6 +703,10 @@ Nodes **must** have the following taint to prevent non-runner workloads from bei
 
 The node pool should be **scaled to 0 initially**. The runner-manager will trigger scale-up by creating placeholder pods when runner capacity is needed.
 
+#### 4. Disk Size
+
+Nodes should have **at least 100GB disk size**. This should be adjusted based on the planned number of sandboxes per runner node, as each sandbox container requires storage for its filesystem and any data generated during execution.
+
 ### How It Works
 
 1. **Runner DaemonSet**: When runner nodes are available, the runner DaemonSet automatically deploys a runner pod on each node with the `daytona-sandbox-c: "true"` label. The DaemonSet tolerates the `sandbox=true:NoSchedule` taint.
@@ -728,6 +732,7 @@ The node pool should be **scaled to 0 initially**. The runner-manager will trigg
 gcloud container node-pools create sandbox-pool \
   --cluster=your-cluster \
   --machine-type=n2-standard-8 \
+  --disk-size=100GB \
   --num-nodes=0 \
   --enable-autoscaling \
   --min-nodes=0 \
@@ -747,6 +752,7 @@ metadata:
 managedNodeGroups:
   - name: sandbox-pool
     instanceType: m5.2xlarge
+    volumeSize: 100
     desiredCapacity: 0
     minSize: 0
     maxSize: 10
@@ -765,6 +771,7 @@ az aks nodepool add \
   --resource-group your-rg \
   --cluster-name your-cluster \
   --name sandboxpool \
+  --node-osdisk-size 100 \
   --node-count 0 \
   --enable-cluster-autoscaler \
   --min-count 0 \
