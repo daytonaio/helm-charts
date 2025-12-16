@@ -374,7 +374,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      tag: "v0.125.0-rc.6-k8s" # Will default to Chart.AppVersion
+      tag: "v0.125.0-rc.9-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -454,11 +454,11 @@ services:
       # Configuration
       API_PORT: "3000"
       ENVIRONMENT: "production"
-      CONTAINER_RUNTIME: ""  #TODO: needs to be empty until fixed
+      CONTAINER_RUNTIME: ""
       LOG_FILE_PATH: "/home/daytona/runner/runner.log"
       LOG_LEVEL: "info"
       SSH_GATEWAY_ENABLE: "true"
-      SSH_GATEWAY_PORT: "2222"
+      SSH_GATEWAY_PORT: "2220"
       RESOURCE_LIMITS_DISABLED: "false"
       CACHE_RETENTION_DAYS: "7"
       DAEMON_START_TIMEOUT_SEC: "30"
@@ -466,14 +466,14 @@ services:
       # Secrets
       SERVER_URL: "http://daytona-api:3000/api"
       API_TOKEN: "secret_api_token"
-      SYSTEM_API_TOKEN: "system_secret_token"
+      SYSTEM_API_TOKEN: "system_api_token"
       AWS_REGION: ""
       AWS_ENDPOINT_URL: ""
       AWS_ACCESS_KEY_ID: ""
       AWS_SECRET_ACCESS_KEY: ""
       AWS_DEFAULT_BUCKET: ""
-      # SSH Public Key
-      SSH_PUBLIC_KEY: "XXXXXX"
+      # The same value as the .Values.services.sshGateway.sshKeys.pubClientSSHKey
+      SSH_PUBLIC_KEY: ""
     # Resource limits and requests
     resources:
       limits:
@@ -482,15 +482,6 @@ services:
       requests:
         cpu: 1000m
         memory: 2Gi
-    # Node selector (required for runner nodes)
-    nodeSelector:
-      daytona-sandbox-c: "true"
-    # Tolerations (required to schedule on runner nodes)
-    tolerations:
-      - key: "sandbox"
-        operator: "Equal"
-        value: "true"
-        effect: "NoSchedule"
     # Affinity (specific to runner, fallback to global)
     affinity: {}
     # Pod annotations

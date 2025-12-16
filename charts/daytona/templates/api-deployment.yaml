@@ -142,7 +142,7 @@ spec:
             {{- end }}
             # Proxy Configuration
             - name: PROXY_DOMAIN
-              value: {{ .Values.baseDomain | quote }}
+              value: {{ printf "proxy.%s" .Values.baseDomain | quote }}
             - name: PROXY_PROTOCOL
               value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | quote }}
             - name: PROXY_API_KEY
@@ -154,6 +154,8 @@ spec:
               value: {{ printf "ssh.%s" .Values.baseDomain | quote }}
             - name: SSH_GATEWAY_COMMAND
               value: "ssh -p {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT }} {{`{{TOKEN}}`}}@{{ printf "ssh.%s" .Values.baseDomain  }}"
+            - name: SSH_GATEWAY_URL
+              value: {{ printf "ssh.%s:%s" .Values.baseDomain (.Values.services.sshGateway.env.SSH_GATEWAY_PORT | toString) | quote }}
             {{- end }}
             - name: SSH_GATEWAY_PUBLIC_KEY
               valueFrom:

@@ -36,14 +36,13 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.services.runner.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.services.runner.tolerations  }}
+        daytona-sandbox-c: "true"
       tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        - key: "sandbox"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       hostNetwork: true
       hostPID: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -395,8 +394,8 @@ spec:
               hostPort: 3000
               protocol: TCP
             - name: ssh-gateway
-              containerPort: 2222
-              hostPort: 2222
+              containerPort: 2220
+              hostPort: 2220
               protocol: TCP
           env:
             # Configuration
@@ -405,7 +404,7 @@ spec:
             - name: ENVIRONMENT
               value: {{ .Values.services.runner.env.ENVIRONMENT | default "production" | quote }}
             - name: CONTAINER_RUNTIME
-              value: {{ .Values.services.runner.env.CONTAINER_RUNTIME | default "docker" | quote }}
+              value: {{ .Values.services.runner.env.CONTAINER_RUNTIME | default "" | quote }}
             - name: LOG_FILE_PATH
               value: {{ .Values.services.runner.env.LOG_FILE_PATH | default "/home/daytona/runner/runner.log" | quote }}
             - name: LOG_LEVEL
@@ -413,7 +412,7 @@ spec:
             - name: SSH_GATEWAY_ENABLE
               value: {{ .Values.services.runner.env.SSH_GATEWAY_ENABLE | default "true" | quote }}
             - name: SSH_GATEWAY_PORT
-              value: {{ .Values.services.runner.env.SSH_GATEWAY_PORT | default "2222" | quote }}
+              value: {{ .Values.services.runner.env.SSH_GATEWAY_PORT | default "2220" | quote }}
             - name: RESOURCE_LIMITS_DISABLED
               value: {{ .Values.services.runner.env.RESOURCE_LIMITS_DISABLED | default "false" | quote }}
             - name: CACHE_RETENTION_DAYS
@@ -456,6 +455,8 @@ spec:
                   fieldPath: status.podIP
             - name: DAEMON_BINARIES_DIR
               value: "/var/lib/daytona/binaries"
+            - name: CONFIG_FILE_PATH
+              value: {{ .Values.services.runner.env.CONFIG_FILE_PATH | default "/host-token/token.txt" | quote }}
             {{- if .Values.services.runner.extraEnv }}
             {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runner.extraEnv "context" $) | nindent 12 }}
             {{- end }}
@@ -479,6 +480,9 @@ spec:
               mountPath: /root/.ssh
             - name: daemon-binaries
               mountPath: /var/lib/daytona/binaries
+            - name: host-token
+              mountPath: /host-token
+              readOnly: false
           resources:
             {{- toYaml .Values.services.runner.resources | nindent 12 }}
           livenessProbe:
@@ -498,17 +502,14 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 3
       volumes:
-        {{- if eq (.Values.services.runner.env.CONTAINER_RUNTIME | default "docker") "docker" }}
         - name: docker-socket
           hostPath:
             path: /var/run/docker.sock
             type: Socket
-        {{- else }}
         - name: containerd-socket
           hostPath:
             path: /run/containerd/containerd.sock
             type: Socket
-        {{- end }}
         - name: host-root
           hostPath:
             path: /
@@ -529,6 +530,10 @@ spec:
           hostPath:
             path: /var/lib/daytona/binaries
             type: DirectoryOrCreate
+        - name: host-token
+          hostPath:
+            path: /mnt/
+            type: Directory
       {{- with .Values.services.runner.affinity | default .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
