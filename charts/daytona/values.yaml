@@ -335,9 +335,9 @@ services:
     apiKey: supersecretapikey
     # Generate ssh keys to be used for the ssh gateway. These keys are stored in the secret and used to authenticate the ssh gateway. Generate keys using ssh-keygen (ssh-keygen -t ed25519 -f gateway_host_key -N "") and store them as base64 (cat gateway_host_key | base64 -w 0) values here. You will need 2 groups of keys - one for the client and one for the gateway.
     sshKeys:
-      privClientSSHKey: ""
-      pubClientSSHKey: ""
-      privGatewaySSHKey: ""
+      privClientSSHKey: "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNDK0FvVlE2TkhWUXJkUzA2V0lvMHAwamZWOXVQQUp0QUZMWGlBUlRIdC9lUUFBQUpEWmREVzMyWFExCnR3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQytBb1ZRNk5IVlFyZFMwNldJbzBwMGpmVjl1UEFKdEFGTFhpQVJUSHQvZVEKQUFBRUM2ZlVsOHlDdW1rQ3N3djF4N2tQQ0hSZS9iM242M3c0R3RCU3VScXpBblRiNENoVkRvMGRWQ3QxTFRwWWlqU25TTgo5WDI0OEFtMEFVdGVJQkZNZTM5NUFBQUFDbU5zYVdWdWRDMXJaWGtCQWdNPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K"
+      pubClientSSHKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUw0Q2hWRG8wZFZDdDFMVHBZaWpTblNOOVgyNDhBbTBBVXRlSUJGTWUzOTUgY2xpZW50LWtleQo="
+      privGatewaySSHKey: "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNETnFRUEczaTdJc3lndlNOcnFEWUtsVFluaUpMRTEwSExOaGFZTkZUY1ZGUUFBQUpDVVI2dERsRWVyClF3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRE5xUVBHM2k3SXN5Z3ZTTnJxRFlLbFRZbmlKTEUxMEhMTmhhWU5GVGNWRlEKQUFBRUNHRHR2RTA3Zk1HeWxkeVJmdHhiUEFzUlQ4VmppdjFZajVmL01vR2pMT0RNMnBBOGJlTHNpektDOUkydW9OZ3FWTgppZUlrc1RYUWNzMkZwZzBWTnhVVkFBQUFDbk5sY25abGNpMXJaWGtCQWdNPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K"
     env:
       SSH_GATEWAY_PORT: "2222"
       # Auto-generated as "ssh.{{.Values.baseDomain}}" if not set or empty
@@ -473,7 +473,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ""
       AWS_DEFAULT_BUCKET: ""
       # The same value as the .Values.services.sshGateway.sshKeys.pubClientSSHKey
-      SSH_PUBLIC_KEY: ""
+      SSH_PUBLIC_KEY: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUw0Q2hWRG8wZFZDdDFMVHBZaWpTblNOOVgyNDhBbTBBVXRlSUJGTWUzOTUgY2xpZW50LWtleQo="
     # Resource limits and requests
     resources:
       limits:
