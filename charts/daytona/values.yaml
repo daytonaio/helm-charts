@@ -19,7 +19,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-api
-      tag: "" # Will default to Chart.AppVersion
+      tag: "v0.125.0-rc.4-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -82,7 +82,9 @@ services:
       SKIP_USER_EMAIL_VERIFICATION: "false"
 
       # Workspace configuration
-      DEFAULT_SNAPSHOT: "daytonaio/sandbox:0.5.1-slim"
+      DEFAULT_SNAPSHOT_IMAGE_NAME: "daytonaio/sandbox:0.5.1-slim"
+      DEFAULT_SNAPSHOT_NAME: "default-snapshot"
+      RUNNER_MANAGER_API_KEY: "runner_manager_secret_key"
       # Auto-generated as "https://{{.Values.baseDomain}}/dashboard" if not set or empty
       DASHBOARD_URL: ""
       # Auto-generated as "https://{{.Values.baseDomain}}" if not set or empty
@@ -365,6 +367,156 @@ services:
       create: true
       annotations: {}
       name: ""
+
+  runnermanager:
+    enabled: true
+    # Image configuration
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-runner-manager
+      tag: "v0.125.0-rc.6-k8s" # Will default to Chart.AppVersion
+      pullPolicy: IfNotPresent
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 3010
+      annotations: {}
+    # Environment variables
+    env:
+      # API Configuration
+      API_PORT: "3010"
+      # API Authentication - Generate a secure token with: openssl rand -base64 32
+      API_TOKEN: "runner_manager_secret_key"
+      # System API Token
+      SYSTEM_API_TOKEN: "system_api_token"
+      # Provider Configuration - Options: kubernetes, k8s, aws
+      PROVIDER_TYPE: "kubernetes"
+      # Kubernetes Provider - Namespace for placeholder pods (defaults to deployment namespace)
+      #PROVIDER_NAMESPACE: "default"
+      # Logging Configuration - Options: debug, info, warn, error, fatal, panic
+      LOG_LEVEL: "info"
+      # Pod Wait Timeout - Timeout in seconds for waiting for pods to be scheduled to nodes
+      POD_WAIT_TIMEOUT: "600"
+      # Kubeconfig Path (Optional - for local development)
+      # If not set, will use in-cluster configuration
+      KUBECONFIG_PATH: ""
+      API_KEY: "secret_api_key"
+      # Auto-generated as "https://{{.Values.baseDomain}}/api" if not set or empty
+      SERVER_URL: "http://daytona-api:3000/api"
+      REGION_ID: "us"
+      ENVIRONMENT: "development"
+      # Runner API Port
+      RUNNER_API_PORT: "3000"
+    # Extra environment variables (for valueFrom or additional custom vars)
+    extraEnv: []
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    # Node selector
+    nodeSelector: {}
+    # Tolerations
+    tolerations: []
+    # Affinity
+    affinity: {}
+    # Annotations
+    annotations: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+    # RBAC configuration
+    rbac:
+      create: true
+
+  runner:
+    enabled: true
+    # Image configuration
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-runner
+      tag: "v0.125.0-rc.4-k8s" # Will default to Chart.AppVersion
+      pullPolicy: IfNotPresent
+    # ServiceAccount configuration
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+    # Environment variables
+    env:
+      # Configuration
+      API_PORT: "3000"
+      ENVIRONMENT: "production"
+      CONTAINER_RUNTIME: ""  #TODO: needs to be empty until fixed
+      LOG_FILE_PATH: "/home/daytona/runner/runner.log"
+      LOG_LEVEL: "info"
+      SSH_GATEWAY_ENABLE: "true"
+      SSH_GATEWAY_PORT: "2222"
+      RESOURCE_LIMITS_DISABLED: "false"
+      CACHE_RETENTION_DAYS: "7"
+      DAEMON_START_TIMEOUT_SEC: "30"
+      SANDBOX_START_TIMEOUT_SEC: "60"
+      # Secrets
+      SERVER_URL: "http://daytona-api:3000/api"
+      API_TOKEN: "secret_api_token"
+      SYSTEM_API_TOKEN: "system_secret_token"
+      AWS_REGION: ""
+      AWS_ENDPOINT_URL: ""
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_DEFAULT_BUCKET: ""
+      # SSH Public Key
+      SSH_PUBLIC_KEY: "XXXXXX"
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+    # Node selector (required for runner nodes)
+    nodeSelector:
+      daytona-sandbox-c: "true"
+    # Tolerations (required to schedule on runner nodes)
+    tolerations:
+      - key: "sandbox"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+    # Affinity (specific to runner, fallback to global)
+    affinity: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Host aliases for registry resolution
+    hostAliases: []
+    # Example:
+    # hostAliases:
+    #   - ip: "10.0.0.1"
+    #     hostnames:
+    #       - "registry.local"
+    #       - "minio.local"
+    # Registry proxy sidecar configuration (optional)
+    registryProxy:
+      enabled: false
+      image: "alpine/socat:1.7.4.4-r0"
+      listenPort: 5000
+      targetHost: "registry.external.com"
+      targetPort: 443
+    # Docker installer sidecar configuration (optional)
+    dockerInstaller:
+      enabled: true
+      image: "ubuntu:22.04"
+      xfsStorageSize: "50G"
+    # Extra environment variables (for valueFrom or additional custom vars)
+    extraEnv: []
 
 # Global node selector (fallback)
 nodeSelector: {}

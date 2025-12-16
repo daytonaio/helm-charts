@@ -1,0 +1,13 @@
+{{- if and .Values.services.runnermanager.enabled .Values.services.runnermanager.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "daytona.fullname" . }}-runner-manager-nodes
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runnermanager
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "update", "patch"]
+{{- end }}
