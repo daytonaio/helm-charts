@@ -667,6 +667,140 @@ The installation script will prompt for:
 - AI workload execution capabilities
 - Resource monitoring and management
 
+## Kubernetes Runner Autoscaling (Runner & Runner-Manager)
+
+The Runner and Runner-Manager components enable autoscaling of Daytona runners on Kubernetes. This setup allows dynamic provisioning of runner nodes based on demand, using the cluster autoscaler.
+
+### Architecture Overview
+
+- **Runner**: Deployed as a DaemonSet that runs on dedicated sandbox nodes. Each runner pod manages sandbox containers on its host node.
+- **Runner-Manager**: A deployment that provisions placeholder pods to trigger cluster autoscaler scale-up events when more runner capacity is needed.
+
+### Node Pool Requirements
+
+To use Kubernetes-based runners, you must configure a dedicated node pool with the following specifications:
+
+#### 1. Node Label
+
+Nodes in the runner pool **must** have the following label:
+
+```yaml
+daytona-sandbox-c: "true"
+```
+
+#### 2. Node Taint
+
+Nodes **must** have the following taint to prevent non-runner workloads from being scheduled:
+
+```yaml
+- key: "sandbox"
+  operator: "Equal"
+  value: "true"
+  effect: "NoSchedule"
+```
+
+#### 3. Initial Scale
+
+The node pool should be **scaled to 0 initially**. The runner-manager will trigger scale-up by creating placeholder pods when runner capacity is needed.
+
+#### 4. Disk Size
+
+Nodes should have **at least 1000GB disk size**. This should be adjusted based on the planned number of sandboxes per runner node, as each sandbox container requires storage for its filesystem and any data generated during execution.
+
+### How It Works
+
+1. **Runner DaemonSet**: When runner nodes are available, the runner DaemonSet automatically deploys a runner pod on each node with the `daytona-sandbox-c: "true"` label. The DaemonSet tolerates the `sandbox=true:NoSchedule` taint.
+
+2. **Runner-Manager Placeholder Pods**: The runner-manager monitors demand and creates placeholder pods targeting the sandbox node pool. These pods:
+   - Have the same node selector (`daytona-sandbox-c: "true"`)
+   - Tolerate the sandbox taint
+   - Trigger the cluster autoscaler to provision new nodes
+
+3. **Scale-Up Flow**:
+   - Runner-manager detects need for more runners
+   - Creates placeholder pod(s) targeting the sandbox node pool
+   - Cluster autoscaler detects pending pods and scales up the node pool
+   - New node(s) join with the required label and taint
+   - Runner DaemonSet automatically deploys runner pod(s) on new node(s)
+   - Placeholder pods are removed once runners are ready
+
+### Node Pool Configuration Examples
+
+#### Google Kubernetes Engine (GKE)
+
+```bash
+gcloud container node-pools create sandbox-pool \
+  --cluster=your-cluster \
+  --machine-type=n2-standard-8 \
+  --disk-size=1000GB \
+  --num-nodes=0 \
+  --enable-autoscaling \
+  --min-nodes=0 \
+  --max-nodes=10 \
+  --node-labels=daytona-sandbox-c=true \
+  --node-taints=sandbox=true:NoSchedule
+```
+
+#### Amazon Elastic Kubernetes Service (EKS)
+
+```yaml
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: your-cluster
+  region: us-west-2
+managedNodeGroups:
+  - name: sandbox-pool
+    instanceType: m5.2xlarge
+    volumeSize: 1000
+    desiredCapacity: 0
+    minSize: 0
+    maxSize: 10
+    labels:
+      daytona-sandbox-c: "true"
+    taints:
+      - key: sandbox
+        value: "true"
+        effect: NoSchedule
+```
+
+#### Azure Kubernetes Service (AKS)
+
+```bash
+az aks nodepool add \
+  --resource-group your-rg \
+  --cluster-name your-cluster \
+  --name sandboxpool \
+  --node-osdisk-size 1000 \
+  --node-count 0 \
+  --enable-cluster-autoscaler \
+  --min-count 0 \
+  --max-count 10 \
+  --labels daytona-sandbox-c=true \
+  --node-taints sandbox=true:NoSchedule
+```
+
+### Enabling Runner and Runner-Manager
+
+Enable these components in your `values.yaml`:
+
+```yaml
+services:
+  runner:
+    enabled: true
+    env:
+      SERVER_URL: "https://your-daytona-domain.com/api"
+      API_TOKEN: "your-runner-api-token"
+      # ... other configuration
+
+  runnermanager:
+    enabled: true
+    env:
+      SERVER_URL: "https://your-daytona-domain.com/api"
+      API_KEY: "your-api-key"
+      # ... other configuration
+```
+
 ## Support
 
 For support and questions, please refer to the [Daytona documentation](https://docs.daytona.io) or open an issue in the [Daytona repository](https://github.com/daytonaio/daytona).
