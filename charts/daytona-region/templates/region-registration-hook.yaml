@@ -1,0 +1,130 @@
+{{- if .Values.registration.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "daytona.fullname" . }}-region-registration
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: region-registration
+    spec:
+      serviceAccountName: {{ include "daytona.fullname" . }}-region-registration
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: register
+          image: {{ .Values.registration.image.repository }}:{{ .Values.registration.image.tag }}
+          imagePullPolicy: {{ .Values.registration.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              echo "Registering region with Daytona API..."
+
+              # Build the request payload
+              PAYLOAD=$(jq -n \
+                --arg name "${REGION_NAME}" \
+                --arg proxyUrl "${PROXY_URL}" \
+                '{name: $name, proxyUrl: $proxyUrl}')
+
+              echo "Calling API at ${DAYTONA_API_URL}/regions..."
+
+              # Call the API and capture response
+              RESPONSE=$(curl -sf \
+                -X POST \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
+                -d "${PAYLOAD}" \
+                "${DAYTONA_API_URL}/regions")
+
+              if [ -z "$RESPONSE" ]; then
+                echo "Error: Empty response from API"
+                exit 1
+              fi
+
+              echo "API response received: $RESPONSE"
+              echo "Creating secret..."
+
+              # Use jq to convert JSON response to base64-encoded secret data
+              SECRET_DATA=$(echo "$RESPONSE" | jq -r 'to_entries | .[] | "  \(.key): \(.value | tostring | @base64)"')
+
+              # Create the secret manifest
+              cat > /tmp/secret.yaml <<SECRETEOF
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: {{ include "daytona.fullname" . }}-region-config
+                namespace: {{ include "daytona.namespace" . }}
+                labels:
+                  {{- include "daytona.labels" . | nindent 18 }}
+                  app.kubernetes.io/component: region-config
+              type: Opaque
+              data:
+              ${SECRET_DATA}
+              SECRETEOF
+
+              echo "Secret manifest:"
+              cat /tmp/secret.yaml
+
+              # Apply the secret
+              kubectl apply -f /tmp/secret.yaml
+
+              echo "Region registration complete!"
+          env:
+            - name: DAYTONA_API_URL
+              value: {{ required "daytonaApiUrl is required" .Values.daytonaApiUrl | quote }}
+            - name: DAYTONA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.registration.existingSecret | default (printf "%s-daytona-api-key" (include "daytona.fullname" .)) }}
+                  key: {{ .Values.registration.secretKeys.apiKey | default "daytona-api-key" }}
+            - name: PROXY_URL
+              value: {{ include "daytona.proxyUrl" . | quote }}
+            - name: REGION_NAME
+              value: {{ required "regionName is required" .Values.regionName | quote }}
+          resources:
+            {{- toYaml .Values.registration.resources | nindent 12 }}
+      {{- with .Values.registration.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.registration.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- if not .Values.registration.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "daytona.fullname" . }}-daytona-api-key
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+type: Opaque
+data:
+  {{ .Values.registration.secretKeys.apiKey | default "daytona-api-key" }}: {{ required "daytonaApiKey is required" .Values.daytonaApiKey | b64enc | quote }}
+{{- end }}
+{{- end }}

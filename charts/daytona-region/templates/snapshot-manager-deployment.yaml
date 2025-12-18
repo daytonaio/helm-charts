@@ -1,0 +1,134 @@
+{{- if .Values.services.snapshotManager.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ include "daytona.namespace" . }}
+  name: {{ include "daytona.fullname" . }}-snapshot-manager
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snapshot-manager
+  {{- with .Values.services.snapshotManager.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.services.snapshotManager.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "daytona.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: snapshot-manager
+  template:
+    metadata:
+      {{- with .Values.services.snapshotManager.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: snapshot-manager
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "snapshotManager" "Chart" .Chart "Release" .Release) }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: snapshot-manager
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.snapshotManager.image.registry) }}/{{ .Values.services.snapshotManager.image.repository }}:{{ .Values.services.snapshotManager.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.snapshotManager.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.snapshotManager.http.port | default 5000 }}
+              protocol: TCP
+          env:
+            # Distribution Registry S3 storage configuration
+            - name: REGISTRY_STORAGE
+              value: "s3"
+            - name: REGISTRY_STORAGE_S3_REGION
+              value: {{ required "services.snapshotManager.storage.s3.region is required" .Values.services.snapshotManager.storage.s3.region | quote }}
+            - name: REGISTRY_STORAGE_S3_BUCKET
+              value: {{ required "services.snapshotManager.storage.s3.bucket is required" .Values.services.snapshotManager.storage.s3.bucket | quote }}
+            {{- if .Values.services.snapshotManager.storage.s3.existingSecret }}
+            - name: REGISTRY_STORAGE_S3_ACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.services.snapshotManager.storage.s3.existingSecret }}
+                  key: accessKey
+            - name: REGISTRY_STORAGE_S3_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.services.snapshotManager.storage.s3.existingSecret }}
+                  key: secretKey
+            {{- else if and .Values.services.snapshotManager.storage.s3.accessKey .Values.services.snapshotManager.storage.s3.secretKey }}
+            - name: REGISTRY_STORAGE_S3_ACCESSKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.fullname" . }}-snapshot-manager-s3
+                  key: accessKey
+            - name: REGISTRY_STORAGE_S3_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.fullname" . }}-snapshot-manager-s3
+                  key: secretKey
+            {{- end }}
+            - name: REGISTRY_STORAGE_S3_ENCRYPT
+              value: {{ .Values.services.snapshotManager.storage.s3.encrypt | default true | quote }}
+            - name: REGISTRY_STORAGE_S3_SECURE
+              value: {{ .Values.services.snapshotManager.storage.s3.secure | default true | quote }}
+            - name: REGISTRY_STORAGE_S3_V4AUTH
+              value: {{ .Values.services.snapshotManager.storage.s3.v4auth | default true | quote }}
+            {{- if .Values.services.snapshotManager.storage.s3.endpoint }}
+            - name: REGISTRY_STORAGE_S3_REGIONENDPOINT
+              value: {{ .Values.services.snapshotManager.storage.s3.endpoint | quote }}
+            {{- end }}
+            # Storage delete configuration
+            - name: REGISTRY_STORAGE_DELETE_ENABLED
+              value: {{ .Values.services.snapshotManager.storage.deleteEnabled | default true | quote }}
+            # Registry HTTP configuration
+            - name: REGISTRY_HTTP_ADDR
+              value: "0.0.0.0:{{ .Values.services.snapshotManager.http.port | default 5000 }}"
+            # Health check configuration
+            - name: REGISTRY_HEALTH_STORAGEDRIVER_ENABLED
+              value: {{ .Values.services.snapshotManager.health.storageDriverEnabled | default false | quote }}
+            {{- with .Values.services.snapshotManager.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.services.snapshotManager.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.services.snapshotManager.livenessProbe.path | default "/v2/" }}
+              port: http
+            initialDelaySeconds: {{ .Values.services.snapshotManager.livenessProbe.initialDelaySeconds | default 10 }}
+            periodSeconds: {{ .Values.services.snapshotManager.livenessProbe.periodSeconds | default 30 }}
+            timeoutSeconds: {{ .Values.services.snapshotManager.livenessProbe.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.services.snapshotManager.livenessProbe.failureThreshold | default 3 }}
+          {{- end }}
+          {{- if .Values.services.snapshotManager.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.services.snapshotManager.readinessProbe.path | default "/v2/" }}
+              port: http
+            initialDelaySeconds: {{ .Values.services.snapshotManager.readinessProbe.initialDelaySeconds | default 5 }}
+            periodSeconds: {{ .Values.services.snapshotManager.readinessProbe.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.services.snapshotManager.readinessProbe.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.services.snapshotManager.readinessProbe.failureThreshold | default 3 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.services.snapshotManager.resources | nindent 12 }}
+      {{- with .Values.services.snapshotManager.nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.snapshotManager.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.snapshotManager.tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

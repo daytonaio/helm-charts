@@ -1,0 +1,52 @@
+{{- if .Values.registration.enabled -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "daytona.fullname" . }}-region-registration
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "daytona.fullname" . }}-region-registration
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "update", "patch", "get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "daytona.fullname" . }}-region-registration
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "daytona.fullname" . }}-region-registration
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "daytona.fullname" . }}-region-registration
+    namespace: {{ include "daytona.namespace" . }}
+{{- end }}
