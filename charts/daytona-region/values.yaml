@@ -1,0 +1,293 @@
+# Default values for daytona.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  namespace: "" # If not set, will default to Release.Namespace
+
+# Region name (required) - unique identifier for this region
+regionName: ""
+
+# Proxy URL (required) - full URL to the proxy service
+# Example: "https://proxy.daytona.example.com" or "http://proxy.daytona.example.com:4000"
+proxyUrl: ""
+
+# Daytona API configuration (required)
+daytonaApiUrl: ""   # e.g., "https://api.daytona.io/api"
+daytonaApiKey: ""   # API key for authentication
+
+# Service-specific configurations
+services:
+  proxy:
+    # Image configuration
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-proxy
+      tag: "" # Will default to Chart.AppVersion
+      pullPolicy: IfNotPresent
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 4000
+      annotations: {}
+    # Ingress configuration
+    # NOTE: Proxy ingress uses wildcard host derived from proxyUrl to support
+    # unique subdomains per sandbox. Each sandbox requires its own subdomain.
+    # The hostname is extracted from proxyUrl (e.g., proxy.daytona.example.com)
+    # and a wildcard pattern (*.proxy.daytona.example.com) is created for sandbox routing.
+    ingress:
+      enabled: true
+      className: "nginx"
+      annotations: {}
+        #nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        #nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        #nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      # Hostname is derived from proxyUrl - this setting is ignored
+      hostname: ""
+      path: "/"
+      pathType: "Prefix"
+      # Additional hosts to be added to the ingress record
+      extraHosts: []
+      # Additional paths to be added to the ingress under the main host
+      extraPaths: []
+      # Additional TLS configuration for additional hostnames
+      extraTls: []
+      # Additional ingress rules
+      extraRules: []
+      # Enable TLS
+      tls: true
+      # Enable self-signed certificates
+      selfSigned: false
+      # Custom TLS certificates as secrets
+      # NOTE: 'key' and 'certificate' are expected in PEM format
+      # NOTE: 'name' should match the secretName used in ingress TLS configuration
+      # NOTE: The certificate should cover the proxy hostname and wildcard for sandbox subdomains
+      # If it is not set and you're using cert-manager, this is unneeded, as it will create a secret for you with valid certificates
+      # If it is not set and you're NOT using cert-manager either, set selfSigned: true to generate self-signed certificates
+      # It is also possible to create and manage the certificates outside of this helm chart
+      # e.g:
+      # secrets:
+      #   - name: daytona.example.com-tls
+      #     key: |-
+      #       -----BEGIN RSA PRIVATE KEY-----
+      #       ...
+      #       -----END RSA PRIVATE KEY-----
+      #     certificate: |-
+      #       -----BEGIN CERTIFICATE-----
+      #       ...
+      #       -----END CERTIFICATE-----
+      secrets: []
+    # Environment variables
+    env:
+      # PROXY_DOMAIN and PROXY_PROTOCOL are derived from proxyUrl - no need to set them
+      # PROXY_API_KEY is obtained from the registration secret when registration.enabled=true
+      COOKIE_DOMAIN: ""  # Optional: override cookie domain (defaults to base domain from proxyUrl)
+    # Resource limits and requests
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+    # Node selector
+    nodeSelector: {}
+    # Tolerations
+    tolerations: []
+    # Affinity
+    affinity: {}
+    # Annotations
+    annotations: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Replica count
+    replicaCount: 1
+    # Horizontal Pod Autoscaler configuration
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+      # Custom metrics (optional)
+      # metrics: []
+      # Scaling behavior (optional)
+      # behavior:
+      #   scaleDown:
+      #     stabilizationWindowSeconds: 300
+      #     policies:
+      #     - type: Percent
+      #       value: 50
+      #       periodSeconds: 15
+      #   scaleUp:
+      #     stabilizationWindowSeconds: 0
+      #     policies:
+      #     - type: Percent
+      #       value: 100
+      #       periodSeconds: 15
+      #     - type: Pods
+      #       value: 4
+      #       periodSeconds: 15
+      #     selectPolicy: Max
+      annotations: {}
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+  snapshotManager:
+    enabled: false
+    # Image configuration
+    image:
+      registry: docker.io
+      repository: registry
+      tag: "2"
+      pullPolicy: IfNotPresent
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 5000
+      annotations: {}
+    # Ingress configuration
+    ingress:
+      enabled: false
+      className: "nginx"
+      annotations: {}
+      # Hostname for snapshot manager (required when ingress is enabled)
+      hostname: ""
+      path: "/"
+      pathType: "Prefix"
+      extraHosts: []
+      extraPaths: []
+      extraTls: []
+      extraRules: []
+      tls: true
+    # S3 storage configuration
+    storage:
+      s3:
+        # AWS region (required)
+        region: ""
+        # S3 bucket name (required)
+        bucket: ""
+        # Static credentials (optional - use if not using IRSA)
+        # If not set, the registry will use IRSA or instance profile credentials
+        accessKey: ""
+        secretKey: ""
+        # Use existing secret for credentials (optional)
+        # Secret must contain keys: accessKey, secretKey
+        # existingSecret: "my-s3-credentials"
+        # Enable server-side encryption
+        encrypt: true
+        # Use HTTPS for S3 connections
+        secure: true
+        # Use AWS Signature Version 4
+        v4auth: true
+        # Custom S3 endpoint (for non-AWS S3-compatible storage like MinIO)
+        # endpoint: "https://minio.example.com"
+      # Enable delete operations on the registry
+      deleteEnabled: true
+    # HTTP server configuration
+    http:
+      # Port the registry listens on
+      port: 5000
+    # Health check configuration
+    health:
+      # Disable storage driver health check (can fail on empty buckets)
+      storageDriverEnabled: false
+    # Additional environment variables
+    extraEnv: []
+    # Liveness probe configuration
+    livenessProbe:
+      enabled: true
+      path: "/v2/"
+      initialDelaySeconds: 10
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+    # Readiness probe configuration
+    readinessProbe:
+      enabled: true
+      path: "/v2/"
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    # Resource limits and requests
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    # Node selector
+    nodeSelector: {}
+    # Tolerations
+    tolerations: []
+    # Affinity
+    affinity: {}
+    # Annotations
+    annotations: {}
+    # Pod annotations
+    podAnnotations: {}
+    # Replica count
+    replicaCount: 1
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+# Region registration configuration
+# When enabled, a pre-install hook will call the Daytona API to register this region
+# and store the response in a Kubernetes secret for use by other services
+registration:
+  enabled: true
+  # Use an existing secret for API key instead of creating one from daytonaApiKey
+  # The secret should contain the API key
+  existingSecret: ""
+  # Key name in the secret
+  secretKeys:
+    apiKey: "daytona-api-key"
+  # Image for the registration job (needs curl and kubectl)
+  image:
+    repository: daytonaio/kubectl
+    tag: "1.34.2-r1"
+    pullPolicy: IfNotPresent
+  # Resource limits for the registration job
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  # Node selector for the registration job
+  nodeSelector: {}
+  # Tolerations for the registration job
+  tolerations: []
+
+# Global node selector (fallback)
+nodeSelector: {}
+
+# Global tolerations (fallback)
+tolerations: []
+
+# Global affinity (fallback)
+affinity: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 2000
+
+# Container security context
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: false
+  runAsUser: 0

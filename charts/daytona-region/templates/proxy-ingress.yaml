@@ -1,0 +1,81 @@
+{{- if .Values.services.proxy.ingress.enabled -}}
+{{- $fullName := include "daytona.fullname" . -}}
+{{- $svcPort := .Values.services.proxy.service.port -}}
+{{- $proxyHostname := include "daytona.proxyUrl.hostname" . -}}
+{{- $wildcardProxyHostname := printf "*.%s" $proxyHostname -}}
+{{- if and .Values.services.proxy.ingress.className (not (hasKey .Values.services.proxy.ingress.annotations "kubernetes.io/ingress.class")) }}
+  {{- $_ := set .Values.services.proxy.ingress.annotations "kubernetes.io/ingress.class" .Values.services.proxy.ingress.className}}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-proxy
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+  {{- with .Values.services.proxy.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.services.proxy.ingress.className }}
+  ingressClassName: {{ .Values.services.proxy.ingress.className }}
+  {{- end }}
+  rules:
+    # Proxy subdomain (exact match, e.g., proxy.daytona.example.com)
+    - host: {{ $proxyHostname | quote }}
+      http:
+        paths:
+          {{- if .Values.services.proxy.ingress.extraPaths }}
+          {{- toYaml .Values.services.proxy.ingress.extraPaths | nindent 10 }}
+          {{- end }}
+          - path: {{ .Values.services.proxy.ingress.path | default "/" }}
+            pathType: {{ .Values.services.proxy.ingress.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $fullName }}-proxy
+                port:
+                  number: {{ $svcPort }}
+    # Wildcard host for all subdomains - routes to proxy service
+    # This handles sandbox subdomains like: 3000-sandbox-id.proxy.daytona.example.com
+    - host: {{ $wildcardProxyHostname | quote }}
+      http:
+        paths:
+          {{- if .Values.services.proxy.ingress.extraPaths }}
+          {{- toYaml .Values.services.proxy.ingress.extraPaths | nindent 10 }}
+          {{- end }}
+          - path: {{ .Values.services.proxy.ingress.path | default "/" }}
+            pathType: {{ .Values.services.proxy.ingress.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $fullName }}-proxy
+                port:
+                  number: {{ $svcPort }}
+    {{- range .Values.services.proxy.ingress.extraHosts }}
+    - host: {{ tpl .name $ | quote }}
+      http:
+        paths:
+          - path: {{ default "/" .path }}
+            pathType: {{ default "ImplementationSpecific" .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-proxy
+                port:
+                  number: {{ $svcPort }}
+    {{- end }}
+    {{- if .Values.services.proxy.ingress.extraRules }}
+    {{- toYaml .Values.services.proxy.ingress.extraRules | nindent 4 }}
+    {{- end }}
+  {{- if .Values.services.proxy.ingress.tls }}
+  tls:
+    # Use wildcard certificate (covers proxy hostname and all subdomains)
+    - hosts:
+        - {{ $proxyHostname | quote }}
+        - {{ $wildcardProxyHostname | quote }}
+      secretName: {{ printf "%s-tls" $proxyHostname }}
+    {{- if .Values.services.proxy.ingress.extraTls }}
+    {{- toYaml .Values.services.proxy.ingress.extraTls | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
