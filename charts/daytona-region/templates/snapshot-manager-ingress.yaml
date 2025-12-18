@@ -1,0 +1,63 @@
+{{- if and .Values.services.snapshotManager.enabled .Values.services.snapshotManager.ingress.enabled -}}
+{{- $fullName := include "daytona.fullname" . -}}
+{{- $svcPort := .Values.services.snapshotManager.service.port -}}
+{{- $snapshotManagerHostname := required "services.snapshotManager.ingress.hostname is required when ingress is enabled" .Values.services.snapshotManager.ingress.hostname -}}
+{{- $templatedHostname := tpl $snapshotManagerHostname $ -}}
+{{- if and .Values.services.snapshotManager.ingress.className (not (hasKey .Values.services.snapshotManager.ingress.annotations "kubernetes.io/ingress.class")) }}
+  {{- $_ := set .Values.services.snapshotManager.ingress.annotations "kubernetes.io/ingress.class" .Values.services.snapshotManager.ingress.className}}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-snapshot-manager
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snapshot-manager
+  {{- with .Values.services.snapshotManager.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.services.snapshotManager.ingress.className }}
+  ingressClassName: {{ .Values.services.snapshotManager.ingress.className }}
+  {{- end }}
+  rules:
+    - host: {{ $templatedHostname | quote }}
+      http:
+        paths:
+          {{- if .Values.services.snapshotManager.ingress.extraPaths }}
+          {{- toYaml .Values.services.snapshotManager.ingress.extraPaths | nindent 10 }}
+          {{- end }}
+          - path: {{ .Values.services.snapshotManager.ingress.path | default "/" }}
+            pathType: {{ .Values.services.snapshotManager.ingress.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ $fullName }}-snapshot-manager
+                port:
+                  number: {{ $svcPort }}
+    {{- range .Values.services.snapshotManager.ingress.extraHosts }}
+    - host: {{ tpl .name $ | quote }}
+      http:
+        paths:
+          - path: {{ default "/" .path }}
+            pathType: {{ default "ImplementationSpecific" .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-snapshot-manager
+                port:
+                  number: {{ $svcPort }}
+    {{- end }}
+    {{- if .Values.services.snapshotManager.ingress.extraRules }}
+    {{- toYaml .Values.services.snapshotManager.ingress.extraRules | nindent 4 }}
+    {{- end }}
+  {{- if .Values.services.snapshotManager.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ $templatedHostname | quote }}
+      secretName: {{ printf "%s-tls" $templatedHostname }}
+    {{- if .Values.services.snapshotManager.ingress.extraTls }}
+    {{- toYaml .Values.services.snapshotManager.ingress.extraTls | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

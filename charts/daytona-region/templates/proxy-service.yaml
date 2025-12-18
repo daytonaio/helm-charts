@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ include "daytona.namespace" . }}
+  name: {{ include "daytona.fullname" . }}-proxy
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+  {{- with .Values.services.proxy.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.services.proxy.service.type }}
+  ports:
+    - port: {{ .Values.services.proxy.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "daytona.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy

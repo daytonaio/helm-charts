@@ -1,0 +1,24 @@
+{{- if .Values.services.snapshotManager.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ include "daytona.namespace" . }}
+  name: {{ include "daytona.fullname" . }}-snapshot-manager
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snapshot-manager
+  {{- with .Values.services.snapshotManager.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.services.snapshotManager.service.type }}
+  ports:
+    - port: {{ .Values.services.snapshotManager.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "daytona.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: snapshot-manager
+{{- end }}

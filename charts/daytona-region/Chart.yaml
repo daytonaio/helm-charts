@@ -1,0 +1,18 @@
+apiVersion: v2
+name: daytona-region
+description: A Helm chart for Daytona custom region
+type: application
+version: 0.0.1
+appVersion: "v0.125.0-rc.4-441e56b7"
+keywords:
+  - ai
+  - infrastructure
+  - security
+  - cloud
+  - sandbox
+home: https://daytona.io
+sources:
+  - https://github.com/daytonaio/daytona
+maintainers:
+  - name: Daytona
+    email: engineering@daytona.io
