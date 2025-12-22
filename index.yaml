@@ -3,6 +3,49 @@ entries:
   daytona:
   - apiVersion: v2
     appVersion: v0.121.0
+    created: "2025-12-22T09:22:00.293348497Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 16.7.27
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 22.0.7
+    - condition: minio.enabled
+      name: minio
+      repository: https://charts.min.io
+      version: 5.4.0
+    - condition: pgadmin4.enabled
+      name: pgadmin4
+      repository: https://helm.runix.net/
+      version: 1.50.0
+    - condition: harbor.enabled
+      name: harbor
+      repository: https://helm.goharbor.io
+      version: 1.18.0
+    description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
+    digest: c8aac8c7cef6ac385ff7d539a315e738fc04e20946ceda746b5a1ee4f285fcea
+    home: https://daytona.io
+    keywords:
+    - ai
+    - infrastructure
+    - security
+    - cloud
+    - sandbox
+    maintainers:
+    - email: engineering@daytona.io
+      name: Daytona
+    name: daytona
+    sources:
+    - https://github.com/daytonaio/daytona
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/daytona-0.0.15.tgz
+    version: 0.0.15
+  - apiVersion: v2
+    appVersion: v0.121.0
     created: "2025-12-18T00:14:23.686131504Z"
     dependencies:
     - condition: postgresql.enabled
@@ -591,9 +634,9 @@ entries:
   daytona-region:
   - apiVersion: v2
     appVersion: v0.125.0-rc.4-441e56b7
-    created: "2025-12-18T00:14:23.687273415Z"
+    created: "2025-12-22T09:22:00.29421262Z"
     description: A Helm chart for Daytona custom region
-    digest: de4be6bccc36a2b4ac3a24789323b89e614ec70e99ae46ac8f63483bde579bd9
+    digest: 6285ca5b27480c81f447c2cc9c84490ebc19c1770ed29cced90c32eae8f996e3
     home: https://daytona.io
     keywords:
     - ai
@@ -611,4 +654,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/daytona-region-0.0.1.tgz
     version: 0.0.1
-generated: "2025-12-18T00:14:23.666490628Z"
+generated: "2025-12-22T09:22:00.273560164Z"
