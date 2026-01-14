@@ -36,6 +36,16 @@ spec:
             - |
               set -e
 
+              SECRET_NAME="{{ include "daytona.fullname" . }}-region-config"
+              NAMESPACE="{{ include "daytona.namespace" . }}"
+
+              # Check if region config secret already exists (region already registered)
+              if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
+                echo "Region config secret '${SECRET_NAME}' already exists. Region is already registered."
+                echo "Skipping registration."
+                exit 0
+              fi
+
               echo "Registering region with Daytona API..."
 
               # Build the request payload

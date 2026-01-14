@@ -2,7 +2,7 @@ apiVersion: v2
 name: daytona-region
 description: A Helm chart for Daytona custom region
 type: application
-version: 0.0.2
+version: 0.0.3
 appVersion: "v0.131.0-rc.1"
 keywords:
   - ai
