@@ -144,8 +144,8 @@ services:
     # Image configuration
     image:
       registry: docker.io
-      repository: registry
-      tag: "2"
+      repository: daytonaio/daytona-snapshot-manager
+      tag: ""
       pullPolicy: IfNotPresent
     # Service configuration
     service:
