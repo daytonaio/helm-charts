@@ -49,10 +49,18 @@ spec:
               echo "Registering region with Daytona API..."
 
               # Build the request payload
-              PAYLOAD=$(jq -n \
-                --arg name "${REGION_NAME}" \
-                --arg proxyUrl "${PROXY_URL}" \
-                '{name: $name, proxyUrl: $proxyUrl}')
+              if [ -n "${SNAPSHOT_MANAGER_URL}" ]; then
+                PAYLOAD=$(jq -n \
+                  --arg name "${REGION_NAME}" \
+                  --arg proxyUrl "${PROXY_URL}" \
+                  --arg snapshotManagerUrl "${SNAPSHOT_MANAGER_URL}" \
+                  '{name: $name, proxyUrl: $proxyUrl, snapshotManagerUrl: $snapshotManagerUrl}')
+              else
+                PAYLOAD=$(jq -n \
+                  --arg name "${REGION_NAME}" \
+                  --arg proxyUrl "${PROXY_URL}" \
+                  '{name: $name, proxyUrl: $proxyUrl}')
+              fi
 
               echo "Calling API at ${DAYTONA_API_URL}/regions..."
 
@@ -109,6 +117,10 @@ spec:
               value: {{ include "daytona.proxyUrl" . | quote }}
             - name: REGION_NAME
               value: {{ required "regionName is required" .Values.regionName | quote }}
+            {{- if .Values.snapshotManagerUrl }}
+            - name: SNAPSHOT_MANAGER_URL
+              value: {{ .Values.snapshotManagerUrl | quote }}
+            {{- end }}
           resources:
             {{- toYaml .Values.registration.resources | nindent 12 }}
       {{- with .Values.registration.nodeSelector }}

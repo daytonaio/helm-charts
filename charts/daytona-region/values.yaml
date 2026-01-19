@@ -16,6 +16,12 @@ regionName: ""
 # Example: "https://proxy.daytona.example.com" or "http://proxy.daytona.example.com:4000"
 proxyUrl: ""
 
+# Snapshot Manager URL (optional) - full URL to the snapshot manager service
+# When provided, the region registration will include this URL and the API will return
+# snapshotManagerUsername and snapshotManagerPassword credentials for basic auth
+# Example: "https://snapshots.daytona.example.com"
+snapshotManagerUrl: ""
+
 # Daytona API configuration (required)
 daytonaApiUrl: ""   # e.g., "https://api.daytona.io/api"
 daytonaApiKey: ""   # API key for authentication
@@ -147,6 +153,8 @@ services:
       repository: daytonaio/daytona-snapshot-manager
       tag: ""
       pullPolicy: IfNotPresent
+    # Log level (debug, info, warn, error)
+    logLevel: "info"
     # Service configuration
     service:
       type: ClusterIP
@@ -166,44 +174,45 @@ services:
       extraTls: []
       extraRules: []
       tls: true
-    # S3 storage configuration
+    # Storage configuration
     storage:
+      # S3 storage configuration
       s3:
         # AWS region (required)
         region: ""
         # S3 bucket name (required)
         bucket: ""
         # Static credentials (optional - use if not using IRSA)
-        # If not set, the registry will use IRSA or instance profile credentials
+        # If not set, the service will use IRSA or instance profile credentials
         accessKey: ""
         secretKey: ""
         # Use existing secret for credentials (optional)
         # Secret must contain keys: accessKey, secretKey
         # existingSecret: "my-s3-credentials"
         # Enable server-side encryption
-        encrypt: true
+        encrypt: false
         # Use HTTPS for S3 connections
         secure: true
-        # Use AWS Signature Version 4
-        v4auth: true
         # Custom S3 endpoint (for non-AWS S3-compatible storage like MinIO)
         # endpoint: "https://minio.example.com"
-      # Enable delete operations on the registry
-      deleteEnabled: true
+        # Root directory within the bucket
+        # rootDirectory: "snapshots"
+      # Enable delete operations
+      deleteEnabled: false
+    # Cache configuration
+    cache:
+      enabled: true
+      driver: "inmemory"
     # HTTP server configuration
     http:
-      # Port the registry listens on
+      # Port the service listens on
       port: 5000
-    # Health check configuration
-    health:
-      # Disable storage driver health check (can fail on empty buckets)
-      storageDriverEnabled: false
     # Additional environment variables
     extraEnv: []
     # Liveness probe configuration
     livenessProbe:
       enabled: true
-      path: "/v2/"
+      path: "/healthz"
       initialDelaySeconds: 10
       periodSeconds: 30
       timeoutSeconds: 5
@@ -211,7 +220,7 @@ services:
     # Readiness probe configuration
     readinessProbe:
       enabled: true
-      path: "/v2/"
+      path: "/healthz"
       initialDelaySeconds: 5
       periodSeconds: 10
       timeoutSeconds: 5
