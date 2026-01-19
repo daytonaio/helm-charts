@@ -506,6 +506,12 @@ services:
       enabled: true
       image: "ubuntu:22.04"
       xfsStorageSize: "50G"
+      # Airgapped mode - use pre-packaged dependencies instead of downloading from internet
+      airgapped:
+        enabled: false
+        # Image containing pre-packaged .deb files and dependencies
+        # The image should have packages at /packages/packages.tar.gz
+        packagesImage: "daytonaio/daytona-runner-packages:v0.0.1"
     # Extra environment variables (for valueFrom or additional custom vars)
     extraEnv: []
 

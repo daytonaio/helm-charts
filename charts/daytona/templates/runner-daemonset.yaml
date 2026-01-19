@@ -52,6 +52,32 @@ spec:
       hostAliases:
         {{- toYaml .Values.services.runner.hostAliases | nindent 8 }}
       {{- end }}
+      {{- if and .Values.services.runner.dockerInstaller.enabled .Values.services.runner.dockerInstaller.airgapped.enabled }}
+      initContainers:
+        - name: extract-packages
+          image: {{ .Values.services.runner.dockerInstaller.airgapped.packagesImage }}
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+              mountPropagation: Bidirectional
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Extracting packages from image to host filesystem..."
+              if [ ! -f /packages/packages.tar.gz ]; then
+                echo "ERROR: /packages/packages.tar.gz not found in image"
+                exit 1
+              fi
+              echo "Copying packages.tar.gz to host..."
+              cp /packages/packages.tar.gz /host/tmp/packages.tar.gz
+              echo "Extracting packages to host filesystem..."
+              cd /host/tmp
+              tar -xzf packages.tar.gz
+              echo "Packages extracted successfully"
+              ls -la /host/tmp/offline-packages/
+      {{- end }}
       containers:
         {{- if .Values.services.runner.registryProxy.enabled }}
         # Socat sidecar to forward registry -> external registry
@@ -72,6 +98,8 @@ spec:
           env:
             - name: XFS_STORAGE_SIZE
               value: {{ .Values.services.runner.dockerInstaller.xfsStorageSize | quote }}
+            - name: AIRGAPPED_MODE
+              value: {{ .Values.services.runner.dockerInstaller.airgapped.enabled | quote }}
           volumeMounts:
             - name: host-root
               mountPath: /host
@@ -81,6 +109,17 @@ spec:
             - |
               echo "Starting Docker and Sysbox installation on host node..."
               echo "XFS Storage Size: ${XFS_STORAGE_SIZE}"
+              echo "Airgapped Mode: ${AIRGAPPED_MODE}"
+              
+              {{- if .Values.services.runner.dockerInstaller.airgapped.enabled }}
+              # Airgapped mode: Packages are already extracted by init container
+              echo "Verifying packages are available..."
+              if [ ! -d "/host/tmp/offline-packages" ]; then
+                echo "ERROR: Packages directory not found at /host/tmp/offline-packages"
+                exit 1
+              fi
+              ls -la /host/tmp/offline-packages/
+              {{- end }}
               
               # First, add registry host entry to host's /etc/hosts for Docker to resolve
               echo "Adding registry host entry..."
@@ -101,8 +140,102 @@ spec:
               
               # Set XFS storage size in host namespace (value injected at pod creation)
               export XFS_STORAGE_SIZE="{{ .Values.services.runner.dockerInstaller.xfsStorageSize }}"
+              export AIRGAPPED_MODE="{{ .Values.services.runner.dockerInstaller.airgapped.enabled }}"
               
-              # Function to install Docker and XFS tools
+              # Offline packages location (used in airgapped mode)
+              PACKAGES_DIR="/tmp/offline-packages"
+              
+              {{- if .Values.services.runner.dockerInstaller.airgapped.enabled }}
+              # Function to install all dependencies from offline packages
+              install_dependencies() {
+                echo "Installing dependencies from offline packages..."
+                
+                if [ ! -d "$PACKAGES_DIR/dependencies" ]; then
+                  echo "ERROR: Dependencies directory not found at $PACKAGES_DIR/dependencies"
+                  return 1
+                fi
+                
+                echo "Installing all dependency .deb packages (first pass)..."
+                cd $PACKAGES_DIR/dependencies
+                sudo dpkg -i --skip-same-version --refuse-downgrade *.deb 2>/dev/null || true
+                
+                echo "Installing all dependency .deb packages (second pass)..."
+                sudo dpkg -i --skip-same-version --refuse-downgrade *.deb 2>/dev/null || true
+                
+                # Run dpkg configure to fix any remaining issues
+                dpkg --configure -a
+                
+                echo "Dependencies installation completed"
+                return 0
+              }
+              
+              # Function to install Docker from offline packages
+              install_docker() {
+                if command -v docker >/dev/null 2>&1; then
+                  echo "Docker is already installed"
+                  docker version
+                  return 0
+                fi
+                
+                echo "Installing Docker from offline packages..."
+                
+                if [ ! -d "$PACKAGES_DIR/docker" ]; then
+                  echo "ERROR: Docker packages directory not found at $PACKAGES_DIR/docker"
+                  return 1
+                fi
+                
+                # Install Docker CLI first, then Docker CE
+                echo "Installing Docker CE CLI..."
+                dpkg --force-depends -i $PACKAGES_DIR/docker/docker-ce-cli_*.deb
+                
+                echo "Installing Docker CE..."
+                dpkg --force-depends -i $PACKAGES_DIR/docker/docker-ce_*.deb
+                
+                mkdir -p /etc/docker
+                systemctl daemon-reload
+                systemctl enable docker
+                
+                echo "Docker installation completed"
+                return 0
+              }
+              
+              # Function to install Sysbox from offline packages
+              install_sysbox() {
+                if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
+                  echo "Sysbox is already installed"
+                  return 0
+                fi
+                
+                echo "Installing Sysbox from offline packages..."
+                
+                if [ ! -d "$PACKAGES_DIR/sysbox" ]; then
+                  echo "ERROR: Sysbox packages directory not found at $PACKAGES_DIR/sysbox"
+                  return 1
+                fi
+                
+                # Determine architecture
+                ARCH=$(uname -m)
+                if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
+                  echo "Sysbox only supports x86_64 architecture"
+                  return 1
+                fi
+                
+                # Stop Docker before installing Sysbox
+                echo "Stopping Docker for Sysbox installation..."
+                systemctl stop docker 2>/dev/null || true
+                
+                # Install Sysbox package
+                echo "Installing Sysbox package..."
+                dpkg -i $PACKAGES_DIR/sysbox/sysbox-ce_*.deb || {
+                  echo "Sysbox install had issues, running dpkg configure..."
+                  dpkg --configure -a
+                }
+                
+                echo "Sysbox installation completed"
+                return 0
+              }
+              {{- else }}
+              # Function to install Docker and XFS tools (online mode)
               install_docker() {
                 if command -v docker >/dev/null 2>&1; then
                   echo "Docker is already installed"
@@ -153,7 +286,7 @@ spec:
                 return 0
               }
               
-              # Function to install Sysbox
+              # Function to install Sysbox (online mode)
               install_sysbox() {
                 if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
                   echo "Sysbox is already installed"
@@ -233,6 +366,7 @@ spec:
                 echo "Sysbox installation completed"
                 return 0
               }
+              {{- end }}
               
               # Function to setup XFS for Docker storage with quota support
               setup_xfs_storage() {
@@ -346,8 +480,14 @@ spec:
               # Setup XFS filesystem for Docker storage with quotas
               setup_xfs_storage
               
-              # Install Sysbox
+              {{- if .Values.services.runner.dockerInstaller.airgapped.enabled }}
+              # Install dependencies first (required for sysbox and docker) - airgapped mode
+              install_dependencies
+              {{- end }}
+              
+              # Install Sysbox (before Docker, as Docker config depends on sysbox)
               install_sysbox
+              
               # Install Docker
               install_docker
               
