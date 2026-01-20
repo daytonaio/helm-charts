@@ -8,7 +8,7 @@ metadata:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: region-registration
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 ---
@@ -21,7 +21,7 @@ metadata:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: region-registration
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
@@ -38,7 +38,7 @@ metadata:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: region-registration
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 roleRef:
