@@ -8,7 +8,7 @@ metadata:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: region-registration
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
@@ -39,10 +39,79 @@ spec:
               SECRET_NAME="{{ include "daytona.fullname" . }}-region-config"
               NAMESPACE="{{ include "daytona.namespace" . }}"
 
-              # Check if region config secret already exists (region already registered)
+              # Function to create/update secret from JSON response
+              create_secret() {
+                local response="$1"
+                echo "Creating/updating secret..."
+
+                SECRET_DATA=$(echo "$response" | jq -r 'to_entries | .[] | "  \(.key): \(.value | tostring | @base64)"')
+
+                cat > /tmp/secret.yaml <<SECRETEOF
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: {{ include "daytona.fullname" . }}-region-config
+                namespace: {{ include "daytona.namespace" . }}
+                labels:
+                  {{- include "daytona.labels" . | nindent 18 }}
+                  app.kubernetes.io/component: region-config
+              type: Opaque
+              data:
+              ${SECRET_DATA}
+              SECRETEOF
+
+                echo "Secret manifest:"
+                cat /tmp/secret.yaml
+                kubectl apply -f /tmp/secret.yaml
+              }
+
+              # Check if region config secret already exists
               if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
-                echo "Region config secret '${SECRET_NAME}' already exists. Region is already registered."
-                echo "Skipping registration."
+                echo "Region config secret '${SECRET_NAME}' exists."
+
+                # Check if snapshot manager credentials are needed but missing
+                if [ -n "${SNAPSHOT_MANAGER_URL}" ]; then
+                  HAS_SM_CREDS=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o jsonpath='{.data.snapshotManagerUsername}' 2>/dev/null || echo "")
+
+                  if [ -z "${HAS_SM_CREDS}" ]; then
+                    echo "Snapshot manager URL configured but credentials missing. Regenerating..."
+
+                    # Get region ID from existing secret
+                    REGION_ID=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o jsonpath='{.data.id}' | base64 -d)
+
+                    if [ -z "${REGION_ID}" ]; then
+                      echo "Error: Could not get region ID from secret"
+                      exit 1
+                    fi
+
+                    echo "Calling API to regenerate snapshot manager credentials for region ${REGION_ID}..."
+
+                    SM_RESPONSE=$(curl -sf \
+                      -X POST \
+                      -H "Content-Type: application/json" \
+                      -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
+                      "${DAYTONA_API_URL}/regions/${REGION_ID}/regenerate-snapshot-manager-credentials")
+
+                    if [ -z "$SM_RESPONSE" ]; then
+                      echo "Error: Empty response from regenerate credentials API"
+                      exit 1
+                    fi
+
+                    echo "Credentials response received: $SM_RESPONSE"
+
+                    # Get existing secret data and merge with new credentials
+                    EXISTING_DATA=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o json | jq '.data | to_entries | map({(.key): (.value | @base64d)}) | add')
+
+                    # Merge existing data with new snapshot manager credentials
+                    MERGED_RESPONSE=$(echo "$EXISTING_DATA" | jq --argjson sm "$SM_RESPONSE" '. + {snapshotManagerUsername: $sm.username, snapshotManagerPassword: $sm.password}')
+
+                    create_secret "$MERGED_RESPONSE"
+                    echo "Snapshot manager credentials added to secret!"
+                    exit 0
+                  fi
+                fi
+
+                echo "Region already fully registered. Skipping."
                 exit 0
               fi
 
@@ -78,32 +147,7 @@ spec:
               fi
 
               echo "API response received: $RESPONSE"
-              echo "Creating secret..."
-
-              # Use jq to convert JSON response to base64-encoded secret data
-              SECRET_DATA=$(echo "$RESPONSE" | jq -r 'to_entries | .[] | "  \(.key): \(.value | tostring | @base64)"')
-
-              # Create the secret manifest
-              cat > /tmp/secret.yaml <<SECRETEOF
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: {{ include "daytona.fullname" . }}-region-config
-                namespace: {{ include "daytona.namespace" . }}
-                labels:
-                  {{- include "daytona.labels" . | nindent 18 }}
-                  app.kubernetes.io/component: region-config
-              type: Opaque
-              data:
-              ${SECRET_DATA}
-              SECRETEOF
-
-              echo "Secret manifest:"
-              cat /tmp/secret.yaml
-
-              # Apply the secret
-              kubectl apply -f /tmp/secret.yaml
-
+              create_secret "$RESPONSE"
               echo "Region registration complete!"
           env:
             - name: DAYTONA_API_URL
