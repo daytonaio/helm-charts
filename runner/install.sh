@@ -426,7 +426,7 @@ WorkingDirectory=$RUNNER_DIR
 ExecStart=$RUNNER_BINARY
 Environment=NODE_ENV=production
 Environment=CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"sysbox-runc"}
-Environment=API_TOKEN=$RUNNER_API_KEY
+Environment=DAYTONA_RUNNER_TOKEN=$RUNNER_API_KEY
 Environment=TLS_CERT_FILE=/etc/letsencrypt/live/$DOMAIN_OR_IP/fullchain.pem
 Environment=TLS_KEY_FILE=/etc/letsencrypt/live/$DOMAIN_OR_IP/privkey.pem
 Environment=ENABLE_TLS=${ENABLE_TLS:-"false"}
@@ -441,7 +441,9 @@ Environment=AWS_DEFAULT_BUCKET=${AWS_DEFAULT_BUCKET:-"daytona"}
 Environment=SSH_GATEWAY_ENABLE=${SSH_GATEWAY_ENABLE:-"false"}
 Environment=SSH_PUBLIC_KEY=$SSH_GATEWAY_PUBLIC_KEY
 Environment=SSH_HOST_KEY_PATH=${SSH_HOST_KEY_PATH:-"/etc/ssh/ssh_host_rsa_key"}
-Environment=SERVER_URL=$API_URL/api
+Environment=DAYTONA_API_URL=$API_URL/api
+Environment=API_VERSION=0
+Environment=RUNNER_DOMAIN=$DOMAIN_OR_IP
 Restart=on-failure
 RestartSec=5
 
