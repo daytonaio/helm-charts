@@ -354,11 +354,11 @@ PROXY_URL="$RUNNER_API_URL"
 log "Runner API URL set to: $RUNNER_API_URL"
 log "Proxy URL also set to: $PROXY_URL"
 
-read -p "Enter region [default: us]: " REGION < /dev/tty
-REGION=${REGION:-us}
+read -p "Enter region ID [default: us]: " REGION_ID < /dev/tty
+REGION_ID=${REGION_ID:-us}
 
-read -p "Enter runner capacity [default: 1000]: " CAPACITY < /dev/tty
-CAPACITY=${CAPACITY:-1000}
+read -p "Enter runner name [default: runner-1]: " NAME < /dev/tty
+NAME=${NAME:-runner-1}
 
 read -p "Enter runner API key [default: auto-generated]: " RUNNER_API_KEY < /dev/tty
 RUNNER_API_KEY=${RUNNER_API_KEY:-$(openssl rand -hex 32)}
@@ -375,12 +375,9 @@ RUNNER_PAYLOAD=$(cat <<EOF
     "cpu": $CPU_COUNT,
     "memoryGiB": $MEMORY_GB,
     "diskGiB": $DISK_GB,
-    "gpu": 0,
-    "gpuType": "",
-    "class": "small",
-    "capacity": $CAPACITY,
-    "region": "$REGION",
-    "version": "0"
+    "name": "$NAME",
+    "regionId": "$REGION_ID",
+    "apiVersion": "0"
 }
 EOF
 )
@@ -392,7 +389,7 @@ REGISTRATION_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $API_KEY" \
     -d "$RUNNER_PAYLOAD" \
-    "$API_URL/api/runners")
+    "$API_URL/api/admin/runners")
 
 # Extract HTTP status code (last line) and response body (everything else)
 HTTP_STATUS=$(echo "$REGISTRATION_RESPONSE" | tail -n1)
