@@ -3,7 +3,7 @@ entries:
   daytona:
   - apiVersion: v2
     appVersion: v0.121.0
-    created: "2026-01-20T12:21:11.051059243Z"
+    created: "2026-01-21T13:41:15.021749599Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -26,7 +26,7 @@ entries:
       repository: https://helm.goharbor.io
       version: 1.18.0
     description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
-    digest: 7bca5984e0c0f23e427d44c60406b7295c2daed178240b66810fb780db0a4fa4
+    digest: aa9eaa26a1586c1c26af4d9d80bc3f4db59678835986b77361d8a1ba499f1006
     home: https://daytona.io
     keywords:
     - ai
@@ -633,6 +633,28 @@ entries:
     version: 0.0.1
   daytona-region:
   - apiVersion: v2
+    appVersion: v0.134.0
+    created: "2026-01-21T13:41:15.022621826Z"
+    description: A Helm chart for Daytona custom region
+    digest: ff3c2e0f011f69487b93e67d312647ea1626a7a2c383ac2f867a342c6ba8bf71
+    home: https://daytona.io
+    keywords:
+    - ai
+    - infrastructure
+    - security
+    - cloud
+    - sandbox
+    maintainers:
+    - email: engineering@daytona.io
+      name: Daytona
+    name: daytona-region
+    sources:
+    - https://github.com/daytonaio/daytona
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/daytona-region-0.0.7.tgz
+    version: 0.0.7
+  - apiVersion: v2
     appVersion: v0.132.0
     created: "2026-01-20T12:21:11.051948457Z"
     description: A Helm chart for Daytona custom region
@@ -764,4 +786,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/daytona-region-0.0.1.tgz
     version: 0.0.1
-generated: "2026-01-20T12:21:11.03222925Z"
+generated: "2026-01-21T13:41:15.001908241Z"
