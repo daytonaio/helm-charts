@@ -202,3 +202,12 @@ Usage:
 {{- define "daytona.proxyUrl" -}}
 {{- required "proxyUrl is required" .Values.proxyUrl -}}
 {{- end -}}
+
+{{/*
+Snapshot Manager URL.
+Usage:
+{{ include "daytona.snapshotManagerUrl" . }}
+*/}}
+{{- define "daytona.snapshotManagerUrl" -}}
+{{- .Values.snapshotManagerUrl | default "http://snapshots.daytona.local:5000" -}}
+{{- end -}}

@@ -161,9 +161,9 @@ spec:
               value: {{ include "daytona.proxyUrl" . | quote }}
             - name: REGION_NAME
               value: {{ required "regionName is required" .Values.regionName | quote }}
-            {{- if .Values.snapshotManagerUrl }}
+            {{- if .Values.services.snapshotManager.enabled }}
             - name: SNAPSHOT_MANAGER_URL
-              value: {{ .Values.snapshotManagerUrl | quote }}
+              value: {{ include "daytona.snapshotManagerUrl" . | quote }}
             {{- end }}
           resources:
             {{- toYaml .Values.registration.resources | nindent 12 }}
@@ -186,9 +186,9 @@ metadata:
     {{- include "daytona.labels" . | nindent 4 }}
     app.kubernetes.io/component: region-registration
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 type: Opaque
 data:
   {{ .Values.registration.secretKeys.apiKey | default "daytona-api-key" }}: {{ required "daytonaApiKey is required" .Values.daytonaApiKey | b64enc | quote }}
