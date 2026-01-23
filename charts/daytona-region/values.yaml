@@ -207,6 +207,26 @@ services:
     http:
       # Port the service listens on
       port: 5000
+      # TLS configuration
+      tls:
+        # Existing secret name containing TLS certificate and key
+        # The secret must contain keys: tls.crt and tls.key
+        # If set, the certificate and key will be mounted in the pod and
+        # environment variables SNAPSHOT_MANAGER_HTTP_TLS_CERTIFICATE and
+        # SNAPSHOT_MANAGER_HTTP_TLS_KEY will be set to their paths
+        # IMPORTANT: This takes precedence over selfSigned. If secretName is set,
+        # selfSigned will be ignored.
+        secretName: ""
+        # Enable self-signed certificate generation
+        # When enabled and secretName is empty, a pre-install/pre-upgrade hook will
+        # generate a self-signed CA and certificate with 10 years validity.
+        # The certificate will be preserved across upgrades.
+        # Works with ArgoCD and GitOps workflows.
+        # NOTE: This is ignored if secretName is set.
+        selfSigned: false
+        # Hostname for the TLS certificate (required when selfSigned is enabled)
+        # Supports wildcards (e.g., "*.example.com" or "snapshots.daytona.example.com")
+        hostname: ""
     # Additional environment variables
     extraEnv: []
     # Liveness probe configuration
@@ -264,7 +284,7 @@ registration:
   # Image for the registration job (needs curl and kubectl)
   image:
     repository: daytonaio/kubectl
-    tag: "1.34.2-r1"
+    tag: "1.34.2-r2"
     pullPolicy: IfNotPresent
   # Resource limits for the registration job
   resources:

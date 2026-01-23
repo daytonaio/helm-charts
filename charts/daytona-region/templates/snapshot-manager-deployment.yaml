@@ -123,14 +123,30 @@ spec:
               value: {{ .Values.services.snapshotManager.cache.driver | quote }}
             {{- end }}
             {{- end }}
+            # TLS configuration
+            {{- if include "daytona.snapshotManager.tlsEnabled" . }}
+            - name: SNAPSHOT_MANAGER_HTTP_TLS_CERTIFICATE
+              value: "/etc/snapshot-manager/tls/tls.crt"
+            - name: SNAPSHOT_MANAGER_HTTP_TLS_KEY
+              value: "/etc/snapshot-manager/tls/tls.key"
+            {{- end }}
             {{- with .Values.services.snapshotManager.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- if include "daytona.snapshotManager.tlsEnabled" . }}
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /etc/snapshot-manager/tls
+              readOnly: true
+          {{- end }}
           {{- if .Values.services.snapshotManager.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
               path: {{ .Values.services.snapshotManager.livenessProbe.path | default "/v2/" }}
               port: http
+              {{- if include "daytona.snapshotManager.tlsEnabled" . }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: {{ .Values.services.snapshotManager.livenessProbe.initialDelaySeconds | default 10 }}
             periodSeconds: {{ .Values.services.snapshotManager.livenessProbe.periodSeconds | default 30 }}
             timeoutSeconds: {{ .Values.services.snapshotManager.livenessProbe.timeoutSeconds | default 5 }}
@@ -141,6 +157,9 @@ spec:
             httpGet:
               path: {{ .Values.services.snapshotManager.readinessProbe.path | default "/v2/" }}
               port: http
+              {{- if include "daytona.snapshotManager.tlsEnabled" . }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: {{ .Values.services.snapshotManager.readinessProbe.initialDelaySeconds | default 5 }}
             periodSeconds: {{ .Values.services.snapshotManager.readinessProbe.periodSeconds | default 10 }}
             timeoutSeconds: {{ .Values.services.snapshotManager.readinessProbe.timeoutSeconds | default 5 }}
@@ -148,6 +167,12 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.services.snapshotManager.resources | nindent 12 }}
+      {{- if include "daytona.snapshotManager.tlsEnabled" . }}
+      volumes:
+        - name: tls-certs
+          secret:
+            secretName: {{ if .Values.services.snapshotManager.http.tls.secretName }}{{ .Values.services.snapshotManager.http.tls.secretName }}{{ else }}{{ include "daytona.fullname" . }}-snapshot-manager-tls{{ end }}
+      {{- end }}
       {{- with .Values.services.snapshotManager.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

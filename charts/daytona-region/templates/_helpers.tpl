@@ -211,3 +211,13 @@ Usage:
 {{- define "daytona.snapshotManagerUrl" -}}
 {{- .Values.snapshotManagerUrl | default "http://snapshots.daytona.local:5000" -}}
 {{- end -}}
+
+{{/*
+Check if TLS is enabled for snapshot manager.
+Returns true if either selfSigned is enabled or secretName is provided.
+Usage:
+{{ include "daytona.snapshotManager.tlsEnabled" . }}
+*/}}
+{{- define "daytona.snapshotManager.tlsEnabled" -}}
+{{- or .Values.services.snapshotManager.http.tls.selfSigned .Values.services.snapshotManager.http.tls.secretName -}}
+{{- end -}}

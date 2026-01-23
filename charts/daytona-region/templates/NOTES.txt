@@ -1,0 +1,73 @@
+{{- $namespace := include "daytona.namespace" . -}}
+{{- $fullname := include "daytona.fullname" . -}}
+
+Daytona Region has been installed successfully!
+
+Region Name: {{ .Values.regionName }}
+Namespace:   {{ $namespace }}
+
+{{- if .Values.registration.enabled }}
+
+==========================================================================
+REGION REGISTRATION
+==========================================================================
+
+A pre-install hook has registered this region with the Daytona API.
+The region configuration is stored in the secret: {{ $fullname }}-region-config
+
+To view the region configuration:
+  kubectl get secret {{ $fullname }}-region-config -n {{ $namespace }} -o yaml
+
+{{- end }}
+
+==========================================================================
+SERVICES
+==========================================================================
+
+{{- if .Values.services.proxy }}
+Proxy Service:
+  URL: {{ include "daytona.proxyUrl" . }}
+  {{- if .Values.services.proxy.ingress.enabled }}
+  Ingress: Enabled ({{ .Values.services.proxy.ingress.className }})
+  {{- end }}
+{{- end }}
+
+{{- if .Values.services.snapshotManager.enabled }}
+Snapshot Manager:
+  {{- if .Values.snapshotManagerUrl }}
+  URL: {{ .Values.snapshotManagerUrl }}
+  {{- else }}
+  Service: {{ $fullname }}-snapshot-manager.{{ $namespace }}.svc.cluster.local:{{ .Values.services.snapshotManager.service.port }}
+  {{- end }}
+  {{- if .Values.services.snapshotManager.ingress.enabled }}
+  Ingress: Enabled ({{ .Values.services.snapshotManager.ingress.className }})
+  {{- end }}
+{{- end }}
+
+{{- if and .Values.services.snapshotManager.enabled .Values.services.snapshotManager.http.tls.selfSigned (not .Values.services.snapshotManager.http.tls.secretName) }}
+
+==========================================================================
+SNAPSHOT MANAGER TLS CERTIFICATE
+==========================================================================
+
+A self-signed TLS certificate has been generated for the Snapshot Manager.
+Secret Name: {{ $fullname }}-snapshot-manager-tls
+Hostname: {{ .Values.services.snapshotManager.http.tls.hostname }}
+Validity: 10 years
+
+To retrieve the CA certificate (to add to your trust store):
+
+  kubectl get secret {{ $fullname }}-snapshot-manager-tls -n {{ $namespace }} -o jsonpath='{.data.ca\.crt}' | base64 -d
+
+To save the CA certificate to a file:
+
+  kubectl get secret {{ $fullname }}-snapshot-manager-tls -n {{ $namespace }} -o jsonpath='{.data.ca\.crt}' | base64 -d > daytona-snapshot-manager-ca.crt
+
+To view certificate details:
+
+  kubectl get secret {{ $fullname }}-snapshot-manager-tls -n {{ $namespace }} -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -text
+
+To trust this certificate in your system, add the CA certificate to your
+trust store. Instructions vary by operating system.
+
+{{- end }}
