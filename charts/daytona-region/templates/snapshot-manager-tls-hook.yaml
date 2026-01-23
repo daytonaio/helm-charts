@@ -1,0 +1,132 @@
+{{- if and .Values.services.snapshotManager.enabled .Values.services.snapshotManager.http.tls.selfSigned (not .Values.services.snapshotManager.http.tls.secretName) -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "daytona.fullname" . }}-snapshot-manager-tls
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snapshot-manager-tls
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: snapshot-manager-tls
+    spec:
+      serviceAccountName: {{ include "daytona.fullname" . }}-snapshot-manager-tls
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: generate-tls
+          image: {{ .Values.registration.image.repository }}:{{ .Values.registration.image.tag }}
+          imagePullPolicy: {{ .Values.registration.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              SECRET_NAME="{{ include "daytona.fullname" . }}-snapshot-manager-tls"
+              NAMESPACE="{{ include "daytona.namespace" . }}"
+              HOSTNAME="{{ required "services.snapshotManager.http.tls.hostname is required when selfSigned is enabled" .Values.services.snapshotManager.http.tls.hostname }}"
+
+              # Check if TLS secret already exists
+              if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
+                echo "TLS secret '${SECRET_NAME}' already exists. Skipping certificate generation."
+                exit 0
+              fi
+
+              echo "Generating self-signed TLS certificates for ${HOSTNAME}..."
+
+              # Create working directory
+              WORK_DIR=$(mktemp -d)
+              cd "${WORK_DIR}"
+
+              # Generate CA private key
+              echo "Generating CA private key..."
+              openssl genrsa -out ca.key 4096
+
+              # Generate CA certificate (10 years validity)
+              echo "Generating CA certificate..."
+              openssl req -new -x509 -days 3650 -key ca.key -out ca.crt \
+                -subj "/CN=Daytona Snapshot Manager CA/O=Daytona/OU=Snapshot Manager"
+
+              # Generate server private key
+              echo "Generating server private key..."
+              openssl genrsa -out tls.key 4096
+
+              # Generate certificate signing request
+              echo "Generating certificate signing request..."
+              openssl req -new -key tls.key -out server.csr \
+                -subj "/CN=${HOSTNAME}/O=Daytona/OU=Snapshot Manager"
+
+              # Create OpenSSL config for SAN
+              cat > openssl.cnf <<EOF
+              [req]
+              req_extensions = v3_req
+              distinguished_name = req_distinguished_name
+
+              [req_distinguished_name]
+
+              [v3_req]
+              basicConstraints = CA:FALSE
+              keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+              subjectAltName = @alt_names
+
+              [alt_names]
+              DNS.1 = ${HOSTNAME}
+              EOF
+
+              # Generate server certificate signed by CA (10 years validity)
+              echo "Generating server certificate..."
+              openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \
+                -CAcreateserial -out tls.crt -days 3650 \
+                -extensions v3_req -extfile openssl.cnf
+
+              # Verify the certificate
+              echo "Verifying certificate..."
+              openssl verify -CAfile ca.crt tls.crt
+
+              # Create Kubernetes secret
+              echo "Creating TLS secret..."
+              kubectl create secret generic "${SECRET_NAME}" \
+                --from-file=tls.crt=tls.crt \
+                --from-file=tls.key=tls.key \
+                --from-file=ca.crt=ca.crt \
+                -n "${NAMESPACE}"
+
+              # Label the secret
+              kubectl label secret "${SECRET_NAME}" \
+                -n "${NAMESPACE}" \
+                {{- include "daytona.labels" . | nindent 16 }} \
+                app.kubernetes.io/component=snapshot-manager
+
+              echo "TLS certificate generation complete!"
+              echo "Certificate details:"
+              openssl x509 -in tls.crt -noout -text | grep -A2 "Validity"
+              openssl x509 -in tls.crt -noout -text | grep -A1 "Subject Alternative Name"
+
+              # Cleanup
+              cd /
+              rm -rf "${WORK_DIR}"
+          resources:
+            {{- toYaml .Values.registration.resources | nindent 12 }}
+      {{- with .Values.registration.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.registration.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
