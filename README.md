@@ -16,7 +16,7 @@ helm repo add daytonaio https://charts.daytona.io
 You can then run `helm search repo daytonaio` to see the charts.
 
 ## License
-This repository contains the Daytona Enterprise Demo installer, covered under the [Elastic License 2.0](LICENSE), except where noted (any Daytona logos or trademarks are not covered under the Elastic License, and should be explicitly noted by a LICENSE file.)
+This repository contains the Daytona helm charts, covered under the [Elastic License 2.0](LICENSE), except where noted (any Daytona logos or trademarks are not covered under the Elastic License, and should be explicitly noted by a LICENSE file.)
 
 Others are allowed to make their own distribution of the software in this repository under the license, but they cannot use any of the Daytona trademarks, cloud services, etc.
 
