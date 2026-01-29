@@ -48,6 +48,10 @@ services:
       tls: true
       # Enable self-signed certificates
       selfSigned: false
+      # TLS secret name override
+      # If not set, defaults to "{{baseDomain}}-tls" (e.g., "daytona.example.com-tls")
+      # Use this when you have a pre-existing TLS secret with a different naming convention
+      tlsSecretName: ""
       # Custom TLS certificates as secrets
       # NOTE: 'key' and 'certificate' are expected in PEM format
       # NOTE: 'name' should match the secretName used in ingress TLS configuration
@@ -236,6 +240,10 @@ services:
       tls: true
       # Enable self-signed certificates
       selfSigned: false
+      # TLS secret name override
+      # If not set, defaults to "proxy.{{baseDomain}}-tls" (e.g., "proxy.daytona.example.com-tls")
+      # Use this when you have a pre-existing TLS secret with a different naming convention
+      tlsSecretName: ""
       # Custom TLS certificates as secrets
       # NOTE: 'key' and 'certificate' are expected in PEM format
       # NOTE: 'name' should match the secretName used in ingress TLS configuration
@@ -593,6 +601,10 @@ dex:
     tls: true
     # Enable self-signed certificates
     selfSigned: false
+    # TLS secret name override
+    # If not set, defaults to "{{dex-hostname}}-tls" (e.g., "dex.daytona.example.com-tls")
+    # Use this when you have a pre-existing TLS secret with a different naming convention
+    tlsSecretName: ""
     # Custom TLS certificates as secrets
     # NOTE: 'key' and 'certificate' are expected in PEM format
     # NOTE: 'name' should match the secretName used in ingress TLS configuration

@@ -53,9 +53,10 @@ spec:
     {{- end }}
   {{- if .Values.services.snapshotManager.ingress.tls }}
   tls:
+    {{- $tlsSecretName := .Values.services.snapshotManager.ingress.tlsSecretName | default (printf "%s-tls" $templatedHostname) }}
     - hosts:
         - {{ $templatedHostname | quote }}
-      secretName: {{ printf "%s-tls" $templatedHostname }}
+      secretName: {{ $tlsSecretName }}
     {{- if .Values.services.snapshotManager.ingress.extraTls }}
     {{- toYaml .Values.services.snapshotManager.ingress.extraTls | nindent 4 }}
     {{- end }}

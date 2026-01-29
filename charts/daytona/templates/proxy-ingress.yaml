@@ -71,10 +71,11 @@ spec:
     {{- end }}
   {{- if .Values.services.proxy.ingress.tls }}
   tls:
+    {{- $tlsSecretName := .Values.services.proxy.ingress.tlsSecretName | default (printf "proxy.%s-tls" $templatedBaseDomain) }}
     # Use wildcard certificate (covers all subdomains including proxy subdomain)
     - hosts:
         - {{ $wildcardBaseDomain | quote }}
-      secretName: {{ printf "proxy.%s-tls" $templatedBaseDomain }}
+      secretName: {{ $tlsSecretName }}
     {{- if .Values.services.proxy.ingress.extraTls }}
     {{- toYaml .Values.services.proxy.ingress.extraTls | nindent 4 }}
     {{- end }}
