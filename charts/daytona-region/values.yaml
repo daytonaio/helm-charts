@@ -68,6 +68,10 @@ services:
       tls: true
       # Enable self-signed certificates
       selfSigned: false
+      # TLS secret name override
+      # If not set, defaults to "{{proxy-hostname}}-tls" (e.g., "proxy.daytona.example.com-tls")
+      # Use this when you have a pre-existing TLS secret with a different naming convention
+      tlsSecretName: ""
       # Custom TLS certificates as secrets
       # NOTE: 'key' and 'certificate' are expected in PEM format
       # NOTE: 'name' should match the secretName used in ingress TLS configuration
@@ -174,6 +178,10 @@ services:
       extraTls: []
       extraRules: []
       tls: true
+      # TLS secret name override
+      # If not set, defaults to "{{hostname}}-tls" (e.g., "snapshots.daytona.example.com-tls")
+      # Use this when you have a pre-existing TLS secret with a different naming convention
+      tlsSecretName: ""
     # Storage configuration
     storage:
       # S3 storage configuration

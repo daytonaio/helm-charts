@@ -59,10 +59,11 @@ spec:
     {{- $baseDomain := .Values.baseDomain -}}
     {{- $templatedBaseDomain := tpl $baseDomain $ -}}
     {{- $wildcardBaseDomain := printf "*.%s" $templatedBaseDomain }}
+    {{- $tlsSecretName := .Values.services.api.ingress.tlsSecretName | default (printf "%s-tls" $templatedBaseDomain) }}
     - hosts:
         - {{ $templatedHostname | quote }}
         - {{ $wildcardBaseDomain | quote }}
-      secretName: {{ printf "%s-tls" $templatedBaseDomain }}
+      secretName: {{ $tlsSecretName }}
     {{- end }}
     {{- if .Values.services.api.ingress.extraTls }}
     {{- toYaml .Values.services.api.ingress.extraTls | nindent 4 }}
