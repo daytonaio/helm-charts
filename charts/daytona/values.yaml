@@ -412,7 +412,7 @@ services:
       # Auto-generated as "https://{{.Values.baseDomain}}/api" if not set or empty
       SERVER_URL: "http://daytona-api:3000/api"
       REGION_ID: "us"
-      ENVIRONMENT: "development"
+      ENVIRONMENT: "production"
       # Runner API Port
       RUNNER_API_PORT: "3000"
     # Extra environment variables (for valueFrom or additional custom vars)
