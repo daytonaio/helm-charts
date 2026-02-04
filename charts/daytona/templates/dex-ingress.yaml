@@ -58,7 +58,7 @@ spec:
     {{- if $hostname }}
     - hosts:
         - {{ $templatedHostname | quote }}
-      secretName: {{ printf "%s-tls" $templatedHostname }}
+      secretName: {{ .Values.dex.ingress.tlsSecretName | default (printf "%s-tls" $templatedHostname) }}
     {{- end }}
     {{- if .Values.dex.ingress.extraTls }}
     {{- toYaml .Values.dex.ingress.extraTls | nindent 4 }}

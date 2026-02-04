@@ -46,6 +46,8 @@ spec:
               containerPort: 3000
               protocol: TCP
           env:
+            - name: DEFAULT_RUNNER_NAME
+              value: ""
             # Application configuration
             - name: ENVIRONMENT
               value: {{ .Values.services.api.env.ENVIRONMENT | default "production" | quote }}
