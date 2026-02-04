@@ -19,7 +19,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-api
-      tag: "v0.125.0-rc.4-k8s" # Will default to Chart.AppVersion
+      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -46,6 +46,10 @@ services:
       extraRules: []
       # Enable TLS
       tls: true
+      # Custom TLS secret name (optional)
+      # If set, uses this existing secret instead of auto-generating the name
+      # The secret must already exist in the cluster or be managed externally
+      tlsSecretName: ""
       # Enable self-signed certificates
       selfSigned: false
       # Custom TLS certificates as secrets
@@ -198,7 +202,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-proxy
-      tag: "" # Will default to Chart.AppVersion
+      tag: "v0.139.0"
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -234,6 +238,10 @@ services:
       extraRules: []
       # Enable TLS
       tls: true
+      # Custom TLS secret name (optional)
+      # If set, uses this existing secret instead of auto-generating the name
+      # The secret must already exist in the cluster or be managed externally
+      tlsSecretName: ""
       # Enable self-signed certificates
       selfSigned: false
       # Custom TLS certificates as secrets
@@ -374,7 +382,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      tag: "v0.125.0-rc.9-k8s" # Will default to Chart.AppVersion
+      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -404,7 +412,7 @@ services:
       # Auto-generated as "https://{{.Values.baseDomain}}/api" if not set or empty
       SERVER_URL: "http://daytona-api:3000/api"
       REGION_ID: "us"
-      ENVIRONMENT: "development"
+      ENVIRONMENT: "production"
       # Runner API Port
       RUNNER_API_PORT: "3000"
     # Extra environment variables (for valueFrom or additional custom vars)
@@ -442,7 +450,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner
-      tag: "v0.125.0-rc.4-k8s" # Will default to Chart.AppVersion
+      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # ServiceAccount configuration
     serviceAccount:
@@ -464,6 +472,7 @@ services:
       DAEMON_START_TIMEOUT_SEC: "30"
       SANDBOX_START_TIMEOUT_SEC: "60"
       # Secrets
+      DAYTONA_API_URL: "http://daytona-api:3000/api"
       SERVER_URL: "http://daytona-api:3000/api"
       API_TOKEN: "secret_api_token"
       SYSTEM_API_TOKEN: "system_api_token"
@@ -506,6 +515,12 @@ services:
       enabled: true
       image: "ubuntu:22.04"
       xfsStorageSize: "50G"
+      # Airgapped mode - use pre-packaged dependencies instead of downloading from internet
+      airgapped:
+        enabled: false
+        # Image containing pre-packaged .deb files and dependencies
+        # The image should have packages at /packages/packages.tar.gz
+        packagesImage: "daytonaio/daytona-runner-packages:v0.0.1"
     # Extra environment variables (for valueFrom or additional custom vars)
     extraEnv: []
 
@@ -591,6 +606,10 @@ dex:
     extraRules: []
     # Enable TLS
     tls: true
+    # Custom TLS secret name (optional)
+    # If set, uses this existing secret instead of auto-generating the name
+    # The secret must already exist in the cluster or be managed externally
+    tlsSecretName: ""
     # Enable self-signed certificates
     selfSigned: false
     # Custom TLS certificates as secrets
