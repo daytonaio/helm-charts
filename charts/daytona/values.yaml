@@ -19,7 +19,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-api
-      tag: "v0.125.0-rc.4-k8s" # Will default to Chart.AppVersion
+      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -46,6 +46,10 @@ services:
       extraRules: []
       # Enable TLS
       tls: true
+      # Custom TLS secret name (optional)
+      # If set, uses this existing secret instead of auto-generating the name
+      # The secret must already exist in the cluster or be managed externally
+      tlsSecretName: ""
       # Enable self-signed certificates
       selfSigned: false
       # Custom TLS certificates as secrets
@@ -198,7 +202,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-proxy
-      tag: "" # Will default to Chart.AppVersion
+      tag: "v0.139.0"
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -234,6 +238,10 @@ services:
       extraRules: []
       # Enable TLS
       tls: true
+      # Custom TLS secret name (optional)
+      # If set, uses this existing secret instead of auto-generating the name
+      # The secret must already exist in the cluster or be managed externally
+      tlsSecretName: ""
       # Enable self-signed certificates
       selfSigned: false
       # Custom TLS certificates as secrets
@@ -374,7 +382,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      tag: "v0.125.0-rc.9-k8s" # Will default to Chart.AppVersion
+      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -442,7 +450,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner
-      tag: "v0.125.0-rc.4-k8s" # Will default to Chart.AppVersion
+      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # ServiceAccount configuration
     serviceAccount:
@@ -598,6 +606,10 @@ dex:
     extraRules: []
     # Enable TLS
     tls: true
+    # Custom TLS secret name (optional)
+    # If set, uses this existing secret instead of auto-generating the name
+    # The secret must already exist in the cluster or be managed externally
+    tlsSecretName: ""
     # Enable self-signed certificates
     selfSigned: false
     # Custom TLS certificates as secrets
