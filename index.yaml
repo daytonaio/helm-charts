@@ -2,6 +2,49 @@ apiVersion: v1
 entries:
   daytona:
   - apiVersion: v2
+    appVersion: v0.132.0
+    created: "2026-02-04T15:05:17.57341941Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 16.7.27
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 22.0.7
+    - condition: minio.enabled
+      name: minio
+      repository: https://charts.min.io
+      version: 5.4.0
+    - condition: pgadmin4.enabled
+      name: pgadmin4
+      repository: https://helm.runix.net/
+      version: 1.50.0
+    - condition: harbor.enabled
+      name: harbor
+      repository: https://helm.goharbor.io
+      version: 1.18.0
+    description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
+    digest: 1e44dc75f85a104a6ace77b88126aa26e48dcee6b74f9bb0b6d86b8c422a34eb
+    home: https://daytona.io
+    keywords:
+    - ai
+    - infrastructure
+    - security
+    - cloud
+    - sandbox
+    maintainers:
+    - email: engineering@daytona.io
+      name: Daytona
+    name: daytona
+    sources:
+    - https://github.com/daytonaio/daytona
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/daytona-0.0.17.tgz
+    version: 0.0.17
+  - apiVersion: v2
     appVersion: v0.121.0
     created: "2026-01-23T08:48:52.811107314Z"
     dependencies:
@@ -634,9 +677,9 @@ entries:
   daytona-region:
   - apiVersion: v2
     appVersion: v0.134.1-rc.1
-    created: "2026-01-23T08:48:52.812090682Z"
+    created: "2026-02-04T15:05:17.574370928Z"
     description: A Helm chart for Daytona custom region
-    digest: a64fb112efcf7d141d5ae7e3bdf97b9ccb765b7bd66e14698fbe96e6b9bec948
+    digest: 033d67ba6fad9be173754970e801d81c7755c7a4bad84991ec5f14f59bf92c8d
     home: https://daytona.io
     keywords:
     - ai
@@ -830,4 +873,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/daytona-region-0.0.1.tgz
     version: 0.0.1
-generated: "2026-01-23T08:48:52.789675833Z"
+generated: "2026-02-04T15:05:17.55356783Z"
