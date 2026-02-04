@@ -576,6 +576,8 @@ spec:
             - name: SANDBOX_START_TIMEOUT_SEC
               value: {{ .Values.services.runner.env.SANDBOX_START_TIMEOUT_SEC | default "60" | quote }}
             # Secrets
+            - name: DAYTONA_API_URL
+              value: {{ .Values.services.runner.env.DAYTONA_API_URL | default "" | quote }}
             - name: SERVER_URL
               value: {{ .Values.services.runner.env.SERVER_URL | default "" | quote }}
             - name: API_TOKEN

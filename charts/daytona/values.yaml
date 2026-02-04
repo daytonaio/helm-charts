@@ -464,6 +464,7 @@ services:
       DAEMON_START_TIMEOUT_SEC: "30"
       SANDBOX_START_TIMEOUT_SEC: "60"
       # Secrets
+      DAYTONA_API_URL: "http://daytona-api:3000/api"
       SERVER_URL: "http://daytona-api:3000/api"
       API_TOKEN: "secret_api_token"
       SYSTEM_API_TOKEN: "system_api_token"
