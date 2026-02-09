@@ -77,6 +77,14 @@ spec:
               tar -xzf packages.tar.gz
               echo "Packages extracted successfully"
               ls -la /host/tmp/offline-packages/
+              echo "Installing docker-credential-ecr-login to host..."
+              if [ -f /host/tmp/offline-packages/ecr/docker-credential-ecr-login ]; then
+                cp /host/tmp/offline-packages/ecr/docker-credential-ecr-login /host/usr/local/bin/docker-credential-ecr-login
+                chmod +x /host/usr/local/bin/docker-credential-ecr-login
+                echo "docker-credential-ecr-login installed successfully"
+              else
+                echo "WARNING: docker-credential-ecr-login not found in packages"
+              fi
       {{- end }}
       containers:
         {{- if .Values.services.runner.registryProxy.enabled }}
@@ -469,13 +477,53 @@ spec:
                 "log-opts": {
                   "max-size": "10m",
                   "max-file": "3"
-                }
+                }{{- if .Values.services.runner.dockerInstaller.insecureRegistries }},
+                "insecure-registries": {{ .Values.services.runner.dockerInstaller.insecureRegistries | toJson }}
+              {{- end }}
               }
               DOCKERCONFIG
                 
                 echo "Docker configuration updated"
                 return 0
               }
+              
+              {{- if .Values.services.runner.dockerInstaller.ecr.registry }}
+              # Function to configure ECR credential helper for Docker
+              configure_ecr_helper() {
+                echo "Configuring ECR credential helper for {{ .Values.services.runner.dockerInstaller.ecr.registry }}..."
+                
+                # Install docker-credential-ecr-login if not already present
+                if [ ! -f /usr/local/bin/docker-credential-ecr-login ]; then
+                  echo "docker-credential-ecr-login not found, downloading..."
+                  if command -v wget >/dev/null 2>&1; then
+                    wget -q -O /usr/local/bin/docker-credential-ecr-login \
+                      https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/0.11.0/linux-amd64/docker-credential-ecr-login
+                  elif command -v curl >/dev/null 2>&1; then
+                    curl -fsSL -o /usr/local/bin/docker-credential-ecr-login \
+                      https://amazon-ecr-credential-helper-releases.s3.us-east-2.amazonaws.com/0.11.0/linux-amd64/docker-credential-ecr-login
+                  else
+                    echo "WARNING: Neither wget nor curl available, cannot install docker-credential-ecr-login"
+                    return 1
+                  fi
+                  chmod +x /usr/local/bin/docker-credential-ecr-login
+                  echo "docker-credential-ecr-login installed"
+                else
+                  echo "docker-credential-ecr-login already present"
+                fi
+                
+                # Configure Docker client to use ECR credential helper
+                mkdir -p /root/.docker
+                cat > /root/.docker/config.json << 'ECRCONFIG'
+              {
+                "credHelpers": {
+                  "{{ .Values.services.runner.dockerInstaller.ecr.registry }}": "ecr-login"
+                }
+              }
+              ECRCONFIG
+                echo "ECR credential helper configured"
+                return 0
+              }
+              {{- end }}
               
               # Setup XFS filesystem for Docker storage with quotas
               setup_xfs_storage
@@ -493,6 +541,11 @@ spec:
               
               # Configure Docker to use Sysbox
               configure_docker_sysbox
+              
+              {{- if .Values.services.runner.dockerInstaller.ecr.registry }}
+              # Configure ECR credential helper
+              configure_ecr_helper
+              {{- end }}
               
               # Start Sysbox services
               echo "Starting Sysbox services..."
