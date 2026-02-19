@@ -62,6 +62,14 @@ spec:
                 name: {{ include "daytona.secretName" . }}-ssh
           resources:
             {{- toYaml .Values.services.sshGateway.resources | nindent 12 }}
+          {{- if .Values.services.sshGateway.extraVolumeMounts }}
+          volumeMounts:
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.sshGateway.extraVolumeMounts "context" $) | nindent 12 }}
+          {{- end }}
+      {{- if .Values.services.sshGateway.extraVolumes }}
+      volumes:
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.sshGateway.extraVolumes "context" $) | nindent 8 }}
+      {{- end }}
       {{- with .Values.services.sshGateway.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

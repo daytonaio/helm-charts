@@ -52,34 +52,5 @@
    # Username: {{ .Values.minio.rootUser }}
    # Password: {{ .Values.minio.rootPassword }}
 {{ end }}
-{{- if .Values.pgadmin4.enabled }}
-{{- $sectionNum = add $sectionNum 1 }}
-{{ $sectionNum }}. 🗄️ PgAdmin (Database Management):
-   kubectl port-forward -n {{ include "daytona.namespace" . }} svc/{{ include "daytona.fullname" . }}-pgadmin4 8083:80
-   # Then access: http://localhost:8083
-   # Username: {{ .Values.pgadmin4.env.email }}
-   # Password: {{ .Values.pgadmin4.env.password }}
-{{ end }}
+
 💡 TIP: Run 'kubectl get pods -n {{ include "daytona.namespace" . }}' to check if all services are running!
-
-🔑 GENERATE ADMIN API KEY:
-
-   # Get the API key (extracts only the key value)
-   kubectl exec -n {{ include "daytona.namespace" . }} $(kubectl get pods -n {{ include "daytona.namespace" . }} -l "app.kubernetes.io/name={{ include "daytona.fullname" . }},app.kubernetes.io/component=api" -o jsonpath='{.items[0].metadata.name}') -- node dist/apps/api/main.js --create-admin-api-key "admin-$(date +%s)" 2>&1 | grep -oE "dtn_[a-zA-Z0-9]{64,}" | head -1
-
-🏃 DEPLOY DAYTONA RUNNER:
-
-   After generating the admin API key above, deploy a Daytona runner on a clean Linux host:
-
-   # Download and run the runner installation script
-   curl -sSL https://download.daytona.io/install.sh | sudo bash
-
-   # The script will prompt for:
-{{- if $apiIngressEnabled }}
-   # - Daytona API URL: https://{{ $templatedApiHostname }}/api
-{{- else }}
-   # - Daytona API URL: http://localhost:8080/api (or your API endpoint)
-{{- end }}
-   # - Admin API Key: (use the key generated above)
-
-   This will install the Daytona runner binary and connect it to your Daytona API.
