@@ -131,8 +131,10 @@ spec:
               value: {{ .Values.services.proxy.env.OIDC_AUDIENCE | default .Values.services.api.env.OIDC_AUDIENCE | default "daytona" | quote }}
             {{- end }}
             # Proxy Configuration
+            {{- if .Values.services.proxy.env.PROXY_API_KEY }}
             - name: PROXY_API_KEY
-              value: {{ .Values.services.proxy.env.PROXY_API_KEY | default "super_secret_key" | quote }}
+              value: {{ .Values.services.proxy.env.PROXY_API_KEY | quote }}
+            {{- end }}
             - name: PROXY_PORT
               value: {{ .Values.services.proxy.env.PROXY_PORT | default 4000 | toString | quote }}
             - name: PROXY_PROTOCOL
@@ -143,8 +145,19 @@ spec:
               value: "http://{{ include "daytona.fullname" . }}-api:{{ .Values.services.api.env.PORT }}/api"
             - name: COOKIE_DOMAIN
               value: {{ .Values.services.proxy.env.COOKIE_DOMAIN | default .Values.baseDomain | quote }}
+            {{- if .Values.services.proxy.extraEnv }}
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.proxy.extraEnv "context" $) | nindent 12 }}
+            {{- end }}
           resources:
             {{- toYaml .Values.services.proxy.resources | nindent 12 }}
+          {{- if .Values.services.proxy.extraVolumeMounts }}
+          volumeMounts:
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.proxy.extraVolumeMounts "context" $) | nindent 12 }}
+          {{- end }}
+      {{- if .Values.services.proxy.extraVolumes }}
+      volumes:
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.proxy.extraVolumes "context" $) | nindent 8 }}
+      {{- end }}
       {{- with .Values.services.proxy.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

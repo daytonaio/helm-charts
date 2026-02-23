@@ -147,8 +147,10 @@ spec:
               value: {{ printf "proxy.%s" .Values.baseDomain | quote }}
             - name: PROXY_PROTOCOL
               value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | quote }}
+            {{- if .Values.services.proxy.env.PROXY_API_KEY }}
             - name: PROXY_API_KEY
-              value: {{ .Values.services.proxy.env.PROXY_API_KEY | default "" | quote }}
+              value: {{ .Values.services.proxy.env.PROXY_API_KEY | quote }}
+            {{- end }}
             {{- if .Values.services.sshGateway.enabled }}
             # SSH Gateway Configuration
             {{- if not .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}
@@ -316,8 +318,10 @@ spec:
               value: {{ .Values.services.api.env.DEFAULT_SNAPSHOT_NAME | default "default-snapshot" | quote }}
             - name: DEFAULT_RUNNER_DOMAIN
               value: {{ .Values.services.api.env.DEFAULT_RUNNER_DOMAIN | default "" | quote }}
+            {{- if .Values.services.api.env.RUNNER_MANAGER_API_KEY }}
             - name: RUNNER_MANAGER_API_KEY
-              value: {{ .Values.services.api.env.RUNNER_MANAGER_API_KEY | default "runner_manager_secret_key" | quote }}
+              value: {{ .Values.services.api.env.RUNNER_MANAGER_API_KEY | quote }}
+            {{- end }}
             {{- if .Values.services.api.extraEnv }}
             {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraEnv "context" $) | nindent 12 }}
             {{- end }}
@@ -328,11 +332,17 @@ spec:
               mountPath: /tmp
             - name: var-run
               mountPath: /var/run
+            {{- if .Values.services.api.extraVolumeMounts }}
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
         - name: var-run
           emptyDir: {}
+        {{- if .Values.services.api.extraVolumes }}
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
       {{- with .Values.services.api.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

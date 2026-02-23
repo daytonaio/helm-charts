@@ -51,8 +51,10 @@ spec:
             - name: API_PORT
               value: {{ .Values.services.runnermanager.env.API_PORT | default "3010" | quote }}
             # API Authentication
+            {{- if .Values.services.runnermanager.env.API_TOKEN }}
             - name: API_TOKEN
-              value: {{ .Values.services.runnermanager.env.API_TOKEN | default "runner_manager_secret_key" | quote }}
+              value: {{ .Values.services.runnermanager.env.API_TOKEN | quote }}
+            {{- end }}
             # System API Token
             - name: SYSTEM_API_TOKEN
               value: {{ .Values.services.runnermanager.env.SYSTEM_API_TOKEN | default "system_api_token" | quote }}
@@ -97,11 +99,17 @@ spec:
               mountPath: /tmp
             - name: var-run
               mountPath: /var/run
+            {{- if .Values.services.runnermanager.extraVolumeMounts }}
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runnermanager.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
         - name: var-run
           emptyDir: {}
+        {{- if .Values.services.runnermanager.extraVolumes }}
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runnermanager.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
       {{- with .Values.services.runnermanager.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

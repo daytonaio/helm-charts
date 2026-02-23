@@ -639,6 +639,9 @@ spec:
             - name: host-token
               mountPath: /host-token
               readOnly: false
+            {{- if .Values.services.runner.extraVolumeMounts }}
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runner.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
           resources:
             {{- toYaml .Values.services.runner.resources | nindent 12 }}
           livenessProbe:
@@ -690,6 +693,9 @@ spec:
           hostPath:
             path: /mnt/
             type: Directory
+        {{- if .Values.services.runner.extraVolumes }}
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runner.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
       {{- with .Values.services.runner.affinity | default .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
