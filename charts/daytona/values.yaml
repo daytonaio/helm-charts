@@ -144,6 +144,27 @@ services:
     #     value: "custom-value"
     extraEnv: []
 
+    # Extra volume mounts for the container
+    # Use this to mount volumes from the Secrets Store CSI Driver or other sources
+    # Example (Secrets Store CSI Driver):
+    # extraVolumeMounts:
+    #   - name: secrets-store
+    #     mountPath: /mnt/secrets-store
+    #     readOnly: true
+    extraVolumeMounts: []
+
+    # Extra volumes for the pod
+    # Use this to add volumes from the Secrets Store CSI Driver or other sources
+    # Example (Secrets Store CSI Driver):
+    # extraVolumes:
+    #   - name: secrets-store
+    #     csi:
+    #       driver: secrets-store.csi.k8s.io
+    #       readOnly: true
+    #       volumeAttributes:
+    #         secretProviderClass: "my-secret-provider"
+    extraVolumes: []
+
     # Resource limits and requests
     resources:
       limits:
@@ -273,6 +294,12 @@ services:
       PROXY_API_KEY: "super_secret_key"
       PROXY_PROTOCOL: http
       OIDC_CLIENT_SECRET: ""
+    # Extra environment variables (for valueFrom or additional custom vars)
+    extraEnv: []
+    # Extra volume mounts for the container (e.g. Secrets Store CSI Driver)
+    extraVolumeMounts: []
+    # Extra volumes for the pod (e.g. Secrets Store CSI Driver)
+    extraVolumes: []
     # Resource limits and requests
     resources:
       limits:
@@ -350,6 +377,10 @@ services:
       SSH_GATEWAY_PORT: "2222"
       # Auto-generated as "ssh.{{.Values.baseDomain}}" if not set or empty
       SSH_GATEWAY_HOST: ""
+    # Extra volume mounts for the container (e.g. Secrets Store CSI Driver)
+    extraVolumeMounts: []
+    # Extra volumes for the pod (e.g. Secrets Store CSI Driver)
+    extraVolumes: []
     # Resource limits and requests
     resources:
       limits:
@@ -417,6 +448,10 @@ services:
       RUNNER_API_PORT: "3000"
     # Extra environment variables (for valueFrom or additional custom vars)
     extraEnv: []
+    # Extra volume mounts for the container (e.g. Secrets Store CSI Driver)
+    extraVolumeMounts: []
+    # Extra volumes for the pod (e.g. Secrets Store CSI Driver)
+    extraVolumes: []
     # Resource limits and requests
     resources:
       limits:
@@ -523,6 +558,10 @@ services:
         packagesImage: "daytonaio/daytona-runner-packages:v0.0.1"
     # Extra environment variables (for valueFrom or additional custom vars)
     extraEnv: []
+    # Extra volume mounts for the container (e.g. Secrets Store CSI Driver)
+    extraVolumeMounts: []
+    # Extra volumes for the pod (e.g. Secrets Store CSI Driver)
+    extraVolumes: []
 
 # Global node selector (fallback)
 nodeSelector: {}
