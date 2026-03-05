@@ -71,6 +71,10 @@ spec:
               value: {{ .Values.externalRedis.port | quote }}
             - name: REDIS_TLS
               value: {{ .Values.externalRedis.tls | quote }}
+            {{- if and .Values.externalRedis.username (ne .Values.externalRedis.username "") }}
+            - name: REDIS_USERNAME
+              value: {{ .Values.externalRedis.username | quote }}
+            {{- end }}
             {{- if .Values.externalRedis.existingSecret }}
             - name: REDIS_PASSWORD
               valueFrom:
