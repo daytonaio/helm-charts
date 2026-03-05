@@ -223,7 +223,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-proxy
-      tag: "v0.139.0"
+      tag: "v0.139.1-rc.1"
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -607,6 +607,7 @@ externalRedis:
   host: "daytona-redis-master"
   port: 6379
   tls: false
+  username: ""
   # Ignored if existingSecret is provided
   password: ""
   # If existingSecret is provided, it should contain key: redis-password
