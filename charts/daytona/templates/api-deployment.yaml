@@ -125,6 +125,10 @@ spec:
               value: {{ .Values.externalRedis.port | default (.Values.services.api.env.REDIS_PORT | default "6379") | quote }}
             - name: REDIS_TLS
               value: {{ .Values.externalRedis.tls | default (.Values.services.api.env.REDIS_TLS | default "false") | quote }}
+            {{- if and .Values.externalRedis.username (ne .Values.externalRedis.username "") }}
+            - name: REDIS_USERNAME
+              value: {{ .Values.externalRedis.username | quote }}
+            {{- end }}
             {{- if .Values.externalRedis.existingSecret }}
             - name: REDIS_PASSWORD
               valueFrom:
