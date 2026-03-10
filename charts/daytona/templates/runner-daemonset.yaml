@@ -330,7 +330,7 @@ spec:
                   
                   # Install dependencies
                   apt-get update
-                  apt-get install -y jq fuse rsync
+                  apt-get install -y jq fuse rsync rclone
                   
                   # Install Sysbox
                   echo "Installing Sysbox package..."
