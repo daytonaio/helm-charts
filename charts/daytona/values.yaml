@@ -19,7 +19,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-api
-      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
+      tag: "v0.142.5" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -485,7 +485,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner
-      tag: "v0.132.0-rc.1-k8s" # Will default to Chart.AppVersion
+      tag: "v0.142.5" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # ServiceAccount configuration
     serviceAccount:
@@ -555,7 +555,7 @@ services:
         enabled: false
         # Image containing pre-packaged .deb files and dependencies
         # The image should have packages at /packages/packages.tar.gz
-        packagesImage: "daytonaio/daytona-runner-packages:v0.0.1"
+        packagesImage: "daytonaio/daytona-runner-packages:v0.0.2"
     # Extra environment variables (for valueFrom or additional custom vars)
     extraEnv: []
     # Extra volume mounts for the container (e.g. Secrets Store CSI Driver)
