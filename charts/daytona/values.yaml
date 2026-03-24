@@ -413,7 +413,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      tag: "0.133.0-k8samd64" # Will default to Chart.AppVersion
+      tag: "v0.133.0-rc.1-k8s" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
