@@ -89,6 +89,9 @@ spec:
             # Runner API Port
             - name: RUNNER_API_PORT
               value: {{ .Values.services.runnermanager.env.RUNNER_API_PORT | default "3000" | quote }}
+            # Placeholder Pod Image
+            - name: PLACEHOLDER_POD_IMAGE
+              value: {{ .Values.services.runnermanager.env.PLACEHOLDER_POD_IMAGE | default "registry.k8s.io/pause:3.6" | quote }}
             {{- if .Values.services.runnermanager.extraEnv }}
             {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runnermanager.extraEnv "context" $) | nindent 12 }}
             {{- end }}
