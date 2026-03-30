@@ -1,32 +1,22 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   namespace: {{ include "daytona.namespace" . }}
-  name: {{ include "daytona.fullname" . }}-api
+  name: {{ include "daytona.fullname" . }}-api-migration-init
   labels:
     {{- include "daytona.labels" . | nindent 4 }}
-    app.kubernetes.io/component: api
-  {{- with .Values.services.api.annotations }}
+    app.kubernetes.io/component: api-migration
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
-  {{- if not .Values.services.api.autoscaling.enabled }}
-  replicas: {{ .Values.services.api.replicaCount }}
-  {{- end }}
-  selector:
-    matchLabels:
-      {{- include "daytona.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: api
+  backoffLimit: 3
   template:
     metadata:
-      {{- with .Values.services.api.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       labels:
         {{- include "daytona.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: api
+        app.kubernetes.io/component: api-migration
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -35,16 +25,15 @@ spec:
       serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "api" "Chart" .Chart "Release" .Release) }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Never
       containers:
-        - name: api
+        - name: migration
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.api.image.registry) }}/{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.services.api.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: 3000
-              protocol: TCP
+          command: ["yarn"]
+          args: ["migration:run:init"]
           env:
             - name: DEFAULT_RUNNER_NAME
               value: ""
@@ -151,8 +140,6 @@ spec:
               value: {{ printf "proxy.%s" .Values.baseDomain | quote }}
             - name: PROXY_PROTOCOL
               value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "http" | quote }}
-            - name: PROXY_TEMPLATE_URL
-              value: {{ printf "https://{{PORT}}-{{sandboxId}}.%s:443" .Values.baseDomain | quote }}
             {{- if .Values.services.proxy.env.PROXY_API_KEY }}
             - name: PROXY_API_KEY
               value: {{ .Values.services.proxy.env.PROXY_API_KEY | quote }}
@@ -336,24 +323,16 @@ spec:
             {{- if .Values.services.api.extraEnv }}
             {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraEnv "context" $) | nindent 12 }}
             {{- end }}
-          resources:
-            {{- toYaml .Values.services.api.resources | nindent 12 }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp
             - name: var-run
               mountPath: /var/run
-            {{- if .Values.services.api.extraVolumeMounts }}
-            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraVolumeMounts "context" $) | nindent 12 }}
-            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
         - name: var-run
           emptyDir: {}
-        {{- if .Values.services.api.extraVolumes }}
-        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.api.extraVolumes "context" $) | nindent 8 }}
-        {{- end }}
       {{- with .Values.services.api.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
