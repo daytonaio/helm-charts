@@ -465,6 +465,9 @@ spec:
                   }
                 },
                 "default-runtime": "sysbox-runc",
+                {{- if .Values.services.runner.dockerInstaller.dns }}
+                "dns": {{ .Values.services.runner.dockerInstaller.dns | toJson }},
+                {{- end }}
                 "log-driver": "json-file",
                 "log-opts": {
                   "max-size": "10m",
