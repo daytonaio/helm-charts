@@ -560,6 +560,13 @@ services:
       enabled: true
       image: "ubuntu:22.04"
       xfsStorageSize: "50G"
+      # DNS servers for Docker containers (optional)
+      # When set, all containers started by this Docker daemon will use these DNS resolvers
+      # Example:
+      #   dns:
+      #     - "10.0.0.2"
+      #     - "8.8.8.8"
+      dns: []
       # Airgapped mode - use pre-packaged dependencies instead of downloading from internet
       airgapped:
         enabled: false
