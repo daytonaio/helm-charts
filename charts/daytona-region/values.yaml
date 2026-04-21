@@ -270,6 +270,162 @@ services:
       annotations: {}
       name: ""
 
+  sshGateway:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-ssh-gateway
+      tag: ""
+      pullPolicy: IfNotPresent
+    service:
+      type: LoadBalancer
+      port: 2222
+      annotations: {}
+    apiKey: supersecretapikey
+    sshKeys:
+      privClientSSHKey: ""
+      pubClientSSHKey: ""
+      privGatewaySSHKey: ""
+    env:
+      SSH_GATEWAY_PORT: "2222"
+      SSH_GATEWAY_HOST: ""
+    extraVolumeMounts: []
+    extraVolumes: []
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    annotations: {}
+    podAnnotations: {}
+    replicaCount: 1
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+  runnermanager:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-runner-manager
+      tag: "v0.158.4-1-byoc-amd64"
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 3010
+      annotations: {}
+    # API_TOKEN (Daytona org Bearer token) is read from a Kubernetes secret — not from env below.
+    # Defaults to the same secret as region registration: {fullname}-daytona-api-key (key from registration.secretKeys.apiKey),
+    # or registration.existingSecret when set. Override with apiTokenSecret if needed.
+    apiTokenSecret:
+      name: ""
+      key: ""
+    # Runner-manager API_KEY (distinct from Daytona org token) must come from a secret you create.
+    # Example: kubectl create secret generic my-rm-api-key -n <ns> --from-literal=API_KEY='<value-from-central-daytona>'
+    apiKeySecret:
+      name: ""
+      key: "API_KEY"
+    env:
+      API_PORT: "3010"
+      SYSTEM_API_TOKEN: "system_api_token"
+      PROVIDER_TYPE: "kubernetes"
+      LOG_LEVEL: "info"
+      POD_WAIT_TIMEOUT: "600"
+      KUBECONFIG_PATH: ""
+      SERVER_URL: ""
+      ENVIRONMENT: "production"
+      RUNNER_API_PORT: "3000"
+      PLACEHOLDER_POD_IMAGE: "registry.k8s.io/pause:3.6"
+      DAYTONA_PRODUCTION_API: "true"
+    extraEnv: []
+    extraVolumeMounts: []
+    extraVolumes: []
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    annotations: {}
+    podAnnotations: {}
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+    rbac:
+      create: true
+
+  runner:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-runner
+      tag: ""
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+    env:
+      API_PORT: "3000"
+      ENVIRONMENT: "production"
+      CONTAINER_RUNTIME: ""
+      LOG_FILE_PATH: "/home/daytona/runner/runner.log"
+      LOG_LEVEL: "info"
+      SSH_GATEWAY_ENABLE: "true"
+      SSH_GATEWAY_PORT: "2220"
+      RESOURCE_LIMITS_DISABLED: "false"
+      CACHE_RETENTION_DAYS: "7"
+      DAEMON_START_TIMEOUT_SEC: "30"
+      SANDBOX_START_TIMEOUT_SEC: "60"
+      DAYTONA_API_URL: ""
+      SERVER_URL: ""
+      API_TOKEN: "secret_api_token"
+      SYSTEM_API_TOKEN: "system_api_token"
+      AWS_REGION: ""
+      AWS_ENDPOINT_URL: ""
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_DEFAULT_BUCKET: ""
+      SSH_PUBLIC_KEY: ""
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+    affinity: {}
+    podAnnotations: {}
+    hostAliases: []
+    registryProxy:
+      enabled: false
+      image: "alpine/socat:1.7.4.4-r0"
+      listenPort: 5000
+      targetHost: "registry.external.com"
+      targetPort: 443
+    dockerInstaller:
+      enabled: true
+      image: "ubuntu:22.04"
+      xfsStorageSize: "50G"
+      dns: []
+      airgapped:
+        enabled: false
+        packagesImage: "daytonaio/daytona-runner-packages:v0.0.2"
+    extraEnv: []
+    extraVolumeMounts: []
+    extraVolumes: []
+
 # Region registration configuration
 # When enabled, a pre-install hook will call the Daytona API to register this region
 # and store the response in a Kubernetes secret for use by other services

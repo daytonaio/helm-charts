@@ -1,0 +1,127 @@
+{{- if .Values.services.runnermanager.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ include "daytona.namespace" . }}
+  name: {{ include "daytona.fullname" . }}-runnermanager
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runnermanager
+  {{- with .Values.services.runnermanager.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "daytona.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: runnermanager
+  template:
+    metadata:
+      {{- with .Values.services.runnermanager.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: runnermanager
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "runnermanager" "Chart" .Chart "Release" .Release) }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: runnermanager
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runnermanager.image.registry) }}/{{ .Values.services.runnermanager.image.repository }}:{{ .Values.services.runnermanager.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.runnermanager.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3010
+              protocol: TCP
+          env:
+            - name: API_PORT
+              value: {{ .Values.services.runnermanager.env.API_PORT | default "3010" | quote }}
+            # Daytona org API key (Bearer) — same value as daytonaApiKey / registration hook secret
+            - name: API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.runnermanagerDaytonaApiSecretName" . }}
+                  key: {{ include "daytona.runnermanagerDaytonaApiSecretKey" . }}
+            - name: SYSTEM_API_TOKEN
+              value: {{ .Values.services.runnermanager.env.SYSTEM_API_TOKEN | default "system_api_token" | quote }}
+            - name: PROVIDER_TYPE
+              value: {{ .Values.services.runnermanager.env.PROVIDER_TYPE | default "kubernetes" | quote }}
+            - name: PROVIDER_NAMESPACE
+              value: {{ .Values.services.runnermanager.env.PROVIDER_NAMESPACE | default (include "daytona.namespace" .) | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.services.runnermanager.env.LOG_LEVEL | default "info" | quote }}
+            - name: POD_WAIT_TIMEOUT
+              value: {{ .Values.services.runnermanager.env.POD_WAIT_TIMEOUT | default "600" | quote }}
+            {{- if .Values.services.runnermanager.env.KUBECONFIG_PATH }}
+            - name: KUBECONFIG_PATH
+              value: {{ .Values.services.runnermanager.env.KUBECONFIG_PATH | quote }}
+            {{- end }}
+            {{- if .Values.services.runnermanager.apiKeySecret.name }}
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.services.runnermanager.apiKeySecret.name }}
+                  key: {{ required "services.runnermanager.apiKeySecret.key is required when apiKeySecret.name is set" .Values.services.runnermanager.apiKeySecret.key }}
+            {{- end }}
+            - name: SERVER_URL
+              value: {{ .Values.services.runnermanager.env.SERVER_URL | default (required "daytonaApiUrl is required" .Values.daytonaApiUrl) | quote }}
+            - name: REGION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.fullname" . }}-region-config
+                  key: id
+            - name: ENVIRONMENT
+              value: {{ .Values.services.runnermanager.env.ENVIRONMENT | default "production" | quote }}
+            - name: RUNNER_API_PORT
+              value: {{ .Values.services.runnermanager.env.RUNNER_API_PORT | default "3000" | quote }}
+            - name: PLACEHOLDER_POD_IMAGE
+              value: {{ .Values.services.runnermanager.env.PLACEHOLDER_POD_IMAGE | default "registry.k8s.io/pause:3.6" | quote }}
+            - name: DAYTONA_PRODUCTION_API
+              value: {{ .Values.services.runnermanager.env.DAYTONA_PRODUCTION_API | default "true" | quote }}
+            {{- if .Values.services.runnermanager.extraEnv }}
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runnermanager.extraEnv "context" $) | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.services.runnermanager.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-run
+              mountPath: /var/run
+            {{- if .Values.services.runnermanager.extraVolumeMounts }}
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runnermanager.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-run
+          emptyDir: {}
+        {{- if .Values.services.runnermanager.extraVolumes }}
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runnermanager.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
+      {{- with .Values.services.runnermanager.nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.runnermanager.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.runnermanager.tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

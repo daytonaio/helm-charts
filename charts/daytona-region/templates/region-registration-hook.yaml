@@ -188,7 +188,9 @@ metadata:
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    # Keep secret after hook so workloads (e.g. runner-manager API_TOKEN) can read it.
+    # Only replace on the next hook run (before-hook-creation).
+    "helm.sh/hook-delete-policy": before-hook-creation
 type: Opaque
 data:
   {{ .Values.registration.secretKeys.apiKey | default "daytona-api-key" }}: {{ required "daytonaApiKey is required" .Values.daytonaApiKey | b64enc | quote }}

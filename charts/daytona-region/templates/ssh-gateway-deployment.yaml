@@ -1,0 +1,85 @@
+{{- if .Values.services.sshGateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "daytona.fullname" . }}-ssh-gateway
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ssh-gateway
+  {{- with .Values.services.sshGateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.services.sshGateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "daytona.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ssh-gateway
+  template:
+    metadata:
+      {{- with .Values.services.sshGateway.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ssh-gateway
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "sshGateway" "Chart" .Chart "Release" .Release) }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: ssh-gateway
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.sshGateway.image.registry) }}/{{ .Values.services.sshGateway.image.repository }}:{{ .Values.services.sshGateway.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.sshGateway.image.pullPolicy }}
+          ports:
+            - name: ssh
+              containerPort: 2222
+              protocol: TCP
+          env:
+            {{- range $key, $value := .Values.services.sshGateway.env }}
+            {{- if and $value (ne ($value | toString) "") }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if not .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}
+            - name: SSH_GATEWAY_HOST
+              value: {{ printf "ssh.%s" (include "daytona.proxyUrl.baseDomain" .) | quote }}
+            {{- end }}
+            - name: API_URL
+              value: {{ required "daytonaApiUrl is required" .Values.daytonaApiUrl | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "daytona.secretName" . }}-ssh
+          resources:
+            {{- toYaml .Values.services.sshGateway.resources | nindent 12 }}
+          {{- if .Values.services.sshGateway.extraVolumeMounts }}
+          volumeMounts:
+            {{- include "daytona.tplvalues.render" (dict "value" .Values.services.sshGateway.extraVolumeMounts "context" $) | nindent 12 }}
+          {{- end }}
+      {{- if .Values.services.sshGateway.extraVolumes }}
+      volumes:
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.sshGateway.extraVolumes "context" $) | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.sshGateway.nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.sshGateway.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.sshGateway.tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
