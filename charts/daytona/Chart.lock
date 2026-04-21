@@ -1,18 +1,15 @@
 dependencies:
-  - name: postgresql
-    repository: https://charts.bitnami.com/bitnami
-    version: 16.7.27
-  - name: redis
-    repository: https://charts.bitnami.com/bitnami
-    version: 22.0.7
-  - name: minio
-    repository: https://charts.min.io
-    version: 5.4.0
-  - name: harbor
-    repository: https://helm.goharbor.io
-    version: 1.18.0
-  - name: keycloak
-    repository: https://charts.bitnami.com/bitnami
-    version: 25.2.0
-digest: sha256:bf487e625cab846a20a12a773662bbde073abc3808195d2002a6ed2bd5824ce7
-generated: "2025-09-25T22:13:23.685499+02:00"
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 16.7.27
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 22.0.7
+- name: minio
+  repository: https://charts.min.io
+  version: 5.4.0
+- name: harbor
+  repository: https://helm.goharbor.io
+  version: 1.18.0
+digest: sha256:c7d11972d67901c418f04cccb05cdf850ac33f8f195c484de43d1a1eec396760
+generated: "2026-04-20T15:57:26.782688521+02:00"
