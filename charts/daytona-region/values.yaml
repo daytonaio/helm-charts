@@ -440,6 +440,39 @@ services:
       airgapped:
         enabled: false
         packagesImage: "daytonaio/daytona-runner-packages:v0.0.2"
+    # daemonInstaller places the per-sandbox binaries (daemon and
+    # computer-use) on the host node at the exact paths that the daytona-runner
+    # uses as Docker bind-mount sources when creating sandbox containers.
+    #
+    # Background: daytona-runner extracts static/daemon-amd64 and
+    # static/daytona-computer-use from its own binary into
+    # /usr/local/bin/.tmp/binaries/ inside its container. It then tells the
+    # host Docker daemon to bind-mount those paths into each sandbox. Because
+    # Docker runs on the host, it resolves the source paths against the host
+    # filesystem - if the file isn't there, Docker creates an empty directory
+    # in its place and the sandbox fails with a confusing "permission denied"
+    # when it tries to exec /usr/local/bin/daytona (you can't exec a dir).
+    #
+    # This installer fixes that by pre-populating those exact host paths from
+    # the binaries embedded in the current runner image.
+    daemonInstaller:
+      enabled: true
+      # Directory on the host node where the binaries will be installed. Must
+      # match the runner's bind-mount source (currently hardcoded upstream to
+      # /usr/local/bin/.tmp/binaries relative to the runner's WORKDIR).
+      hostSrcDir: "/usr/local/bin/.tmp/binaries"
+      # Filenames (inside hostSrcDir) to install. The runner embeds these
+      # under static/<name> and currently references only amd64 variants.
+      binaries:
+        - daemon-amd64
+        - daytona-computer-use
+      # How long (seconds) to wait for the runner to extract the embedded
+      # binaries before retrying the extraction.
+      extractTimeoutSec: 60
+      # How often (seconds) to re-check that the on-host binaries match the
+      # ones embedded in the current runner image, re-installing if they
+      # differ or have been removed/replaced with empty dirs by Docker.
+      refreshIntervalSec: 300
     extraEnv: []
     extraVolumeMounts: []
     extraVolumes: []

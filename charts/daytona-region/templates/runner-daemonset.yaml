@@ -538,6 +538,166 @@ spec:
               done
               ln -s /host/var/lib/docker /var/lib/docker
         {{- end }}
+        {{- if .Values.services.runner.daemonInstaller.enabled }}
+        # Daytona daemon binary installer sidecar.
+        #
+        # Why this exists:
+        #   The daytona-runner binary embeds the per-sandbox binaries (daemon
+        #   and computer-use) under static/*. At startup it extracts them into
+        #   its own container FS at /usr/local/bin/.tmp/binaries/ and uses
+        #   those paths as *bind-mount sources* when it creates sandbox Docker
+        #   containers via the host docker socket. Because the Docker daemon
+        #   runs on the host, it resolves those bind paths against the host
+        #   filesystem - where they don't exist. Docker then silently creates
+        #   the missing sources as empty directories, and the sandbox fails
+        #   with 'exec: "/usr/local/bin/daytona": permission denied' (you
+        #   can't exec a directory).
+        #
+        # What this sidecar does:
+        #   Run daytona-runner just long enough to extract the embedded
+        #   binaries into its own FS, then copy each one (+x) to the matching
+        #   path on the host via the host-root bind-mount. Stale empty
+        #   directories auto-created by Docker are cleaned up first.
+        - name: daytona-binary-installer
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ .Values.services.runner.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.runner.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          # Minimal env to satisfy daytona-runner config validation so it
+          # reaches the point of extracting its embedded binaries. These
+          # values are throwaway; the runner is killed as soon as the binaries
+          # are on disk and never contacts any control plane.
+          env:
+            - name: DAYTONA_API_URL
+              value: "http://127.0.0.1"
+            - name: SERVER_URL
+              value: "http://127.0.0.1"
+            - name: API_TOKEN
+              value: "installer"
+            - name: SYSTEM_API_TOKEN
+              value: "installer"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_ENDPOINT_URL
+              value: "http://127.0.0.1"
+            - name: AWS_ACCESS_KEY_ID
+              value: "installer"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "installer"
+            - name: AWS_DEFAULT_BUCKET
+              value: "installer"
+            - name: SSH_PUBLIC_KEY
+              value: "installer"
+            - name: HOST_SRC_DIR
+              value: {{ .Values.services.runner.daemonInstaller.hostSrcDir | quote }}
+            - name: BINARIES
+              value: {{ .Values.services.runner.daemonInstaller.binaries | join " " | quote }}
+            - name: EXTRACT_TIMEOUT_SEC
+              value: {{ .Values.services.runner.daemonInstaller.extractTimeoutSec | quote }}
+            - name: REFRESH_INTERVAL_SEC
+              value: {{ .Values.services.runner.daemonInstaller.refreshIntervalSec | quote }}
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+              mountPropagation: Bidirectional
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -u
+              SRC_DIR=/usr/local/bin/.tmp/binaries
+              DST_DIR="/host${HOST_SRC_DIR}"
+
+              echo "[daytona-binary-installer] binaries=[${BINARIES}] target=${HOST_SRC_DIR}/ on host"
+
+              # Docker auto-creates missing bind-mount sources as empty dirs.
+              # Those stale dirs block us from later writing the binary as a
+              # file at the same path. Remove any we'd overwrite.
+              cleanup_stale_dirs() {
+                mkdir -p "${DST_DIR}"
+                for name in ${BINARIES}; do
+                  if [ -d "${DST_DIR}/${name}" ] && [ ! -L "${DST_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] removing stale directory ${HOST_SRC_DIR}/${name}/ on host"
+                    rm -rf "${DST_DIR}/${name}"
+                  fi
+                done
+              }
+
+              install_one() {
+                # Atomic install: write to .new then rename, so a sandbox start
+                # mid-refresh never sees a half-written or non-executable file.
+                name=$1
+                install -m 0755 "${SRC_DIR}/${name}" "${DST_DIR}/${name}.new" \
+                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}"
+              }
+
+              install_all() {
+                for name in ${BINARIES}; do
+                  if [ ! -s "${SRC_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] WARN: source ${SRC_DIR}/${name} missing, skipping"
+                    continue
+                  fi
+                  install_one "${name}"
+                  echo "[daytona-binary-installer] installed ${HOST_SRC_DIR}/${name} ($(stat -c '%s bytes' "${DST_DIR}/${name}"))"
+                done
+              }
+
+              extract_binaries() {
+                cd /usr/local/bin
+                # Clear any partially-extracted files so the size-check below
+                # only returns true once the runner has re-written them fully.
+                for name in ${BINARIES}; do rm -f "${SRC_DIR}/${name}"; done
+
+                ./daytona-runner > /tmp/runner.log 2>&1 &
+                RUNNER_PID=$!
+
+                elapsed=0
+                while [ ${elapsed} -lt ${EXTRACT_TIMEOUT_SEC} ]; do
+                  all_present=1
+                  for name in ${BINARIES}; do
+                    [ -s "${SRC_DIR}/${name}" ] || { all_present=0; break; }
+                  done
+                  [ ${all_present} -eq 1 ] && break
+                  sleep 1
+                  elapsed=$((elapsed + 1))
+                done
+
+                kill -9 ${RUNNER_PID} 2>/dev/null || true
+                wait ${RUNNER_PID} 2>/dev/null || true
+
+                for name in ${BINARIES}; do
+                  if [ ! -s "${SRC_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] ERROR: ${SRC_DIR}/${name} not produced within ${EXTRACT_TIMEOUT_SEC}s. runner log:"
+                    tail -n 50 /tmp/runner.log || true
+                    return 1
+                  fi
+                done
+                return 0
+              }
+
+              cleanup_stale_dirs
+              until extract_binaries; do
+                echo "[daytona-binary-installer] extraction failed, retrying in 10s..."
+                sleep 10
+              done
+              install_all
+
+              # Keep host binaries in sync with whatever version is embedded in
+              # the current runner image. On a runner image bump the daemonset
+              # rolls, the new sidecar re-extracts, and the host files get
+              # refreshed. Also self-heals if a file is removed on the host.
+              while true; do
+                sleep "${REFRESH_INTERVAL_SEC}"
+                cleanup_stale_dirs
+                for name in ${BINARIES}; do
+                  SRC_SUM=$(sha256sum "${SRC_DIR}/${name}" 2>/dev/null | awk '{print $1}')
+                  DST_SUM=$(sha256sum "${DST_DIR}/${name}" 2>/dev/null | awk '{print $1}')
+                  if [ -z "${DST_SUM}" ] || [ "${SRC_SUM}" != "${DST_SUM}" ]; then
+                    echo "[daytona-binary-installer] refreshing ${HOST_SRC_DIR}/${name}"
+                    install_one "${name}" || echo "[daytona-binary-installer] WARN: refresh install failed for ${name}"
+                  fi
+                done
+              done
+        {{- end }}
       volumes:
         - name: host-root
           hostPath:
