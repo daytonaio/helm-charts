@@ -574,8 +574,6 @@ spec:
               value: "http://127.0.0.1"
             - name: API_TOKEN
               value: "installer"
-            - name: SYSTEM_API_TOKEN
-              value: "installer"
             - name: AWS_REGION
               value: "us-east-1"
             - name: AWS_ENDPOINT_URL

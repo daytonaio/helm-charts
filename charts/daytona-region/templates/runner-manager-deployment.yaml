@@ -55,8 +55,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "daytona.runnermanagerDaytonaApiSecretName" . }}
                   key: {{ include "daytona.runnermanagerDaytonaApiSecretKey" . }}
-            - name: SYSTEM_API_TOKEN
-              value: {{ .Values.services.runnermanager.env.SYSTEM_API_TOKEN | default "system_api_token" | quote }}
             - name: PROVIDER_TYPE
               value: {{ .Values.services.runnermanager.env.PROVIDER_TYPE | default "kubernetes" | quote }}
             - name: PROVIDER_NAMESPACE

@@ -318,7 +318,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      tag: "v0.158.4-1-byoc-amd64"
+      tag: "v0.158.4-4-byoc-amd64"
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
@@ -337,7 +337,6 @@ services:
       key: "API_KEY"
     env:
       API_PORT: "3010"
-      SYSTEM_API_TOKEN: "system_api_token"
       PROVIDER_TYPE: "kubernetes"
       LOG_LEVEL: "info"
       POD_WAIT_TIMEOUT: "600"
@@ -409,7 +408,6 @@ services:
       DAYTONA_API_URL: ""
       SERVER_URL: ""
       API_TOKEN: "secret_api_token"
-      SYSTEM_API_TOKEN: "system_api_token"
       AWS_REGION: ""
       AWS_ENDPOINT_URL: ""
       AWS_ACCESS_KEY_ID: ""
