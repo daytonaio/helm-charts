@@ -20,17 +20,9 @@ data:
   CACHE_RETENTION_DAYS: {{ .Values.services.runner.env.CACHE_RETENTION_DAYS | default "7" | quote }}
   DAEMON_START_TIMEOUT_SEC: {{ .Values.services.runner.env.DAEMON_START_TIMEOUT_SEC | default "30" | quote }}
   SANDBOX_START_TIMEOUT_SEC: {{ .Values.services.runner.env.SANDBOX_START_TIMEOUT_SEC | default "60" | quote }}
-  # Secrets
-  DAYTONA_API_URL: {{ .Values.services.runner.env.DAYTONA_API_URL | default (required "daytonaApiUrl is required" .Values.daytonaApiUrl) | quote }}
-  SERVER_URL: {{ .Values.services.runner.env.SERVER_URL | default (required "daytonaApiUrl is required" .Values.daytonaApiUrl) | quote }}
-  API_TOKEN: {{ .Values.services.runner.env.API_TOKEN | default "" | quote }}
-  SYSTEM_API_TOKEN: {{ .Values.services.runner.env.SYSTEM_API_TOKEN | default "" | quote }}
-  AWS_REGION: {{ .Values.services.runner.env.AWS_REGION | default "" | quote }}
-  AWS_ENDPOINT_URL: {{ .Values.services.runner.env.AWS_ENDPOINT_URL | default "" | quote }}
-  AWS_ACCESS_KEY_ID: {{ .Values.services.runner.env.AWS_ACCESS_KEY_ID | default "" | quote }}
-  AWS_SECRET_ACCESS_KEY: {{ .Values.services.runner.env.AWS_SECRET_ACCESS_KEY | default "" | quote }}
-  AWS_DEFAULT_BUCKET: {{ .Values.services.runner.env.AWS_DEFAULT_BUCKET | default "" | quote }}
-  SSH_PUBLIC_KEY: {{ .Values.services.runner.env.SSH_PUBLIC_KEY | default "" | quote }}
+  # Note: DAYTONA_API_URL, SERVER_URL, API_TOKEN, SYSTEM_API_TOKEN, AWS_*, and
+  # SSH_PUBLIC_KEY are stored in the companion Secret <fullname>-runner-secrets
+  # and injected into runner pods via envFrom by the runner-manager.
   # Static
   DAEMON_BINARIES_DIR: "/var/lib/daytona/binaries"
   CONFIG_FILE_PATH: {{ .Values.services.runner.env.CONFIG_FILE_PATH | default "/host-token/token.txt" | quote }}

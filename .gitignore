@@ -77,6 +77,9 @@ local-values.yaml
 local-values.yml
 dev-values.yaml
 dev-values.yml
+values-region-*.yaml
+values-region-*.yml
+cleanup.sh
 
 # Secrets and sensitive files
 *.secret

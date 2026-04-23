@@ -16,6 +16,10 @@ regionName: ""
 # Example: "https://proxy.daytona.example.com" or "http://proxy.daytona.example.com:4000"
 proxyUrl: ""
 
+# Base domain for derived hostnames (optional). When set, ssh-gateway defaults SSH_GATEWAY_HOST
+# to ssh.<baseDomain> instead of deriving from proxyUrl.
+baseDomain: ""
+
 # Snapshot Manager URL (optional) - full URL to the snapshot manager service
 # When provided, the region registration will include this URL and the API will return
 # snapshotManagerUsername and snapshotManagerPassword credentials for basic auth
@@ -342,6 +346,20 @@ services:
       ENVIRONMENT: "production"
       RUNNER_API_PORT: "3000"
       PLACEHOLDER_POD_IMAGE: "registry.k8s.io/pause:3.6"
+      # Image used for runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner image built from services.runner.image.
+      RUNNER_POD_IMAGE: ""
+      # ServiceAccount used by runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner ServiceAccount created by this chart.
+      RUNNER_POD_SERVICE_ACCOUNT: ""
+      # ConfigMap mounted into runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner ConfigMap created by this chart
+      # (<release>-<chart>-runner-config).
+      RUNNER_POD_CONFIG_MAP: ""
+      # Secret mounted into runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner Secret created by this chart
+      # (<release>-<chart>-runner-secrets).
+      RUNNER_POD_SECRET: ""
       DAYTONA_PRODUCTION_API: "true"
     extraEnv: []
     extraVolumeMounts: []

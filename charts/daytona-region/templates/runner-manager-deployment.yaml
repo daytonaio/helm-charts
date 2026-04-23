@@ -89,6 +89,22 @@ spec:
               value: {{ .Values.services.runnermanager.env.RUNNER_API_PORT | default "3000" | quote }}
             - name: PLACEHOLDER_POD_IMAGE
               value: {{ .Values.services.runnermanager.env.PLACEHOLDER_POD_IMAGE | default "registry.k8s.io/pause:3.6" | quote }}
+            - name: RUNNER_POD_IMAGE
+              value: {{ .Values.services.runnermanager.env.RUNNER_POD_IMAGE | default (printf "%s/%s:%s" (include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry)) .Values.services.runner.image.repository (.Values.services.runner.image.tag | default .Chart.AppVersion)) | quote }}
+            - name: RUNNER_POD_SERVICE_ACCOUNT
+              value: {{ .Values.services.runnermanager.env.RUNNER_POD_SERVICE_ACCOUNT | default (include "daytona.serviceAccountName" (dict "Values" .Values "service" "runner" "Chart" .Chart "Release" .Release)) | quote }}
+            - name: RUNNER_POD_CONFIG_MAP
+              {{- if .Values.services.runnermanager.env.RUNNER_POD_CONFIG_MAP }}
+              value: {{ .Values.services.runnermanager.env.RUNNER_POD_CONFIG_MAP | quote }}
+              {{- else }}
+              value: "{{ include "daytona.fullname" . }}-runner-config"
+              {{- end }}
+            - name: RUNNER_POD_SECRET
+              {{- if .Values.services.runnermanager.env.RUNNER_POD_SECRET }}
+              value: {{ .Values.services.runnermanager.env.RUNNER_POD_SECRET | quote }}
+              {{- else }}
+              value: "{{ include "daytona.fullname" . }}-runner-secrets"
+              {{- end }}
             - name: DAYTONA_PRODUCTION_API
               value: {{ .Values.services.runnermanager.env.DAYTONA_PRODUCTION_API | default "true" | quote }}
             {{- if .Values.services.runnermanager.extraEnv }}

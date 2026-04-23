@@ -53,7 +53,7 @@ spec:
             {{- end }}
             {{- if not .Values.services.sshGateway.env.SSH_GATEWAY_HOST }}
             - name: SSH_GATEWAY_HOST
-              value: {{ printf "ssh.%s" (include "daytona.proxyUrl.baseDomain" .) | quote }}
+              value: {{ printf "ssh.%s" (.Values.baseDomain | default (include "daytona.proxyUrl.baseDomain" .)) | quote }}
             {{- end }}
             - name: API_URL
               value: {{ required "daytonaApiUrl is required" .Values.daytonaApiUrl | quote }}
