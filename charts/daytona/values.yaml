@@ -19,7 +19,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-api
-      tag: "v0.158.4-k8s-amd64" # Will default to Chart.AppVersion
+      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -92,6 +92,10 @@ services:
       # Generate with: openssl rand -base64 32 | head -c 32
       ENCRYPTION_KEY: "CHANGE_ME_32_CHARACTER_SECRET_K!"
       ENCRYPTION_SALT: "CHANGE_ME_RANDOM_SALT_VALUE"
+
+      # Draining configuration
+      DRAINING_MODE: "archive"
+      DRAINING_FORCE: "true"
 
       # Workspace configuration
       DEFAULT_SNAPSHOT_IMAGE_NAME: "daytonaio/sandbox:0.5.1-slim"
@@ -231,7 +235,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-proxy
-      tag: "v0.139.1-rc.1"
+      tag: "v0.168.4-k8s-oss-amd64"
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -367,7 +371,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-ssh-gateway
-      tag: "" # Will default to Chart.AppVersion
+      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -421,7 +425,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      tag: "v0.158.4-k8s-amd64" # Will default to Chart.AppVersion
+      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -495,7 +499,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner
-      tag: "v0.158.4-k8s-amd64" # Will default to Chart.AppVersion
+      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # ServiceAccount configuration
     serviceAccount:

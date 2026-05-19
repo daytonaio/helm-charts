@@ -329,6 +329,11 @@ spec:
               value: {{ .Values.services.api.env.ENCRYPTION_KEY | default "" | quote }}
             - name: ENCRYPTION_SALT
               value: {{ .Values.services.api.env.ENCRYPTION_SALT | default "" | quote }}
+            # Draining configuration
+            - name: DRAINING_MODE
+              value: {{ .Values.services.api.env.DRAINING_MODE | default "archive" | quote }}
+            - name: DRAINING_FORCE
+              value: {{ .Values.services.api.env.DRAINING_FORCE | default "true" | quote }}
             {{- if .Values.services.api.env.RUNNER_MANAGER_API_KEY }}
             - name: RUNNER_MANAGER_API_KEY
               value: {{ .Values.services.api.env.RUNNER_MANAGER_API_KEY | quote }}
