@@ -1,4 +1,8 @@
 {{- if .Values.dex.enabled }}
+{{- $dexImage := .Values.dex.image }}
+{{- $dexVolumePermissionsImage := .Values.dex.volumePermissions.image }}
+{{- $dexImageRegistry := include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" $dexImage.registry) }}
+{{- $dexVolumePermissionsImageRegistry := include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" $dexVolumePermissionsImage.registry) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,7 +31,8 @@ spec:
       {{- end }}
       initContainers:
         - name: volume-permissions
-          image: busybox:latest
+          image: "{{ if $dexVolumePermissionsImageRegistry }}{{ $dexVolumePermissionsImageRegistry }}/{{ end }}{{ $dexVolumePermissionsImage.repository }}:{{ $dexVolumePermissionsImage.tag | default "latest" }}"
+          imagePullPolicy: {{ $dexVolumePermissionsImage.pullPolicy | default "IfNotPresent" }}
           command:
             - sh
             - -c
@@ -41,8 +46,8 @@ spec:
               mountPath: /var/dex
       containers:
         - name: dex
-          image: "{{ if .Values.dex.image.registry }}{{ .Values.dex.image.registry }}/{{ end }}{{ .Values.dex.image.repository }}:{{ .Values.dex.image.tag | default "v2.42.0" }}"
-          imagePullPolicy: {{ .Values.dex.image.pullPolicy | default "IfNotPresent" }}
+          image: "{{ if $dexImageRegistry }}{{ $dexImageRegistry }}/{{ end }}{{ $dexImage.repository }}:{{ $dexImage.tag | default "v2.42.0" }}"
+          imagePullPolicy: {{ $dexImage.pullPolicy | default "IfNotPresent" }}
           command:
             - sh
             - -c

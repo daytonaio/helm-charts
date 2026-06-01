@@ -1,3 +1,11 @@
+{{- $apiMigration := .Values.apiMigration | default dict }}
+{{- $waitForPostgres := $apiMigration.waitForPostgres | default dict }}
+{{- $waitForPostgresImage := $waitForPostgres.image | default dict }}
+{{- $waitForPostgresImageRegistryValue := "docker.io" }}
+{{- if hasKey $waitForPostgresImage "registry" }}
+{{- $waitForPostgresImageRegistryValue = $waitForPostgresImage.registry }}
+{{- end }}
+{{- $waitForPostgresImageRegistry := include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" $waitForPostgresImageRegistryValue) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -28,8 +36,8 @@ spec:
       restartPolicy: Never
       initContainers:
         - name: wait-for-postgres
-          image: busybox:1.37
-          imagePullPolicy: IfNotPresent
+          image: "{{ if $waitForPostgresImageRegistry }}{{ $waitForPostgresImageRegistry }}/{{ end }}{{ $waitForPostgresImage.repository | default "library/busybox" }}:{{ $waitForPostgresImage.tag | default "1.37" }}"
+          imagePullPolicy: {{ $waitForPostgresImage.pullPolicy | default "IfNotPresent" }}
           command: ["sh", "-c"]
           args:
             - |

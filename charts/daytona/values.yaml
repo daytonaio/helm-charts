@@ -641,6 +641,13 @@ dex:
     registry: docker.io
     repository: dexidp/dex
     tag: "v2.42.0"
+    pullPolicy: IfNotPresent
+  volumePermissions:
+    image:
+      registry: docker.io
+      repository: library/busybox
+      tag: latest
+      pullPolicy: IfNotPresent
   service:
     port: 5556
   persistence:
@@ -717,6 +724,15 @@ dex:
         username: "admin"
         password: "$2y$10$pQ8jbpk6RWHx/uYJtDey.uCTzVl2ZXg569tp63PE9uisbCYzoARW6"
         userID: "1234"
+
+# API migration job configuration
+apiMigration:
+  waitForPostgres:
+    image:
+      registry: docker.io
+      repository: library/busybox
+      tag: "1.37"
+      pullPolicy: IfNotPresent
 
 # Redis configuration
 redis:

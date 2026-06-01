@@ -229,6 +229,15 @@ When `services.api.autoscaling.enabled=true`, the HPA will manage the replica co
 
 **Note:** When HPA is enabled, ensure that resource requests are set in `services.api.resources.requests` for accurate scaling decisions.
 
+### API Migration Job Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `apiMigration.waitForPostgres.image.registry` | Wait-for-Postgres init container image registry | `docker.io` |
+| `apiMigration.waitForPostgres.image.repository` | Wait-for-Postgres init container image repository | `library/busybox` |
+| `apiMigration.waitForPostgres.image.tag` | Wait-for-Postgres init container image tag | `"1.37"` |
+| `apiMigration.waitForPostgres.image.pullPolicy` | Wait-for-Postgres init container image pull policy | `IfNotPresent` |
+
 ### Proxy Service Configuration
 
 | Parameter | Description | Default |
@@ -423,6 +432,11 @@ Dex is a simple IdP (Identity Provider) used for testing and development. For pr
 | `dex.image.registry` | Dex image registry | `docker.io` |
 | `dex.image.repository` | Dex image repository | `dexidp/dex` |
 | `dex.image.tag` | Dex image tag | `"v2.42.0"` |
+| `dex.image.pullPolicy` | Dex image pull policy | `IfNotPresent` |
+| `dex.volumePermissions.image.registry` | Dex volume-permissions init container image registry | `docker.io` |
+| `dex.volumePermissions.image.repository` | Dex volume-permissions init container image repository | `library/busybox` |
+| `dex.volumePermissions.image.tag` | Dex volume-permissions init container image tag | `latest` |
+| `dex.volumePermissions.image.pullPolicy` | Dex volume-permissions init container image pull policy | `IfNotPresent` |
 | `dex.service.port` | Dex service port | `5556` |
 | `dex.persistence.enabled` | Enable Dex persistence | `true` |
 | `dex.persistence.size` | Dex persistence size | `1Gi` |
