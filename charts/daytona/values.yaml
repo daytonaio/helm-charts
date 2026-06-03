@@ -19,7 +19,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-api
-      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
+      tag: "" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -235,7 +235,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-proxy
-      tag: "v0.168.4-k8s-oss-amd64"
+      tag: ""
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -371,7 +371,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-ssh-gateway
-      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
+      tag: "" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -425,7 +425,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
+      tag: "" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # Service configuration
     service:
@@ -499,7 +499,7 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner
-      tag: "v0.168.4-k8s-oss-amd64" # Will default to Chart.AppVersion
+      tag: "" # Will default to Chart.AppVersion
       pullPolicy: IfNotPresent
     # ServiceAccount configuration
     serviceAccount:

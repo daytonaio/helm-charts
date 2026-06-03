@@ -307,18 +307,18 @@ spec:
                   fi
                   
                   # Download latest Sysbox release
-                  SYSBOX_VERSION="v0.6.4"
+                  SYSBOX_VERSION="v0.6.7"
                   echo "Downloading Sysbox ${SYSBOX_VERSION}..."
                   
                   cd /tmp
                   
                   # Download the deb package
-                  if curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb"; then
+                  if curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.7.linux_amd64.deb"; then
                     echo "Downloaded Sysbox package successfully"
                   else
                     echo "Failed to download Sysbox, trying alternative download..."
                     # Try without SSL verification as fallback
-                    curl -kLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb" || {
+                    curl -kLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.7.linux_amd64.deb" || {
                       echo "Failed to download Sysbox"
                       return 1
                     }
@@ -334,24 +334,24 @@ spec:
                   
                   # Install Sysbox
                   echo "Installing Sysbox package..."
-                  dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb || {
+                  dpkg -i sysbox-ce_0.6.7.linux_amd64.deb || {
                     echo "Installing Sysbox dependencies..."
                     apt-get install -f -y
-                    dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb
+                    dpkg -i sysbox-ce_0.6.7.linux_amd64.deb
                   }
                   
                   # Cleanup
-                  rm -f sysbox-ce_0.6.4-0.linux_amd64.deb
+                  rm -f sysbox-ce_0.6.7.linux_amd64.deb
                   
                 elif command -v yum >/dev/null 2>&1; then
                   # RHEL/CentOS based - install from GitHub
-                  SYSBOX_VERSION="v0.6.4"
+                  SYSBOX_VERSION="v0.6.7"
                   echo "Downloading Sysbox ${SYSBOX_VERSION} for RPM..."
                   
                   cd /tmp
-                  curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz"
+                  curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce-0.6.7-0.linux_amd64-rpm.tar.gz"
                   
-                  tar -xzf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz
+                  tar -xzf sysbox-ce-0.6.7-0.linux_amd64-rpm.tar.gz
                   
                   # Stop Docker before installing Sysbox
                   systemctl stop docker 2>/dev/null || true
@@ -360,7 +360,7 @@ spec:
                   yum install -y ./sysbox-ce/*.rpm
                   
                   # Cleanup
-                  rm -rf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz sysbox-ce/
+                  rm -rf sysbox-ce-0.6.7-0.linux_amd64-rpm.tar.gz sysbox-ce/
                 fi
                 
                 echo "Sysbox installation completed"
