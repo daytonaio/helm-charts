@@ -2,6 +2,45 @@ apiVersion: v1
 entries:
   daytona:
   - apiVersion: v2
+    appVersion: v0.184.0-k8s-oss.3-amd64
+    created: "2026-06-03T20:28:51.444910888Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 16.7.27
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 22.0.7
+    - condition: minio.enabled
+      name: minio
+      repository: https://charts.min.io
+      version: 5.4.0
+    - condition: harbor.enabled
+      name: harbor
+      repository: https://helm.goharbor.io
+      version: 1.18.0
+    description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
+    digest: 907608143d21ee048dc7529d3e27b2b3d7fdfb0d7a639448c0ab92692301d748
+    home: https://daytona.io
+    keywords:
+    - ai
+    - infrastructure
+    - security
+    - cloud
+    - sandbox
+    maintainers:
+    - email: engineering@daytona.io
+      name: Daytona
+    name: daytona
+    sources:
+    - https://github.com/daytonaio/daytona
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/daytona-0.0.26.tgz
+    version: 0.0.26
+  - apiVersion: v2
     appVersion: v0.132.0
     created: "2026-06-01T19:07:59.622037813Z"
     dependencies:
@@ -949,6 +988,28 @@ entries:
     version: 0.0.1
   daytona-region:
   - apiVersion: v2
+    appVersion: v0.184.0-k8s-oss.3-amd64
+    created: "2026-06-03T20:28:51.445890977Z"
+    description: A Helm chart for Daytona custom region
+    digest: 996b71e449d1a0854b46009317c5ec933f2c3813ba7ccd46012f5813c05455f4
+    home: https://daytona.io
+    keywords:
+    - ai
+    - infrastructure
+    - security
+    - cloud
+    - sandbox
+    maintainers:
+    - email: engineering@daytona.io
+      name: Daytona
+    name: daytona-region
+    sources:
+    - https://github.com/daytonaio/daytona
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/daytona-region-0.0.12.tgz
+    version: 0.0.12
+  - apiVersion: v2
     appVersion: v0.167.0
     created: "2026-06-01T19:07:59.62300453Z"
     description: A Helm chart for Daytona custom region
@@ -1190,4 +1251,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/daytona-region-0.0.1.tgz
     version: 0.0.1
-generated: "2026-06-01T19:07:59.602575222Z"
+generated: "2026-06-03T20:28:51.425512876Z"
