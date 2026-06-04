@@ -571,6 +571,17 @@ services:
       #     - "10.0.0.2"
       #     - "8.8.8.8"
       dns: []
+      # Registries for which Docker should skip TLS certificate verification.
+      # Use when a registry (e.g. Harbor) is served with a private-CA or self-signed
+      # certificate the node's Docker daemon does not trust. This is what produces
+      # "x509: certificate signed by unknown authority" failures on PULL_SNAPSHOT /
+      # INSPECT_SNAPSHOT_IN_REGISTRY jobs, which block all sandbox starts.
+      # Each entry is a host[:port] and should match the Harbor host (harbor.<baseDomain>).
+      # Empty list = TLS verification stays enforced for every registry.
+      # NOTE: trusting the CA via /etc/docker/certs.d/<host>/ca.crt is the more secure fix;
+      #       this is the quick, TLS-bypassing mitigation.
+      insecureRegistries:
+        - "harbor.daytona.jhos.myjhg.cloud"
       # Airgapped mode - use pre-packaged dependencies instead of downloading from internet
       airgapped:
         enabled: false

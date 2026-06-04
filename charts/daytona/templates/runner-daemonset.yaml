@@ -485,6 +485,9 @@ spec:
                 {{- if .Values.services.runner.dockerInstaller.dns }}
                 "dns": {{ .Values.services.runner.dockerInstaller.dns | toJson }},
                 {{- end }}
+                {{- if .Values.services.runner.dockerInstaller.insecureRegistries }}
+                "insecure-registries": {{ .Values.services.runner.dockerInstaller.insecureRegistries | toJson }},
+                {{- end }}
                 "log-driver": "json-file",
                 "log-opts": {
                   "max-size": "10m",
