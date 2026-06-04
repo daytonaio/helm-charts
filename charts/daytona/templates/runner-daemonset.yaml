@@ -270,8 +270,8 @@ spec:
                   wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-ce-cli_${DOCKER_VERSION}_amd64.deb
                   #wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-buildx-plugin_0.19.3-1~ubuntu.24.04~noble_amd64.deb
                   # Install with --force-depends to skip the containerd.io dependency
-                  dpkg --force-depends -i docker-ce-cli_${DOCKER_VERSION}_amd64.deb
-                  dpkg --force-depends -i docker-ce_${DOCKER_VERSION}_amd64.deb
+                  dpkg --force-depends --force-conflicts -i docker-ce-cli_${DOCKER_VERSION}_amd64.deb
+                  dpkg --force-depends --force-conflicts -i docker-ce_${DOCKER_VERSION}_amd64.deb
                   
                   mkdir -p /etc/docker
                   systemctl daemon-reload
