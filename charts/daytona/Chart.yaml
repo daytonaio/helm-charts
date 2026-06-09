@@ -2,8 +2,18 @@ apiVersion: v2
 name: daytona
 description: A Helm chart for Daytona - Secure Infrastructure for Running AI Code
 type: application
-version: 0.0.25
+# Minor bump: BREAKING - default secrets removed; installs fail closed until secrets are set.
+version: 0.1.0
 appVersion: "v0.132.0"
+annotations:
+  artifacthub.io/containsSecurityUpdates: "true"
+  artifacthub.io/changes: |
+    - kind: security
+      description: No longer ship default credentials or SSH keys in values.yaml; fail closed on unset or known-default secrets (security.validateSecrets)
+    - kind: security
+      description: Remove the built-in Dex static admin (dev@daytona.io); a bcrypt password hash must now be supplied by the operator
+    - kind: changed
+      description: SSH gateway keys may be supplied via services.sshGateway.sshKeys.existingSecret; the runner inherits the gateway public key by default
 keywords:
   - ai
   - infrastructure

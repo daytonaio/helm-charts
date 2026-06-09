@@ -90,6 +90,56 @@ To install with custom values:
 helm install daytona ./charts/daytona -f my-values.yaml
 ```
 
+## Required secrets
+
+The chart ships **no** default credentials or keys. By default (`security.validateSecrets: true`)
+it refuses to render until every secret below is set to a unique value. This is a fail-closed
+guardrail: a stock `helm install` stops with a list of what is missing rather than deploying
+with predictable, publicly known credentials.
+
+Set these in your values file before installing (quote all values so YAML does not coerce
+all-digit secrets into numbers):
+
+| Value | Purpose | Generate with |
+|-------|---------|---------------|
+| `services.api.env.ENCRYPTION_KEY` | Data-at-rest encryption (≥32 chars). **Back it up; losing it makes encrypted data unrecoverable.** | `openssl rand -base64 24 \| head -c 32` |
+| `services.api.env.ENCRYPTION_SALT` | Key-derivation salt | `openssl rand -base64 24` |
+| `services.api.env.RUNNER_MANAGER_API_KEY` | API → runner-manager auth. **Must equal `services.runnermanager.env.API_TOKEN`.** | `openssl rand -hex 32` |
+| `services.runnermanager.env.API_TOKEN` | Same shared secret as above | (reuse the value above) |
+| `services.runnermanager.env.SYSTEM_API_TOKEN` | System token. **Must equal `services.runner.env.SYSTEM_API_TOKEN`.** | `openssl rand -hex 32` |
+| `services.runnermanager.env.API_KEY` | Runner-manager API key | `openssl rand -hex 32` |
+| `services.runner.env.API_TOKEN` | Runner API token | `openssl rand -hex 32` |
+| `services.runner.env.SYSTEM_API_TOKEN` | Same shared secret as runner-manager's | (reuse the value above) |
+| `services.proxy.env.PROXY_API_KEY` | Proxy auth key | `openssl rand -hex 32` |
+| `services.sshGateway.apiKey` | SSH gateway → API auth key | `openssl rand -hex 32` |
+| `services.sshGateway.sshKeys.*` | SSH gateway keypairs (see below) | `ssh-keygen` |
+| `dex.config.staticPasswords[].password` | Dex login (bcrypt hash). Omit the entry / set `[]` if using an upstream IdP. | `htpasswd -BnC 10 "" <<< 'your-password' \| tr -d ':\n'` |
+
+### SSH gateway keys
+
+Generate two ed25519 keypairs and base64-encode them, or point `sshKeys.existingSecret` at a
+pre-created Secret (containing `SSH_PRIVATE_KEY`, `SSH_PRIVATE_PUB_KEY`, `SSH_HOST_KEY`, `API_KEY`)
+managed by External Secrets / Sealed Secrets:
+
+```bash
+ssh-keygen -t ed25519 -f client  -N "" -C client-key
+ssh-keygen -t ed25519 -f gateway -N "" -C server-key
+# privClientSSHKey:  base64 -w0 client
+# pubClientSSHKey:   base64 -w0 client.pub
+# privGatewaySSHKey: base64 -w0 gateway
+```
+
+> If you deliver all secrets out-of-band (existingSecret / Secrets Store CSI Driver /
+> `extraEnv` secretKeyRef), set `security.validateSecrets: false` to skip the guardrail.
+
+### Upgrading from a release that shipped default secrets
+
+Earlier chart versions shipped working default credentials and an embedded SSH keypair in
+`values.yaml`. Those values are present in this repo's public history and must be considered
+compromised. After upgrading, **rotate every secret listed above**: set fresh values and, for
+the SSH gateway, generate new keypairs. Reusing the previously shipped keys means anyone with
+the public chart history holds your gateway private keys.
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `daytona` deployment:
@@ -286,7 +336,7 @@ When `services.api.autoscaling.enabled=true`, the HPA will manage the replica co
 
 - `PROXY_PORT`: Proxy port | `""` (defaults to 4000 if not set)
 - `PROXY_DOMAIN`: Proxy domain (auto-generated as `proxy.{{baseDomain}}:{{PROXY_PORT}}` if empty)
-- `PROXY_API_KEY`: Proxy API key | `"super_secret_key"`
+- `PROXY_API_KEY`: Proxy API key | `""` (REQUIRED, see "Required secrets")
 - `PROXY_PROTOCOL`: Proxy protocol | `"http"`
 - `OIDC_CLIENT_SECRET`: OIDC client secret | `""`
 
@@ -323,7 +373,8 @@ When `services.proxy.autoscaling.enabled=true`, the HPA will manage the replica 
 | `services.sshGateway.serviceAccount.create` | Create SSH Gateway service account | `true` |
 | `services.sshGateway.serviceAccount.name` | SSH Gateway service account name | `""` |
 | `services.sshGateway.serviceAccount.annotations` | SSH Gateway service account annotations | `{}` |
-| `services.sshGateway.apiKey` | API key for SSH Gateway authentication | `"supersecretapikey"` |
+| `services.sshGateway.apiKey` | API key for SSH Gateway authentication | `""` (REQUIRED) |
+| `services.sshGateway.sshKeys.existingSecret` | Existing Secret with SSH keys + API_KEY (skips chart-managed Secret) | `""` |
 | `services.sshGateway.sshKeys.privClientSSHKey` | Private client SSH key (base64) | `""` |
 | `services.sshGateway.sshKeys.pubClientSSHKey` | Public client SSH key (base64) | `""` |
 | `services.sshGateway.sshKeys.privGatewaySSHKey` | Private gateway SSH key (base64) | `""` |

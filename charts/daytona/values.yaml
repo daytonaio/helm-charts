@@ -12,6 +12,14 @@ global:
 # Base domain Daytona
 baseDomain: "daytona.example.com"
 
+# Security guardrails
+security:
+  # Fail-closed secret validation. When true (default), the chart refuses to render if a
+  # security-sensitive secret is left empty or set to a value that was previously shipped as
+  # a default. Set to false ONLY if every required secret is delivered out-of-band (via
+  # existingSecret, the Secrets Store CSI Driver, or extraEnv secretKeyRef).
+  validateSecrets: true
+
 # Service-specific configurations
 services:
   api:
@@ -86,12 +94,15 @@ services:
       SKIP_USER_EMAIL_VERIFICATION: "false"
 
       # Encryption configuration
-      # IMPORTANT: Change these values before deploying to production!
+      # REQUIRED: no default is shipped. The chart refuses to install until these are set
+      # (see security.validateSecrets). Losing ENCRYPTION_KEY makes existing encrypted data
+      # unrecoverable, so set it once and back it up.
       # ENCRYPTION_KEY must be a 32-character random string used for encrypting sensitive data at rest.
+      #   Generate with: openssl rand -base64 24 | head -c 32
       # ENCRYPTION_SALT must be a random string used as a salt for key derivation.
-      # Generate with: openssl rand -base64 32 | head -c 32
-      ENCRYPTION_KEY: "CHANGE_ME_32_CHARACTER_SECRET_K!"
-      ENCRYPTION_SALT: "CHANGE_ME_RANDOM_SALT_VALUE"
+      #   Generate with: openssl rand -base64 24
+      ENCRYPTION_KEY: ""
+      ENCRYPTION_SALT: ""
 
       # Draining configuration
       DRAINING_MODE: "archive"
@@ -100,7 +111,9 @@ services:
       # Workspace configuration
       DEFAULT_SNAPSHOT_IMAGE_NAME: "daytonaio/sandbox:0.5.1-slim"
       DEFAULT_SNAPSHOT_NAME: "default-snapshot"
-      RUNNER_MANAGER_API_KEY: "runner_manager_secret_key"
+      # REQUIRED: shared secret between the API and the runner manager.
+      # MUST match services.runnermanager.env.API_TOKEN. Generate with: openssl rand -hex 32
+      RUNNER_MANAGER_API_KEY: ""
       # Auto-generated as "https://{{.Values.baseDomain}}/dashboard" if not set or empty
       DASHBOARD_URL: ""
       # Auto-generated as "https://{{.Values.baseDomain}}" if not set or empty
@@ -303,7 +316,8 @@ services:
       PROXY_PORT: ""
       # Auto-generated as "proxy.{{.Values.baseDomain}}:{{PROXY_PORT}}" if not set or empty
       PROXY_DOMAIN: ""
-      PROXY_API_KEY: "super_secret_key"
+      # REQUIRED: no default is shipped. Generate with: openssl rand -hex 32
+      PROXY_API_KEY: ""
       PROXY_PROTOCOL: http
       OIDC_CLIENT_SECRET: ""
     # Extra environment variables (for valueFrom or additional custom vars)
@@ -378,13 +392,28 @@ services:
       type: LoadBalancer
       port: 2222
       annotations: {}
-    # Set api key for ssh gateway. This key is used to authenticate the ssh gateway against api
-    apiKey: supersecretapikey
-    # Generate ssh keys to be used for the ssh gateway. These keys are stored in the secret and used to authenticate the ssh gateway. Generate keys using ssh-keygen (ssh-keygen -t ed25519 -f gateway_host_key -N "") and store them as base64 (cat gateway_host_key | base64 -w 0) values here. You will need 2 groups of keys - one for the client and one for the gateway.
+    # REQUIRED: API key used to authenticate the SSH gateway against the API.
+    # No default is shipped. Generate with: openssl rand -hex 32
+    apiKey: ""
+    # SSH keys for the gateway. No keys are shipped with the chart; supply your own
+    # (a leaked/shared keypair lets anyone impersonate the gateway). Two keypairs are
+    # needed: one for the client, one for the gateway host.
+    #
+    # Generate and base64-encode:
+    #   ssh-keygen -t ed25519 -f client  -N "" -C client-key
+    #   ssh-keygen -t ed25519 -f gateway -N "" -C server-key
+    #   privClientSSHKey:  base64 -w0 client
+    #   pubClientSSHKey:   base64 -w0 client.pub
+    #   privGatewaySSHKey: base64 -w0 gateway
+    #
+    # Alternatively, point existingSecret at a pre-created Secret that contains keys
+    # SSH_PRIVATE_KEY, SSH_PRIVATE_PUB_KEY, SSH_HOST_KEY and API_KEY (e.g. managed by
+    # External Secrets / Sealed Secrets). When set, the chart does not template a Secret.
     sshKeys:
-      privClientSSHKey: "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNDK0FvVlE2TkhWUXJkUzA2V0lvMHAwamZWOXVQQUp0QUZMWGlBUlRIdC9lUUFBQUpEWmREVzMyWFExCnR3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQytBb1ZRNk5IVlFyZFMwNldJbzBwMGpmVjl1UEFKdEFGTFhpQVJUSHQvZVEKQUFBRUM2ZlVsOHlDdW1rQ3N3djF4N2tQQ0hSZS9iM242M3c0R3RCU3VScXpBblRiNENoVkRvMGRWQ3QxTFRwWWlqU25TTgo5WDI0OEFtMEFVdGVJQkZNZTM5NUFBQUFDbU5zYVdWdWRDMXJaWGtCQWdNPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K"
-      pubClientSSHKey: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUw0Q2hWRG8wZFZDdDFMVHBZaWpTblNOOVgyNDhBbTBBVXRlSUJGTWUzOTUgY2xpZW50LWtleQo="
-      privGatewaySSHKey: "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNETnFRUEczaTdJc3lndlNOcnFEWUtsVFluaUpMRTEwSExOaGFZTkZUY1ZGUUFBQUpDVVI2dERsRWVyClF3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRE5xUVBHM2k3SXN5Z3ZTTnJxRFlLbFRZbmlKTEUxMEhMTmhhWU5GVGNWRlEKQUFBRUNHRHR2RTA3Zk1HeWxkeVJmdHhiUEFzUlQ4VmppdjFZajVmL01vR2pMT0RNMnBBOGJlTHNpektDOUkydW9OZ3FWTgppZUlrc1RYUWNzMkZwZzBWTnhVVkFBQUFDbk5sY25abGNpMXJaWGtCQWdNPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K"
+      existingSecret: ""
+      privClientSSHKey: ""
+      pubClientSSHKey: ""
+      privGatewaySSHKey: ""
     env:
       SSH_GATEWAY_PORT: "2222"
       # Auto-generated as "ssh.{{.Values.baseDomain}}" if not set or empty
@@ -436,10 +465,12 @@ services:
     env:
       # API Configuration
       API_PORT: "3010"
-      # API Authentication - Generate a secure token with: openssl rand -base64 32
-      API_TOKEN: "runner_manager_secret_key"
-      # System API Token
-      SYSTEM_API_TOKEN: "system_api_token"
+      # REQUIRED: API Authentication. MUST match services.api.env.RUNNER_MANAGER_API_KEY.
+      # Generate with: openssl rand -hex 32
+      API_TOKEN: ""
+      # REQUIRED: System API Token. MUST match services.runner.env.SYSTEM_API_TOKEN.
+      # Generate with: openssl rand -hex 32
+      SYSTEM_API_TOKEN: ""
       # Provider Configuration - Options: kubernetes, k8s, aws
       PROVIDER_TYPE: "kubernetes"
       # Kubernetes Provider - Namespace for placeholder pods (defaults to deployment namespace)
@@ -451,7 +482,8 @@ services:
       # Kubeconfig Path (Optional - for local development)
       # If not set, will use in-cluster configuration
       KUBECONFIG_PATH: ""
-      API_KEY: "secret_api_key"
+      # REQUIRED: no default is shipped. Generate with: openssl rand -hex 32
+      API_KEY: ""
       # Auto-generated as "https://{{.Values.baseDomain}}/api" if not set or empty
       SERVER_URL: "http://daytona-api:3000/api"
       REGION_ID: "us"
@@ -523,15 +555,19 @@ services:
       # Secrets
       DAYTONA_API_URL: "http://daytona-api:3000/api"
       SERVER_URL: "http://daytona-api:3000/api"
-      API_TOKEN: "secret_api_token"
-      SYSTEM_API_TOKEN: "system_api_token"
+      # REQUIRED: no default is shipped. Generate with: openssl rand -hex 32
+      API_TOKEN: ""
+      # REQUIRED: MUST match services.runnermanager.env.SYSTEM_API_TOKEN.
+      SYSTEM_API_TOKEN: ""
       AWS_REGION: ""
       AWS_ENDPOINT_URL: ""
       AWS_ACCESS_KEY_ID: ""
       AWS_SECRET_ACCESS_KEY: ""
       AWS_DEFAULT_BUCKET: ""
-      # The same value as the .Values.services.sshGateway.sshKeys.pubClientSSHKey
-      SSH_PUBLIC_KEY: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUw0Q2hWRG8wZFZDdDFMVHBZaWpTblNOOVgyNDhBbTBBVXRlSUJGTWUzOTUgY2xpZW50LWtleQo="
+      # Authorized client public key the runner trusts for SSH gateway access.
+      # Leave empty to inherit services.sshGateway.sshKeys.pubClientSSHKey (recommended,
+      # keeps the keypair in one place). Set only to override.
+      SSH_PUBLIC_KEY: ""
     # Resource limits and requests
     resources:
       limits:
@@ -716,13 +752,15 @@ dex:
     # - http://localhost:3009/callback
     # - http://[fullname]-proxy:[proxy-port]/callback
     redirectURIs: []
-    # Static passwords (for development/testing)
-    # Password hash can be generated with: echo password | htpasswd -BinC 10 admin | cut -d: -f2
-    # default username/password is admin/password
+    # Static passwords (for development/testing only; use an upstream IdP in production).
+    # No password hash is shipped. The chart refuses to render until `password` is set to a
+    # bcrypt hash (security.validateSecrets), so there is no built-in admin/password account.
+    #   Generate a hash: htpasswd -BnC 10 "" <<< 'your-password' | tr -d ':\n'
+    # Set staticPasswords to [] if you disable Dex or drive all logins through an external IdP.
     staticPasswords:
-      - email: "dev@daytona.io"
+      - email: "admin@example.com"
         username: "admin"
-        password: "$2y$10$pQ8jbpk6RWHx/uYJtDey.uCTzVl2ZXg569tp63PE9uisbCYzoARW6"
+        password: ""   # REQUIRED: bcrypt hash. No plaintext default is shipped.
         userID: "1234"
 
 # API migration job configuration

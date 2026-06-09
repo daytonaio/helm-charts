@@ -57,7 +57,7 @@ spec:
             {{- end }}
             # System API Token
             - name: SYSTEM_API_TOKEN
-              value: {{ .Values.services.runnermanager.env.SYSTEM_API_TOKEN | default "system_api_token" | quote }}
+              value: {{ .Values.services.runnermanager.env.SYSTEM_API_TOKEN | default "" | quote }}
             # Provider Configuration
             - name: PROVIDER_TYPE
               value: {{ .Values.services.runnermanager.env.PROVIDER_TYPE | default "kubernetes" | quote }}
@@ -76,7 +76,7 @@ spec:
             {{- end }}
             # API Key
             - name: API_KEY
-              value: {{ .Values.services.runnermanager.env.API_KEY | default "secret_api_key" | quote }}
+              value: {{ .Values.services.runnermanager.env.API_KEY | default "" | quote }}
             # Server URL - Auto-generated as "https://{{.Values.baseDomain}}/api" if not set or empty
             - name: SERVER_URL
               value: {{ if .Values.services.runnermanager.env.SERVER_URL }}{{ .Values.services.runnermanager.env.SERVER_URL | quote }}{{ else }}{{ printf "https://%s/api" .Values.baseDomain | quote }}{{ end }}

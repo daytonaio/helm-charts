@@ -56,12 +56,15 @@ data:
           {{- end }}
         name: {{ .Values.dex.config.clientName | default "Daytona" | quote }}
         public: true
-    enablePasswordDB: true
+    {{- $staticPasswords := .Values.dex.config.staticPasswords | default list }}
+    enablePasswordDB: {{ gt (len $staticPasswords) 0 }}
+    {{- if gt (len $staticPasswords) 0 }}
     staticPasswords:
-      {{- range .Values.dex.config.staticPasswords | default (list (dict "email" "dev@daytona.io" "password" "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" "username" "admin" "userID" "1234")) }}
-      - email: {{ .email | quote }}
+      {{- range $staticPasswords }}
+      - email: {{ required "dex.config.staticPasswords entry requires 'email'" .email | quote }}
         hash: {{ .password | quote }}
-        username: {{ .username | quote }}
-        userID: {{ .userID | quote }}
+        username: {{ .username | default "admin" | quote }}
+        userID: {{ .userID | default (.email | sha256sum | trunc 8) | quote }}
       {{- end }}
+    {{- end }}
 {{- end }}

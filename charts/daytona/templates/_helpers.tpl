@@ -96,6 +96,20 @@ Create the name of the secret
 {{- end }}
 
 {{/*
+Name of the Secret holding the SSH gateway keys and API key.
+Resolves to the operator-provided existingSecret when set, otherwise the chart-managed
+Secret. The SSH gateway deployment and the chart-managed Secret template both use this
+helper so the name stays consistent.
+*/}}
+{{- define "daytona.sshSecretName" -}}
+{{- with .Values.services.sshGateway.sshKeys.existingSecret -}}
+{{- tpl . $ -}}
+{{- else -}}
+{{- printf "%s-ssh" (include "daytona.secretName" $) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Get image registry (use global if set, otherwise service-specific)
 */}}
 {{- define "daytona.imageRegistry" -}}

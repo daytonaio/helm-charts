@@ -170,12 +170,12 @@ spec:
             - name: SSH_GATEWAY_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "daytona.secretName" . }}-ssh
+                  name: {{ include "daytona.sshSecretName" . }}
                   key: SSH_PRIVATE_PUB_KEY
             - name: SSH_GATEWAY_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "daytona.secretName" . }}-ssh
+                  name: {{ include "daytona.sshSecretName" . }}
                   key: API_KEY
             {{- end }}
             # Harbor Registry Configuration

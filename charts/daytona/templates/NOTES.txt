@@ -15,9 +15,15 @@
    # API: https://{{ $templatedApiHostname }}/api
 {{- if .Values.dex.enabled }}
    # Dex OIDC: https://{{ $templatedDexHostname }}/dex
-   # Dashboard Login Credentials:
+{{- if gt (len (.Values.dex.config.staticPasswords | default list)) 0 }}
+   # Dashboard login (Dex static user):
    # Username: {{ (index .Values.dex.config.staticPasswords 0).username | default "admin" }}
-   # Password: password (or whatever is set via hash)
+   # Email:    {{ (index .Values.dex.config.staticPasswords 0).email }}
+   # Password: the password whose bcrypt hash you set in dex.config.staticPasswords
+{{- else }}
+   # No Dex static login is configured (dex.config.staticPasswords is empty);
+   # configure a static password hash or an upstream connector before logging in.
+{{- end }}
 {{- end }}
 {{- else }}
    # For local development, set up port-forwards:
@@ -32,9 +38,15 @@
    # API: http://localhost:8080/api
 {{- if .Values.dex.enabled }}
    # Dex OIDC: http://localhost:5556/dex
-   # Dashboard Login Credentials:
+{{- if gt (len (.Values.dex.config.staticPasswords | default list)) 0 }}
+   # Dashboard login (Dex static user):
    # Username: {{ (index .Values.dex.config.staticPasswords 0).username | default "admin" }}
-   # Password: password (or whatever is set via hash)
+   # Email:    {{ (index .Values.dex.config.staticPasswords 0).email }}
+   # Password: the password whose bcrypt hash you set in dex.config.staticPasswords
+{{- else }}
+   # No Dex static login is configured (dex.config.staticPasswords is empty);
+   # configure a static password hash or an upstream connector before logging in.
+{{- end }}
 {{- end }}
 {{ end }}
 
