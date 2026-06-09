@@ -598,7 +598,18 @@ spec:
             - name: AWS_DEFAULT_BUCKET
               value: {{ .Values.services.runner.env.AWS_DEFAULT_BUCKET | default "" | quote }}
             - name: SSH_PUBLIC_KEY
-              value: {{ .Values.services.runner.env.SSH_PUBLIC_KEY | default "" | quote }}
+            {{- if .Values.services.runner.env.SSH_PUBLIC_KEY }}
+              value: {{ .Values.services.runner.env.SSH_PUBLIC_KEY | quote }}
+            {{- else if .Values.services.sshGateway.enabled }}
+              {{- /* Inherit the gateway client public key from the SSH secret so this works
+                     identically for chart-managed keys and sshKeys.existingSecret. */}}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "daytona.sshSecretName" . }}
+                  key: SSH_PRIVATE_PUB_KEY
+            {{- else }}
+              value: ""
+            {{- end }}
             # Pod metadata
             - name: NODE_NAME
               valueFrom:

@@ -59,7 +59,7 @@ spec:
               value: "http://{{ include "daytona.fullname" . }}-api:{{ .Values.services.api.env.PORT }}/api"
           envFrom:
             - secretRef:
-                name: {{ include "daytona.secretName" . }}-ssh
+                name: {{ include "daytona.sshSecretName" . }}
           resources:
             {{- toYaml .Values.services.sshGateway.resources | nindent 12 }}
           {{- if .Values.services.sshGateway.extraVolumeMounts }}
