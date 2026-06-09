@@ -129,8 +129,11 @@ ssh-keygen -t ed25519 -f gateway -N "" -C server-key
 # privGatewaySSHKey: base64 -w0 gateway
 ```
 
-> If you deliver all secrets out-of-band (existingSecret / Secrets Store CSI Driver /
-> `extraEnv` secretKeyRef), set `security.validateSecrets: false` to skip the guardrail.
+> `security.validateSecrets: false` skips validation of the env-delivered secrets
+> (encryption key, API keys, tokens) so you can inject them out-of-band via `extraEnv` or
+> the Secrets Store CSI Driver. The SSH gateway keys and the Dex password are written into
+> chart-managed resources and **always fail closed regardless of this flag**: for those, use
+> `sshKeys.existingSecret` and set `dex.config.staticPasswords: []` (or supply a hash).
 
 ### Upgrading from a release that shipped default secrets
 

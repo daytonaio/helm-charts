@@ -62,7 +62,7 @@ data:
     staticPasswords:
       {{- range $staticPasswords }}
       - email: {{ required "dex.config.staticPasswords entry requires 'email'" .email | quote }}
-        hash: {{ .password | quote }}
+        hash: {{ required "dex.config.staticPasswords entry requires a bcrypt 'password' hash; no default is shipped (use staticPasswords: [] to disable static login)" .password | quote }}
         username: {{ .username | default "admin" | quote }}
         userID: {{ .userID | default (.email | sha256sum | trunc 8) | quote }}
       {{- end }}

@@ -15,9 +15,11 @@ baseDomain: "daytona.example.com"
 # Security guardrails
 security:
   # Fail-closed secret validation. When true (default), the chart refuses to render if a
-  # security-sensitive secret is left empty or set to a value that was previously shipped as
-  # a default. Set to false ONLY if every required secret is delivered out-of-band (via
-  # existingSecret, the Secrets Store CSI Driver, or extraEnv secretKeyRef).
+  # security-sensitive secret is empty or set to a value the chart used to ship.
+  # Setting false skips validation of the env-delivered secrets (encryption key, API keys,
+  # tokens) for out-of-band delivery (extraEnv / Secrets Store CSI Driver). The SSH gateway
+  # keys and Dex password go into chart-managed resources and always fail closed regardless
+  # of this flag; for those use sshKeys.existingSecret and dex.config.staticPasswords: [].
   validateSecrets: true
 
 # Service-specific configurations
