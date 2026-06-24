@@ -1,0 +1,79 @@
+{{- if and .Values.services.runner.enabled .Values.services.runner.mainContainer.enabled (has .Values.services.runner.volumes.backend (list "gcs" "rclone")) }}
+{{- /*
+mount-s3 shim for non-S3 volume backends.
+
+The upstream runner shells out to a HARDCODED `mount-s3` binary
+(apps/runner/pkg/docker/volumes_mountpaths.go) with a fixed argument shape:
+  --allow-other --allow-delete --allow-overwrite \
+  --file-mode 0666 --dir-mode 0777 <bucket> <mountpoint>
+and replaces the subprocess environment with ONLY AWS_ENDPOINT_URL /
+AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION (cmd.Env is fully
+overridden — no PATH, no ambient credentials). This shim is mounted at
+/usr/local/bin/mount-s3 (which shadows any real binary later in PATH) and
+translates that call to the chart-selected backend. It must therefore be
+fully self-contained: it sets its own PATH and only references the AWS_*
+variables the runner forwards.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "daytona.fullname" . }}-volume-shim
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner
+data:
+  mount-s3: |
+    #!/bin/sh
+    # chart-generated mount-s3 shim (backend: {{ .Values.services.runner.volumes.backend }})
+    # The runner execs this with an EMPTY environment apart from AWS_* vars.
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    export PATH
+    HOME=${HOME:-/root}
+    export HOME
+
+    # Last two positional args are <bucket> <mountpoint>; everything before
+    # them is mount-s3-specific flags we re-map per backend.
+    BUCKET=""
+    MNT=""
+    for ARG in "$@"; do
+      BUCKET="$MNT"
+      MNT="$ARG"
+    done
+    if [ -z "$BUCKET" ] || [ -z "$MNT" ]; then
+      echo "mount-s3 shim: could not derive <bucket> <mountpoint> from: $*" >&2
+      exit 1
+    fi
+    mkdir -p "$MNT"
+    {{- if eq .Values.services.runner.volumes.backend "gcs" }}
+
+    {{- if .Values.services.runner.volumes.gcs.credentialsFile }}
+    GOOGLE_APPLICATION_CREDENTIALS={{ .Values.services.runner.volumes.gcs.credentialsFile | quote }}
+    export GOOGLE_APPLICATION_CREDENTIALS
+    {{- end }}
+    # gcsfuse daemonizes once the mount is ready (same contract as mount-s3)
+    exec gcsfuse -o allow_other --file-mode 0666 --dir-mode 0777 --implicit-dirs "$BUCKET" "$MNT"
+    {{- else }}
+
+    # rclone S3 remote built from the env the runner forwards
+    RCLONE_CONFIG_SBXVOL_TYPE=s3
+    RCLONE_CONFIG_SBXVOL_PROVIDER=Other
+    RCLONE_CONFIG_SBXVOL_ENV_AUTH=true
+    export RCLONE_CONFIG_SBXVOL_TYPE RCLONE_CONFIG_SBXVOL_PROVIDER RCLONE_CONFIG_SBXVOL_ENV_AUTH
+    if [ -n "${AWS_ENDPOINT_URL:-}" ]; then
+      RCLONE_CONFIG_SBXVOL_ENDPOINT="$AWS_ENDPOINT_URL"
+      export RCLONE_CONFIG_SBXVOL_ENDPOINT
+    fi
+    if [ -n "${AWS_REGION:-}" ]; then
+      RCLONE_CONFIG_SBXVOL_REGION="$AWS_REGION"
+      export RCLONE_CONFIG_SBXVOL_REGION
+    fi
+    # --daemon returns after the mount is ready (same contract as mount-s3)
+    exec rclone mount "SBXVOL:${BUCKET}" "$MNT" --daemon --allow-other \
+      --vfs-cache-mode writes --dir-perms 0777 --file-perms 0666 \
+      {{- range .Values.services.runner.volumes.rclone.extraArgs }}
+      {{ . }} \
+      {{- end }}
+      --log-level INFO
+    {{- end }}
+{{- end }}

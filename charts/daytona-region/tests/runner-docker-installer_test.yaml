@@ -1,0 +1,48 @@
+suite: docker-installer host-prep safety (Layer 1)
+templates:
+  - runner-daemonset.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: refuses XFS migration when /var/lib/docker already holds containers (no destructive mv on a roll)
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      # Guard: with mainContainer.enabled=false (BYOC default) the docker-installer
+      # runs as containers[0]; fails loudly if that order ever changes.
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: docker-installer
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'refusing XFS migration to avoid orphaning running sandboxes'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'DOCKER_DIR/containers'
+
+  - it: enables docker live-restore in daemon.json by default
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '"live-restore": true'
+
+  - it: omits live-restore when disabled via values
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.dockerInstaller.liveRestore: false
+    asserts:
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '"live-restore": true'

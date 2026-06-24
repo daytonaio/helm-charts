@@ -1,0 +1,6 @@
+.state/
+.venv/
+*.swp
+*.swo
+*.bak
+.DS_Store

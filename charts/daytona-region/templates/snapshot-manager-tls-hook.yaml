@@ -121,6 +121,13 @@ spec:
               rm -rf "${WORK_DIR}"
           resources:
             {{- toYaml .Values.registration.resources | nindent 12 }}
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.registration.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

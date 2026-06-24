@@ -1,0 +1,90 @@
+# rclone S3 gateway: presents an S3-compatible HTTP API in front of Azure Blob.
+# This sidesteps the fact that Azure Blob does not natively speak S3 (its own
+# REST API is incompatible) so daytona-snapshot-manager - which only speaks S3 -
+# can use Azure Blob as a backend.
+#
+# Architecture:
+#   snapshot-manager ──S3 HTTP──> rclone-s3-gateway:8080 ──Azure Blob REST──> storage account
+#
+# Substituted via envsubst at runtime. Variables:
+#   AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY, RCLONE_ACCESS_KEY, RCLONE_SECRET_KEY,
+#   BLOB_BUCKET
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-config
+  namespace: daytona-region
+type: Opaque
+stringData:
+  rclone.conf: |
+    [azureblob]
+    type = azureblob
+    account = ${AZURE_STORAGE_ACCOUNT}
+    key = ${AZURE_STORAGE_KEY}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rclone-s3-gateway
+  namespace: daytona-region
+  labels:
+    app: rclone-s3-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rclone-s3-gateway
+  template:
+    metadata:
+      labels:
+        app: rclone-s3-gateway
+    spec:
+      containers:
+        - name: rclone
+          image: rclone/rclone:1.69
+          args:
+            - "serve"
+            - "s3"
+            - "--addr=:8080"
+            - "--auth-key=${RCLONE_ACCESS_KEY},${RCLONE_SECRET_KEY}"
+            - "--config=/config/rclone.conf"
+            - "--vfs-cache-mode=writes"
+            - "azureblob:${BLOB_BUCKET}"
+          ports:
+            - name: s3
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: cache
+              mountPath: /root/.cache
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: config
+          secret:
+            secretName: rclone-config
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rclone-s3-gateway
+  namespace: daytona-region
+  labels:
+    app: rclone-s3-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: rclone-s3-gateway
+  ports:
+    - name: s3
+      port: 8080
+      targetPort: 8080

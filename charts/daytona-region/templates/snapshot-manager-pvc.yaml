@@ -1,0 +1,28 @@
+{{- /*
+Registry data PVC for the snapshot-manager filesystem storage driver.
+Only rendered when driver=filesystem, persistence is enabled, and no
+existingClaim is supplied.
+*/ -}}
+{{- if and .Values.services.snapshotManager.enabled
+           (eq (.Values.services.snapshotManager.storage.driver | default "s3") "filesystem")
+           .Values.services.snapshotManager.storage.filesystem.persistence.enabled
+           (not .Values.services.snapshotManager.storage.filesystem.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "daytona.fullname" . }}-snapshot-manager-data
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snapshot-manager
+spec:
+  accessModes:
+    {{- toYaml (.Values.services.snapshotManager.storage.filesystem.persistence.accessModes | default (list "ReadWriteOnce")) | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.services.snapshotManager.storage.filesystem.persistence.size | default "50Gi" | quote }}
+  {{- $sc := .Values.services.snapshotManager.storage.filesystem.persistence.storageClass | default (.Values.global | default dict).storageClass }}
+  {{- if $sc }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+{{- end }}

@@ -16,6 +16,10 @@ regionName: ""
 # Example: "https://proxy.daytona.example.com" or "http://proxy.daytona.example.com:4000"
 proxyUrl: ""
 
+# Base domain for derived hostnames (optional). When set, ssh-gateway defaults SSH_GATEWAY_HOST
+# to ssh.<baseDomain> instead of deriving from proxyUrl.
+baseDomain: ""
+
 # Snapshot Manager URL (optional) - full URL to the snapshot manager service
 # When provided, the region registration will include this URL and the API will return
 # snapshotManagerUsername and snapshotManagerPassword credentials for basic auth
@@ -66,6 +70,12 @@ services:
       extraRules: []
       # Enable TLS
       tls: true
+      # Include the wildcard SAN (*.<proxyHostname>) in the proxy TLS certificate.
+      # OFF by default so the cert issues under an HTTP-01 ClusterIssuer (HTTP-01
+      # cannot validate wildcard SANs). Turn ON only with a DNS-01 issuer to get
+      # valid TLS on per-sandbox preview subdomains. The wildcard ROUTING rule is
+      # always emitted regardless of this flag.
+      wildcardTls: false
       # Enable self-signed certificates
       selfSigned: false
       # Custom TLS certificates as secrets
@@ -175,7 +185,33 @@ services:
       extraRules: []
       tls: true
     # Storage configuration
+    #
+    # This is the operator-owned S3-compatible bucket the snapshot-manager
+    # writes to and reads from. The Daytona declarative builder pulls
+    # build-context tarballs from the SAME bucket — every runner pod in this
+    # region must have AWS_* env vars pointing at the same bucket / region
+    # with credentials that can read and write. See `runner/README.md` and
+    # `charts/daytona-region/README.md` for the matching runner-side setup.
     storage:
+      # Storage driver: "s3" (default) or "filesystem".
+      # Use "filesystem" (registry data on a PVC) when no REAL S3 API is
+      # available. S3 shims like `rclone serve s3` are NOT sufficient: the
+      # registry's s3 driver (distribution v3) resumes blob uploads via
+      # ListMultipartUploads and nil-panics on the stub responses such
+      # gateways return. Snapshot data is rebuildable (re-push/transload),
+      # so a disk-backed PVC is a sound trade.
+      driver: "s3"
+      # Filesystem driver settings (only used when driver=filesystem)
+      filesystem:
+        persistence:
+          enabled: true
+          size: 50Gi
+          # Empty => default to global.storageClass (or the cluster default)
+          storageClass: ""
+          accessModes:
+            - ReadWriteOnce
+          # Bind an existing PVC instead of creating one
+          existingClaim: ""
       # S3 storage configuration
       s3:
         # AWS region (required)
@@ -270,6 +306,430 @@ services:
       annotations: {}
       name: ""
 
+  sshGateway:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-ssh-gateway
+      tag: ""
+      pullPolicy: IfNotPresent
+    service:
+      type: LoadBalancer
+      port: 2222
+      annotations: {}
+    apiKey: supersecretapikey
+    sshKeys:
+      privClientSSHKey: ""
+      pubClientSSHKey: ""
+      privGatewaySSHKey: ""
+    env:
+      SSH_GATEWAY_PORT: "2222"
+      SSH_GATEWAY_HOST: ""
+    extraVolumeMounts: []
+    extraVolumes: []
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    annotations: {}
+    podAnnotations: {}
+    replicaCount: 1
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+  runnermanager:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-runner-manager
+      # NOTE: keep a tag that exists on Docker Hub for this BYOC fork lineage.
+      # v0.183.0 has no published daytona-runner-manager image (ImagePullBackOff).
+      tag: "v0.158.4-4-byoc-amd64"
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 3010
+      annotations: {}
+    # API_TOKEN (Daytona org Bearer token) is read from a Kubernetes secret — not from env below.
+    # Defaults to the same secret as region registration: {fullname}-daytona-api-key (key from registration.secretKeys.apiKey),
+    # or registration.existingSecret when set. Override with apiTokenSecret if needed.
+    apiTokenSecret:
+      name: ""
+      key: ""
+    # Runner-manager API_KEY (distinct from Daytona org token) must come from a secret you create.
+    # Example: kubectl create secret generic my-rm-api-key -n <ns> --from-literal=API_KEY='<value-from-central-daytona>'
+    apiKeySecret:
+      name: ""
+      key: "API_KEY"
+    env:
+      API_PORT: "3010"
+      # Floor of ready runners the manager keeps. 2 so the region never runs on a
+      # single runner — losing/rolling one always leaves a peer for sandboxes to
+      # migrate onto. Requires a sandbox node pool of >= MIN_RUNNERS nodes.
+      MIN_RUNNERS: "2"
+      PROVIDER_TYPE: "kubernetes"
+      LOG_LEVEL: "info"
+      POD_WAIT_TIMEOUT: "600"
+      KUBECONFIG_PATH: ""
+      SERVER_URL: ""
+      ENVIRONMENT: "production"
+      RUNNER_API_PORT: "3000"
+      PLACEHOLDER_POD_IMAGE: "registry.k8s.io/pause:3.6"
+      # Image used for runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner image built from services.runner.image.
+      RUNNER_POD_IMAGE: ""
+      # ServiceAccount used by runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner ServiceAccount created by this chart.
+      RUNNER_POD_SERVICE_ACCOUNT: ""
+      # ConfigMap mounted into runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner ConfigMap created by this chart
+      # (<release>-<chart>-runner-config).
+      RUNNER_POD_CONFIG_MAP: ""
+      # Secret mounted into runner pods spawned by the runner-manager.
+      # If empty, defaults to the runner Secret created by this chart
+      # (<release>-<chart>-runner-secrets).
+      RUNNER_POD_SECRET: ""
+      DAYTONA_PRODUCTION_API: "true"
+    extraEnv: []
+    extraVolumeMounts: []
+    extraVolumes: []
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    annotations: {}
+    podAnnotations: {}
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+    rbac:
+      create: true
+
+  # runnerReaper: BYOC stale-runner reaper CronJob. In BYOC the control-plane DB
+  # lives in Daytona Cloud, so a cluster-local database reaper cannot run here.
+  # This calls the Daytona Cloud runner API to retire runners whose node was
+  # rolled/lost: runners stuck in state=unresponsive for >= graceSeconds are marked
+  # unschedulable+draining (handing them to the platform decommission pipeline that
+  # archives/migrates their backed-up sandboxes off), and runners already in
+  # state=decommissioned are optionally deleted.
+  #
+  # REQUIRES (else the API 401/403s and the job fails loudly): an org API key
+  # (daytonaApiKey) with read:runners + write:runners + delete:runners scopes AND
+  # the `organization_infrastructure` feature flag enabled for your Daytona org.
+  # See docs/operations.md. Default off; the BYOC cloud values
+  # templates (scripts/{aws,azure,gcs}-setup/values-region.yaml.tmpl) opt in.
+  runnerReaper:
+    enabled: false
+    # Cron schedule (UTC). Default every 10 minutes.
+    schedule: "*/10 * * * *"
+    # Only act once a runner has been unresponsive at least this long, so a brief
+    # control-plane<->runner blip never drains a healthy runner. (The API itself
+    # flags a runner unresponsive after ~60s of missed heartbeats.)
+    graceSeconds: 900
+    # true: log the runners it WOULD drain/delete without calling the API.
+    dryRun: false
+    # Delete runners already in state=decommissioned (frees the stale DB row).
+    deleteDecommissioned: true
+    activeDeadlineSeconds: 300
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+    # Image needs curl + jq. Empty fields inherit registration.image
+    # (daytonaio/kubectl, which bundles curl + jq + kubectl).
+    image:
+      repository: ""
+      tag: ""
+      pullPolicy: ""
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    nodeSelector: {}
+    tolerations: []
+
+  runner:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: daytonaio/daytona-runner
+      tag: ""
+      pullPolicy: IfNotPresent
+    # mainContainer: opt-in K8s-native runner container that runs `daytona-runner` as a
+    # privileged container inside the DaemonSet pod (sibling to the host-bootstrap
+    # docker-installer + daytona-binary-installer sidecars). When `enabled: false` (default),
+    # the chart preserves the historical sidecar-only behavior — the runner process is
+    # started outside the chart, exactly as before this knob existed. When `enabled: true`,
+    # the chart renders a real `runner` container with envFrom config+secret, hostPort api/ssh,
+    # var-lib-daytona hostPath mount, and (when insecureRegistries set) a runner-side
+    # daemon.json ConfigMap mount. This is the canonical K8s-native BYOC path.
+    mainContainer:
+      enabled: false
+    # ports exposed by the runner main container (and also opened as hostPort on the node).
+    ports:
+      api: 3000
+      ssh: 2220
+    # hostPaths used by the runner main container's hostPath mounts.
+    hostPaths:
+      varLibDaytona: /var/lib/daytona
+    # docker.daemonConfig.enabled: opt-in to mount a chart-rendered /etc/docker/daemon.json
+    # into the runner container even when insecureRegistries is empty. Useful for operators
+    # who want the runner container's docker daemon config to be deterministic and survive
+    # host drift caused by other DaemonSet pods writing to the host /etc/docker/daemon.json.
+    docker:
+      daemonConfig:
+        enabled: false
+    # aws.credentialMode controls how AWS credentials reach the runner pod.
+    #   static — emit AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY into runner-secrets from
+    #            services.runner.env.* (existing behavior, backward compatible).
+    #   irsa   — omit AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY entirely; rely on the
+    #            ServiceAccount's eks.amazonaws.com/role-arn annotation to inject an
+    #            IRSA-projected web-identity token at runtime. Set the role-arn under
+    #            services.runner.serviceAccount.annotations.
+    # aws.allowEmptyStaticKeyShim — when credentialMode=irsa, emit empty-string
+    # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY to satisfy the upstream daytona-runner
+    # config validator (which currently hard-requires these keys at startup; see
+    # docs/issues-summary.md). The AWS SDK still uses the IRSA
+    # token at runtime — the empty strings just unblock the startup validator. Defaults
+    # to false; opt-in workaround only.
+    aws:
+      credentialMode: static
+      allowEmptyStaticKeyShim: false
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+      # automountServiceAccountToken — unset by default so the chart renders identically
+      # to pre-knob behavior (kubelet applies its own default, which is true). Set to false
+      # to disable, true to enforce. IRSA does NOT require true — the IRSA web-identity
+      # token is injected via a separate projected volume by the eks-pod-identity-webhook
+      # regardless of this value.
+      # automountServiceAccountToken: true
+    env:
+      API_PORT: "3000"
+      ENVIRONMENT: "production"
+      CONTAINER_RUNTIME: ""
+      LOG_FILE_PATH: "/home/daytona/runner/runner.log"
+      LOG_LEVEL: "info"
+      SSH_GATEWAY_ENABLE: "true"
+      SSH_GATEWAY_PORT: "2220"
+      RESOURCE_LIMITS_DISABLED: "false"
+      CACHE_RETENTION_DAYS: "7"
+      DAEMON_START_TIMEOUT_SEC: "30"
+      SANDBOX_START_TIMEOUT_SEC: "60"
+      DAYTONA_API_URL: ""
+      SERVER_URL: ""
+      API_TOKEN: "secret_api_token"
+      AWS_REGION: ""
+      AWS_ENDPOINT_URL: ""
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      AWS_DEFAULT_BUCKET: ""
+      SSH_PUBLIC_KEY: ""
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+    affinity: {}
+    podAnnotations: {}
+    hostAliases: []
+    registryProxy:
+      enabled: false
+      image: "alpine/socat:1.7.4.4-r0"
+      listenPort: 5000
+      targetHost: "registry.external.com"
+      targetPort: 443
+    dockerInstaller:
+      enabled: true
+      image: "ubuntu:24.04"  # keep in lockstep with the Ubuntu 24.04 node requirement (noble deb URLs below)
+      xfsStorageSize: "50G"
+      # Keep running sandbox containers alive across a host Docker daemon restart
+      # (sets daemon.json "live-restore"). The installer already skips restarting
+      # dockerd on a no-op DaemonSet roll; this protects sandboxes during the
+      # restarts it cannot avoid (a genuine daemon.json or runtime change).
+      # Disable only if your sysbox/runtime build misbehaves with live-restore —
+      # with it off such a restart stops running sandboxes (recoverable, not
+      # orphaned).
+      liveRestore: true
+      # DNS resolvers added to /etc/docker/daemon.json. All containers started
+      # by this Docker daemon will use these resolvers.
+      # Example:
+      #   dns:
+      #     - "10.0.0.2"
+      #     - "8.8.8.8"
+      dns: []
+      # Registries Docker is allowed to pull from without TLS validation.
+      # Use this when:
+      #   - your internal registry is plain HTTP, or
+      #   - it uses HTTPS with a self-signed/internal CA and you'd rather
+      #     not inject that CA into the host trust store on every node.
+      # Each entry is "host" or "host:port". Setting this lets you avoid
+      # issuing or distributing TLS certs for internal sandbox image hosts
+      # entirely.
+      # Example:
+      #   insecureRegistries:
+      #     - "harbor.internal.example.com"     # HTTPS, self-signed cert
+      #     - "registry.internal.svc:5000"      # plain HTTP
+      #     - "10.0.0.5:5000"                   # IP form
+      # NOTE: if registryProxy.enabled=true below, you almost always also
+      # want to list the proxy's localhost endpoint here (e.g.
+      # "localhost:5000") so Docker doesn't try to TLS-validate the
+      # in-pod socat forwarder.
+      insecureRegistries: []
+      # dynamicHostAliases: hostnames that the docker-installer initContainer resolves
+      # at install time (via `getent hosts <name>` from inside the pod, which sees
+      # Kubernetes DNS) and then writes into the HOST's /etc/hosts via nsenter using
+      # the shared add_host_alias function with awk-tmp-merge dedupe. Use this when
+      # the host docker daemon needs to reach a cluster-service hostname (e.g.
+      # "snapshot-manager", "registry.internal") that is only resolvable through
+      # CoreDNS. Static entries with explicit IPs should go in services.runner.hostAliases
+      # instead (those skip the getent step).
+      dynamicHostAliases: []
+      airgapped:
+        enabled: false
+        packagesImage: "daytonaio/daytona-runner-packages:v0.0.2"
+    # BuildKit configuration written to /etc/buildkit/buildkitd.toml on the
+    # sandbox node host by the docker-installer sidecar.
+    # Why: build ("RUN ...") containers do not reliably inherit the docker
+    # daemon's "dns" setting — standalone buildkitd never reads daemon.json,
+    # and on GKE the inherited node /etc/resolv.conf points at the GCE
+    # metadata resolver (169.254.169.254), which networkPolicy below blocks.
+    # Set this together with dockerInstaller.dns so both sandbox containers
+    # AND snapshot builds resolve via operator-chosen servers. Nothing is
+    # written while nameservers is empty.
+    buildkit:
+      dns:
+        # e.g. ["8.8.8.8", "1.1.1.1"]
+        nameservers: []
+        searchDomains: []
+        # e.g. ["edns0"]
+        options: []
+    # Per-sandbox CPU re-limiter ("fractional vCPU"). Upstream the runner
+    # grants sandboxes whole cores (cpu-quota = declared vCPUs x 100000, 1
+    # vCPU minimum). This sidecar watches the HOST docker daemon and rewrites
+    # each new sandbox container's cgroup CPU limit to limitMillicoresPerVcpu
+    # per declared vCPU — e.g. 250 turns 1/2/3-vCPU sandboxes into
+    # 0.25/0.5/0.75-core sandboxes (Daytona still ACCOUNTS whole vCPUs; this
+    # is node-level oversubscription). Applied once per container (marker
+    # files under stateDir); containers without a CPU quota
+    # (RESOURCE_LIMITS_DISABLED=true) are left untouched.
+    sandboxResources:
+      enabled: false
+      # cgroup CPU LIMIT per declared sandbox vCPU, in millicores.
+      # 1000 = upstream behavior (1 vCPU -> 1 full core); 250 = quarter core.
+      limitMillicoresPerVcpu: 250
+      # cgroup cpu.shares per declared vCPU — the docker analog of a
+      # Kubernetes cpu REQUEST (matters only under contention). 0 keeps the
+      # docker default (1024 flat per container).
+      requestMillicoresPerVcpu: 0
+      reconcileSeconds: 10
+      image: "docker:27.4.1-cli"
+      stateDir: /var/lib/daytona/sandbox-cpu-state
+    # Sandbox egress policy, enforced with iptables on the sandbox node host
+    # (chain SBX_EGRESS hooked from DOCKER-USER for docker0/br-+ bridges,
+    # plus an SBX_INPUT guard for host-local ports). Without it sandbox
+    # egress is open at L3: a process inside a sandbox can reach VPC/cluster
+    # service IPs, the kubelet on :10250, the node sshd on :22 and the cloud
+    # metadata endpoint (169.254.169.254). Programmed via nsenter by a
+    # reconciler sidecar; rules survive dockerd restarts and are re-asserted
+    # every reconcileSeconds. Return traffic of runner->sandbox connections
+    # is always allowed (conntrack), and dockerInstaller.dns entries are
+    # automatically exempted so DNS hardening cannot be broken by the policy.
+    networkPolicy:
+      enabled: false
+      # blocklist: allow all sandbox egress EXCEPT blockCIDRs/blockHostPorts.
+      # allowlist: deny ALL sandbox egress except allowCIDRs (+ dns servers
+      #            and established flows) — "deny by default".
+      policyMode: "blocklist"
+      blockCIDRs:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 100.64.0.0/10
+        - 169.254.0.0/16
+      allowCIDRs: []
+      blockHostPorts: [22, 10250]
+      reconcileSeconds: 30
+      # Defaults to dockerInstaller.image (already present on the node).
+      image: ""
+    # Sandbox volume (volume.share) backend support — requires
+    # mainContainer.enabled=true (the mounts are added to the runner main
+    # container). Upstream the runner shells out to a hardcoded `mount-s3`
+    # binary which is NOT in the stock Alpine runner image, and the FUSE
+    # mount must land on the HOST under hostMountPath so the host dockerd
+    # can bind-mount it into sandboxes. When backend is set this chart
+    # bind-mounts hostMountPath with Bidirectional propagation, injects a
+    # mount-s3 shim for gcs/rclone backends, and runs a preflight Job that
+    # fails fast when the runner image lacks the required binary. See
+    # docs/operations.md.
+    volumes:
+      # "" (disabled, upstream behavior) | s3 | gcs | rclone
+      backend: ""
+      hostMountPath: "/mnt"
+      preflight:
+        enabled: true
+      gcs:
+        # Path INSIDE the runner container to a GCP service-account JSON key
+        # used by the gcsfuse shim (mount it via extraVolumeMounts below).
+        credentialsFile: ""
+      rclone:
+        extraArgs: []
+    # daemonInstaller places the per-sandbox binaries (daemon and
+    # computer-use) on the host node at the exact paths that the daytona-runner
+    # uses as Docker bind-mount sources when creating sandbox containers.
+    #
+    # Background: daytona-runner extracts static/daemon-amd64 and
+    # static/daytona-computer-use from its own binary into
+    # /usr/local/bin/.tmp/binaries/ inside its container. It then tells the
+    # host Docker daemon to bind-mount those paths into each sandbox. Because
+    # Docker runs on the host, it resolves the source paths against the host
+    # filesystem - if the file isn't there, Docker creates an empty directory
+    # in its place and the sandbox fails with a confusing "permission denied"
+    # when it tries to exec /usr/local/bin/daytona (you can't exec a dir).
+    #
+    # This installer fixes that by pre-populating those exact host paths from
+    # the binaries embedded in the current runner image.
+    daemonInstaller:
+      enabled: true
+      # Directory on the host node where the binaries will be installed. Must
+      # match the runner's bind-mount source (currently hardcoded upstream to
+      # /usr/local/bin/.tmp/binaries relative to the runner's WORKDIR).
+      hostSrcDir: "/usr/local/bin/.tmp/binaries"
+      # Filenames (inside hostSrcDir) to install. The runner embeds these
+      # under static/<name> and currently references only amd64 variants.
+      binaries:
+        - daemon-amd64
+        - daytona-computer-use
+      # How long (seconds) to wait for the runner to extract the embedded
+      # binaries before retrying the extraction.
+      extractTimeoutSec: 60
+      # How often (seconds) to re-check that the on-host binaries match the
+      # ones embedded in the current runner image, re-installing if they
+      # differ or have been removed/replaced with empty dirs by Docker.
+      refreshIntervalSec: 300
+    extraEnv: []
+    extraVolumeMounts: []
+    extraVolumes: []
+
 # Region registration configuration
 # When enabled, a pre-install hook will call the Daytona API to register this region
 # and store the response in a Kubernetes secret for use by other services
@@ -307,6 +767,27 @@ tolerations: []
 
 # Global affinity (fallback)
 affinity: {}
+
+# Custom DNS for every pod RENDERED BY THIS CHART: proxy, ssh-gateway,
+# runner-manager, snapshot-manager, runner DaemonSet, the volume-preflight
+# Job and the registration/TLS hook Jobs. Does NOT reach the sandbox
+# containers themselves — sandbox/build DNS stays on
+# services.runner.dockerInstaller.dns and services.runner.buildkit.dns.
+#
+# dnsPolicy: standard pod dnsPolicy (e.g. "None", which requires
+# dnsConfig.nameservers). NOT applied to the runner DaemonSet: it runs
+# hostNetwork and must keep ClusterFirstWithHostNet, but it still receives
+# dnsConfig (entries are merged into its kubelet-generated resolv.conf).
+dnsPolicy: ""
+# dnsConfig: standard pod dnsConfig, copied verbatim into every pod spec.
+# Example:
+# dnsConfig:
+#   nameservers: ["10.0.0.2"]
+#   searches: ["corp.example.com"]
+#   options:
+#     - name: ndots
+#       value: "2"
+dnsConfig: {}
 
 # Pod security context
 podSecurityContext:

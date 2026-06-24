@@ -1,0 +1,142 @@
+# daytona-region (BYOC) helm values - GCP / GKE, K8s-native flow.
+# Rendered by scripts/gcs-setup/up.sh via envsubst against operator prompts.
+#
+# Required ${VAR} placeholders (set by up.sh from prompts or computed):
+#   BASE_DOMAIN                  - public DNS base, e.g. byoc.example.com
+#   REGION_NAME                  - Daytona region name
+#   DAYTONA_API_URL              - Daytona Cloud API URL
+#   DAYTONA_API_KEY              - Daytona Cloud admin API key (secret)
+#   GCS_LOCATION                 - GCS bucket location, e.g. us-central1
+#   GCS_BUCKET                   - GCS bucket name (snapshots + build context via interop)
+#   HMAC_ACCESS_KEY              - GCS HMAC access ID (tied to service-account)
+#   HMAC_SECRET_KEY              - GCS HMAC secret (tied to service-account, secret)
+#   RUNNER_AWS_CREDENTIAL_MODE   - "static" (Workload Identity wiring is future work)
+#   GCP_SERVICE_ACCOUNT_EMAIL    - WI placeholder (currently unused)
+#   RUNNER_IMAGE_TAG             - daytona-runner image tag
+#   INTERNAL_REGISTRY_HOST       - optional cluster-DNS hostname for an internal Docker registry (empty = none)
+#   PRIV_CLIENT_B64              - base64 of the gateway->sandbox client PRIVATE key file
+#   PUB_CLIENT_B64               - base64 of the matching client PUBLIC key file
+#   PRIV_GATEWAY_B64             - base64 of the gateway HOST key file
+#
+# IMPORTANT (GCP-specific): GCS interop XML API at https://storage.googleapis.com
+# is S3-compatible enough for the RUNNERS (plain PUT/GET backups + build
+# context with HMAC credentials, no gateway needed — unlike Azure). The
+# SNAPSHOT-MANAGER does NOT use it: the registry s3 driver (distribution v3)
+# resumes blob uploads via ListMultipartUploads, a corner of the S3 API that
+# non-AWS implementations under-specify (the same class of gap nil-panics the
+# driver on S3 shims; upstream distribution ships a NATIVE gcs driver for this
+# reason, which the snapshot-manager does not compile). The registry runs on
+# the chart's filesystem driver (PVC) — snapshots are rebuildable.
+
+baseDomain: "${BASE_DOMAIN}"
+regionName: "${REGION_NAME}"
+proxyUrl: "https://proxy.${BASE_DOMAIN}"
+snapshotManagerUrl: "https://snapshots.${BASE_DOMAIN}"
+daytonaApiUrl: "${DAYTONA_API_URL}"
+daytonaApiKey: "${DAYTONA_API_KEY}"
+
+global:
+  storageClass: "standard-rwo"
+
+registration:
+  enabled: true
+
+services:
+  # BYOC stale-runner reaper (see docs/operations.md).
+  # REQUIRES an org API key with read/write/delete:runners scopes + the
+  # organization_infrastructure feature flag enabled for your Daytona org.
+  runnerReaper:
+    enabled: true
+  proxy:
+    ingress:
+      enabled: true
+      className: "nginx"
+      tls: true
+      # wildcardTls=true requires a DNS-01 issuer; default false issues a
+      # non-wildcard proxy cert that succeeds under HTTP-01. Set by up.sh
+      # (true only when CLOUDFLARE_API_TOKEN is provided for DNS-01).
+      wildcardTls: ${PROXY_WILDCARD_TLS}
+      selfSigned: false
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        # Large file uploads via the dashboard/SDK; "0" disables nginx's 1 MB cap.
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+
+  sshGateway:
+    enabled: true
+    # BOOTSTRAP value only: the gateway validates SSH sessions against the
+    # Daytona API and the org key 403s on ValidateSshAccess. up.sh swaps in the
+    # REGION-SCOPED key right after install (omc::region_sshgateway_finalize) —
+    # that key cannot exist before the registration hook creates the region.
+    apiKey: "${DAYTONA_API_KEY}"
+    sshKeys:
+      privClientSSHKey: "${PRIV_CLIENT_B64}"
+      pubClientSSHKey: "${PUB_CLIENT_B64}"
+      privGatewaySSHKey: "${PRIV_GATEWAY_B64}"
+
+  snapshotManager:
+    enabled: true
+    logLevel: "info"
+    ingress:
+      enabled: true
+      className: "nginx"
+      hostname: "snapshots.${BASE_DOMAIN}"
+      tls: true
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        # Docker registry layer pushes are hundreds of MB to GB.
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    storage:
+      # Registry data on a PVC — see the header for why GCS interop cannot
+      # back the registry s3 driver.
+      driver: "filesystem"
+      filesystem:
+        persistence:
+          enabled: true
+          size: 64Gi
+      deleteEnabled: true
+
+  runner:
+    image:
+      tag: "${RUNNER_IMAGE_TAG}"
+    # The runner-manager owns the real (cloud-registered) runner pods; they
+    # envFrom runner-config/runner-secrets and bind hostPorts 3000/2220. A
+    # static mainContainer runner never registers with Daytona Cloud and
+    # would fight the manager's pods for those hostPorts — keep the
+    # DaemonSet sidecar-only (host prep: docker + daemon binaries).
+    mainContainer:
+      enabled: false
+    ports:
+      api: 3000
+      ssh: 2220
+    hostPaths:
+      varLibDaytona: /var/lib/daytona
+    aws:
+      credentialMode: "${RUNNER_AWS_CREDENTIAL_MODE}"
+      allowEmptyStaticKeyShim: false
+    serviceAccount:
+      create: true
+      annotations:
+        # GKE Workload Identity placeholder (future work). Currently empty.
+        iam.gke.io/gcp-service-account: "${GCP_SERVICE_ACCOUNT_EMAIL}"
+      automountServiceAccountToken: true
+    env:
+      AWS_REGION: "${GCS_LOCATION}"
+      AWS_ENDPOINT_URL: "https://storage.googleapis.com"
+      AWS_DEFAULT_BUCKET: "${GCS_BUCKET}"
+      AWS_ACCESS_KEY_ID: "${HMAC_ACCESS_KEY}"
+      AWS_SECRET_ACCESS_KEY: "${HMAC_SECRET_KEY}"
+      # Must be the base64 of the SAME client pubkey the gateway holds, or
+      # sandboxes refuse gateway SSH connections (silent SSH-only failure).
+      SSH_PUBLIC_KEY: "${PUB_CLIENT_B64}"
+    dockerInstaller:
+      dynamicHostAliases: []
+      insecureRegistries: []

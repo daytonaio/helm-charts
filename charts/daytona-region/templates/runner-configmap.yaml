@@ -1,0 +1,29 @@
+{{- if .Values.services.runner.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "daytona.fullname" . }}-runner-config
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner
+data:
+  # Configuration
+  API_PORT: {{ .Values.services.runner.env.API_PORT | default "3000" | quote }}
+  ENVIRONMENT: {{ .Values.services.runner.env.ENVIRONMENT | default "production" | quote }}
+  CONTAINER_RUNTIME: {{ .Values.services.runner.env.CONTAINER_RUNTIME | default "" | quote }}
+  LOG_FILE_PATH: {{ .Values.services.runner.env.LOG_FILE_PATH | default "/home/daytona/runner/runner.log" | quote }}
+  LOG_LEVEL: {{ .Values.services.runner.env.LOG_LEVEL | default "info" | quote }}
+  SSH_GATEWAY_ENABLE: {{ .Values.services.runner.env.SSH_GATEWAY_ENABLE | default "true" | quote }}
+  SSH_GATEWAY_PORT: {{ .Values.services.runner.env.SSH_GATEWAY_PORT | default "2220" | quote }}
+  RESOURCE_LIMITS_DISABLED: {{ .Values.services.runner.env.RESOURCE_LIMITS_DISABLED | default "false" | quote }}
+  CACHE_RETENTION_DAYS: {{ .Values.services.runner.env.CACHE_RETENTION_DAYS | default "7" | quote }}
+  DAEMON_START_TIMEOUT_SEC: {{ .Values.services.runner.env.DAEMON_START_TIMEOUT_SEC | default "30" | quote }}
+  SANDBOX_START_TIMEOUT_SEC: {{ .Values.services.runner.env.SANDBOX_START_TIMEOUT_SEC | default "60" | quote }}
+  # Note: DAYTONA_API_URL, SERVER_URL, API_TOKEN, AWS_*, and SSH_PUBLIC_KEY
+  # are stored in the companion Secret <fullname>-runner-secrets and injected
+  # into runner pods via envFrom by the runner-manager.
+  # Static
+  DAEMON_BINARIES_DIR: "/var/lib/daytona/binaries"
+  CONFIG_FILE_PATH: {{ .Values.services.runner.env.CONFIG_FILE_PATH | default "/host-token/token.txt" | quote }}
+{{- end }}

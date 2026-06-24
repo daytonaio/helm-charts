@@ -1,0 +1,80 @@
+suite: runner reaper CronJob (BYOC stale-runner cleanup)
+templates:
+  - runner-reaper-cronjob.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: disabled by default renders nothing
+    set:
+      regionName: "test"
+      proxyUrl: "https://proxy.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: enabled renders exactly two documents (ServiceAccount + CronJob)
+    set:
+      regionName: "test"
+      proxyUrl: "https://proxy.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runnerReaper.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: document 0 is the reaper ServiceAccount
+    documentIndex: 0
+    set:
+      regionName: "test"
+      proxyUrl: "https://proxy.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runnerReaper.enabled: true
+    asserts:
+      - isKind:
+          of: ServiceAccount
+      - matchRegex:
+          path: metadata.name
+          pattern: runner-reaper$
+
+  - it: document 1 is the reaper CronJob with schedule/env/image wired
+    documentIndex: 1
+    set:
+      regionName: "test"
+      proxyUrl: "https://proxy.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runnerReaper.enabled: true
+      services.runnerReaper.schedule: "*/5 * * * *"
+      services.runnerReaper.graceSeconds: 1200
+    asserts:
+      - isKind:
+          of: CronJob
+      - equal:
+          path: spec.schedule
+          value: "*/5 * * * *"
+      - equal:
+          path: spec.concurrencyPolicy
+          value: Forbid
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: "daytonaio/kubectl:1.34.2-r2"
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: DAYTONA_API_URL
+            value: "https://api.example.com/api"
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: GRACE_SECONDS
+            value: "1200"
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: DRY_RUN
+            value: "false"

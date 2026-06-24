@@ -1,0 +1,115 @@
+{{- if and .Values.services.runner.enabled .Values.services.runner.mainContainer.enabled .Values.services.runner.volumes.backend .Values.services.runner.volumes.preflight.enabled }}
+{{- /*
+Mount-binary preflight for sandbox volume support.
+
+volume.share fails at RUNTIME (volumes stuck mounting, sandboxes erroring on
+start) when the runner image lacks the mount tool for the selected backend:
+the stock daytonaio/daytona-runner image is Alpine/musl and mount-s3 ships
+glibc builds only, so `mount-s3` is either absent or fails with a loader
+error. This hook runs the EXACT runner image before install/upgrade and
+executes the binary (not just `command -v`) so both failure modes surface as
+a failed release instead of broken sandboxes later. See
+docs/operations.md and
+docs/issues-summary.md.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "daytona.fullname" . }}-volume-preflight
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: volume-preflight
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: volume-preflight
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Run on the sandbox pool: validates the binary against the exact node
+      # architecture and pre-pulls the runner image as a side effect.
+      nodeSelector:
+        daytona-sandbox-c: "true"
+      tolerations:
+        - key: "sandbox"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: preflight
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ .Values.services.runner.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.runner.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              BACKEND="{{ .Values.services.runner.volumes.backend }}"
+              echo "volume preflight: backend=${BACKEND} image=$(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME || echo unknown)"
+              fail() {
+                echo "" >&2
+                echo "PREFLIGHT FAILED: $1" >&2
+                echo "" >&2
+                echo "The stock daytonaio/daytona-runner image is Alpine-based and does" >&2
+                echo "not bundle volume mount tools (mount-s3 publishes glibc builds" >&2
+                echo "only). Bake the required binary into a custom runner image, or" >&2
+                echo "set services.runner.volumes.backend=\"\" to disable volume" >&2
+                echo "support. Details: docs/operations.md" >&2
+                exit 1
+              }
+              check_bin() {
+                # run the binary, not just `command -v`: a glibc binary on a
+                # musl image is present-but-unrunnable ("not found" from the
+                # missing loader) and only execution catches it.
+                command -v "$1" >/dev/null 2>&1 || fail "$1 not found in runner image PATH"
+                "$1" $2 >/dev/null 2>&1 || fail "$1 is present but not executable on this image (missing glibc loader?) — run '$1 $2' in the image to inspect"
+                echo "ok: $1 is present and executable"
+              }
+              case "$BACKEND" in
+                s3)     check_bin mount-s3 --version ;;
+                gcs)    check_bin gcsfuse --version
+                        {{- if not .Values.services.runner.volumes.gcs.credentialsFile }}
+                        echo "note: volumes.gcs.credentialsFile is unset — gcsfuse will rely on ambient credentials, which the runner does NOT forward to mount subprocesses; mounts will fail unless the node metadata path works"
+                        {{- end }} ;;
+                rclone) check_bin rclone version ;;
+                *)      fail "unknown volumes.backend '$BACKEND' (expected s3|gcs|rclone)" ;;
+              esac
+              # The runner launches mounts via systemd-run when /run/systemd/system
+              # is visible (true on this chart: the host's /var/run is mounted into
+              # the runner container). A missing systemd-run then breaks EVERY mount.
+              if command -v systemd-run >/dev/null 2>&1; then
+                echo "ok: systemd-run present"
+              else
+                echo "WARNING: systemd-run not found in the runner image. The runner" >&2
+                echo "invokes mounts through systemd-run when /run/systemd/system" >&2
+                echo "exists in its mount namespace — on this chart's topology that" >&2
+                echo "path leaks in from the host via the /var/run mount, so volume" >&2
+                echo "mounts WILL fail at runtime unless your image includes" >&2
+                echo "systemd-run (util-linux/systemd) or you patch the runner." >&2
+                echo "See docs/issues-summary.md" >&2
+              fi
+              echo "volume preflight passed"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+{{- end }}

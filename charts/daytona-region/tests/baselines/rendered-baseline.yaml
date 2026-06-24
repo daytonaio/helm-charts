@@ -1,0 +1,1532 @@
+---
+# Source: daytona-region/templates/proxy-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-daytona-region-proxy
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: proxy
+
+---
+# Source: daytona-region/templates/runner-manager-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-daytona-region-runnermanager
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runnermanager
+
+---
+# Source: daytona-region/templates/runner-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-daytona-region-runner
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runner
+
+---
+# Source: daytona-region/templates/ssh-gateway-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-daytona-region-ssh-gateway
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: ssh-gateway
+
+---
+# Source: daytona-region/templates/runner-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-daytona-region-runner-secrets
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runner
+type: Opaque
+stringData:
+  DAYTONA_API_URL: "https://api.daytona.example.com/api"
+  SERVER_URL: "https://api.daytona.example.com/api"
+  API_TOKEN: "secret_api_token"
+  AWS_REGION: ""
+  AWS_ENDPOINT_URL: ""
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+  AWS_DEFAULT_BUCKET: ""
+  SSH_PUBLIC_KEY: ""
+
+---
+# Source: daytona-region/templates/ssh-gateway-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-daytona-region-secret-ssh
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+data:
+  SSH_PRIVATE_KEY: 
+  SSH_PRIVATE_PUB_KEY: 
+  SSH_HOST_KEY: 
+  API_KEY: c3VwZXJzZWNyZXRhcGlrZXk=
+
+---
+# Source: daytona-region/templates/runner-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-daytona-region-runner-config
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runner
+data:
+  # Configuration
+  API_PORT: "3000"
+  ENVIRONMENT: "production"
+  CONTAINER_RUNTIME: ""
+  LOG_FILE_PATH: "/home/daytona/runner/runner.log"
+  LOG_LEVEL: "info"
+  SSH_GATEWAY_ENABLE: "true"
+  SSH_GATEWAY_PORT: "2220"
+  RESOURCE_LIMITS_DISABLED: "false"
+  CACHE_RETENTION_DAYS: "7"
+  DAEMON_START_TIMEOUT_SEC: "30"
+  SANDBOX_START_TIMEOUT_SEC: "60"
+  # Note: DAYTONA_API_URL, SERVER_URL, API_TOKEN, AWS_*, and SSH_PUBLIC_KEY
+  # are stored in the companion Secret <fullname>-runner-secrets and injected
+  # into runner pods via envFrom by the runner-manager.
+  # Static
+  DAEMON_BINARIES_DIR: "/var/lib/daytona/binaries"
+  CONFIG_FILE_PATH: "/host-token/token.txt"
+
+---
+# Source: daytona-region/templates/runner-docker-installer-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-daytona-region-runner-docker-installer-config
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runner
+data:
+  XFS_STORAGE_SIZE: "50G"
+  AIRGAPPED_MODE: "false"
+
+---
+# Source: daytona-region/templates/runner-manager-clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: release-name-daytona-region-runner-manager-nodes
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runnermanager
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "update", "patch"]
+
+---
+# Source: daytona-region/templates/runner-manager-clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: release-name-daytona-region-runner-manager-nodes
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runnermanager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: release-name-daytona-region-runner-manager-nodes
+subjects:
+- kind: ServiceAccount
+  name: release-name-daytona-region-runnermanager
+  namespace: default
+
+---
+# Source: daytona-region/templates/runner-manager-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: release-name-daytona-region-runnermanager
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runnermanager
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "create", "delete", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "create", "update", "patch", "delete", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "update", "patch", "delete", "watch"]
+
+---
+# Source: daytona-region/templates/runner-manager-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: release-name-daytona-region-runnermanager
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runnermanager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: release-name-daytona-region-runnermanager
+subjects:
+- kind: ServiceAccount
+  name: release-name-daytona-region-runnermanager
+  namespace: default
+
+---
+# Source: daytona-region/templates/proxy-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: release-name-daytona-region-proxy
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: proxy
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/component: proxy
+
+---
+# Source: daytona-region/templates/runner-manager-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-daytona-region-runnermanager
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runnermanager
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3010
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/component: runnermanager
+
+---
+# Source: daytona-region/templates/ssh-gateway-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-daytona-region-ssh-gateway
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: ssh-gateway
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 2222
+      targetPort: ssh
+      protocol: TCP
+      name: ssh
+  selector:
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/component: ssh-gateway
+
+---
+# Source: daytona-region/templates/runner-daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: release-name-daytona-region-runner
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runner
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: daytona-region
+      app.kubernetes.io/instance: release-name
+      app.kubernetes.io/component: runner
+      daytona.io/runner: "true"
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: daytona-region
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/component: runner
+        daytona.io/runner: "true"
+    spec:
+      nodeSelector:
+        daytona-sandbox-c: "true"
+      tolerations:
+        - key: "sandbox"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: release-name-daytona-region-runner
+      terminationGracePeriodSeconds: 30
+      containers:
+        # Docker installer sidecar - installs Docker on the host node
+        - name: docker-installer
+          image: ubuntu:24.04
+          securityContext:
+            privileged: true
+          envFrom:
+            - configMapRef:
+                name: release-name-daytona-region-runner-docker-installer-config
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+              mountPropagation: Bidirectional
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting Docker and Sysbox installation on host node..."
+              echo "XFS Storage Size: ${XFS_STORAGE_SIZE}"
+              echo "Airgapped Mode: ${AIRGAPPED_MODE}"
+              
+              # Shared add_host_alias() function — used by BOTH the static hostAliases loop
+              # below and the dynamicHostAliases loop. The awk-based tmp-merge writes the
+              # entry into a temp file and atomically renames it onto /etc/hosts via nsenter,
+              # so the host file is never half-written. Idempotent: re-running with the same
+              # (ip,name) pair leaves /etc/hosts in a deduplicated state — existing entries
+              # for that hostname are overwritten in place, new entries are appended exactly
+              # once.
+              echo "Setting up host aliases..."
+              add_host_alias() {
+                ip="$1"; name="$2"
+                if [ -z "$ip" ] || [ -z "$name" ]; then
+                  echo "[host-alias] WARN: skipping empty ip='$ip' name='$name'" >&2
+                  return 0
+                fi
+                nsenter -t 1 -m -u -n -i sh -c "
+                  awk -v ip=\"$ip\" -v name=\"$name\" '
+                    BEGIN { found=0 }
+                    {
+                      if (\$2 == name) { print ip\" \"name; found=1 }
+                      else { print }
+                    }
+                    END { if (!found) print ip\" \"name }
+                  ' /etc/hosts > /etc/hosts.tmp && mv /etc/hosts.tmp /etc/hosts
+                "
+                echo "[host-alias] set $ip $name"
+              }
+              # Static aliases (explicit ip + hostnames in services.runner.hostAliases)
+              # `squote` shell-quotes the helm-substituted values so a hostname containing
+              # special characters (e.g. quotes or backslashes) cannot break the surrounding
+              # shell context. add_host_alias receives the unquoted contents via positional
+              # arguments and re-quotes them safely with awk -v.
+              # Dynamic aliases resolved at install time via Kubernetes DNS (services.runner.dockerInstaller.dynamicHostAliases)
+              # Surface the resulting host entries we care about
+              nsenter -t 1 -m -u -n -i sh -c 'grep -E "registry|minio|snapshot-manager" /etc/hosts || true'
+              
+              # Enter the host namespace and install Docker + Sysbox
+              nsenter -t 1 -m -u -n -i sh <<'EOF'
+              
+              # Set XFS storage size in host namespace (value injected at pod creation)
+              export XFS_STORAGE_SIZE="50G"
+              export AIRGAPPED_MODE="false"
+              
+              # Offline packages location (used in airgapped mode)
+              PACKAGES_DIR="/tmp/offline-packages"
+              # Function to install Docker and XFS tools (online mode)
+              install_docker() {
+                if command -v docker >/dev/null 2>&1 && [ -x /usr/bin/dockerd ]; then
+                  echo "Docker is already installed"
+                  docker version
+                  
+                  # Still check/install XFS tools even if Docker exists
+                  if ! command -v xfs_quota >/dev/null 2>&1; then
+                    echo "Installing XFS tools..."
+                    if command -v apt-get >/dev/null 2>&1; then
+                      apt-get update
+                      apt-get install -y xfsprogs
+                    elif command -v yum >/dev/null 2>&1; then
+                      yum install -y xfsprogs
+                    fi
+                  fi
+                  return 0
+                fi
+                
+                echo "Installing Docker and XFS tools..."
+                
+                if command -v apt-get >/dev/null 2>&1; then
+                  # Debian/Ubuntu based - download Docker CE packages directly
+                  cd /tmp
+                  
+                  # For Ubuntu 24.04 (noble)
+                  DOCKER_VERSION="27.4.1-1~ubuntu.24.04~noble"
+
+                  apt-get update
+                  apt-get install -y wget xfsprogs
+                  
+                  wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-ce_${DOCKER_VERSION}_amd64.deb
+                  wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-ce-cli_${DOCKER_VERSION}_amd64.deb
+                  #wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-buildx-plugin_0.19.3-1~ubuntu.24.04~noble_amd64.deb
+                  # Install with --force-depends to skip the containerd.io dependency
+                  dpkg --force-depends -i docker-ce-cli_${DOCKER_VERSION}_amd64.deb
+                  dpkg --force-depends -i docker-ce_${DOCKER_VERSION}_amd64.deb
+
+                  # AKS compatibility: AKS nodes ship moby-containerd which has a hard
+                  # apt-package conflict with docker-ce, so dpkg refuses to install the
+                  # daemon (CLI installs fine, daemon does not). If dockerd is missing
+                  # after the deb install, fall back to the static-binary tarball.
+                  # EKS/GKE/vanilla Ubuntu nodes install dockerd via the deb above and
+                  # skip this block entirely.
+                  if [ ! -x /usr/bin/dockerd ]; then
+                    echo "dockerd not installed by deb (managed-runtime conflict?) - using static tarball"
+                    curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.4.1.tgz -o /tmp/docker.tgz
+                    tar xzf /tmp/docker.tgz -C /tmp
+                    install -m 0755 /tmp/docker/dockerd /usr/bin/dockerd
+                    install -m 0755 /tmp/docker/docker-proxy /usr/bin/docker-proxy
+                    install -m 0755 /tmp/docker/docker-init /usr/bin/docker-init
+                    getent group docker >/dev/null 2>&1 || groupadd docker
+                    printf '%s\n' '[Unit]' 'Description=Docker Application Container Engine' 'After=network-online.target' 'Wants=network-online.target' '' '[Service]' 'Type=notify' 'ExecStart=/usr/bin/dockerd' 'ExecReload=/bin/kill -s HUP $MAINPID' 'Restart=always' 'RestartSec=2' 'LimitNOFILE=infinity' 'LimitNPROC=infinity' 'LimitCORE=infinity' 'Delegate=yes' 'KillMode=process' '' '[Install]' 'WantedBy=multi-user.target' > /etc/systemd/system/docker.service
+                  fi
+
+                  mkdir -p /etc/docker
+                  systemctl daemon-reload
+                  systemctl enable docker
+                elif command -v yum >/dev/null 2>&1; then
+                  # RHEL/CentOS based
+                  yum install -y docker curl xfsprogs
+                  systemctl enable docker
+                fi
+                
+                echo "Docker and XFS tools installation completed"
+                return 0
+              }
+              
+              # Function to install Sysbox (online mode)
+              install_sysbox() {
+                if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
+                  echo "Sysbox is already installed"
+                  return 0
+                fi
+                
+                echo "Installing Sysbox from GitHub releases..."
+                
+                if command -v apt-get >/dev/null 2>&1; then
+                  # Debian/Ubuntu based - install from GitHub
+                  . /etc/os-release
+                  
+                  # Determine architecture
+                  ARCH=$(uname -m)
+                  if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
+                    echo "Sysbox only supports x86_64 architecture"
+                    return 1
+                  fi
+                  
+                  # Download latest Sysbox release
+                  SYSBOX_VERSION="v0.6.4"
+                  echo "Downloading Sysbox ${SYSBOX_VERSION}..."
+                  
+                  cd /tmp
+                  
+                  # Download the deb package
+                  if curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb"; then
+                    echo "Downloaded Sysbox package successfully"
+                  else
+                    echo "Failed to download Sysbox, trying alternative download..."
+                    # Try without SSL verification as fallback
+                    curl -kLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb" || {
+                      echo "Failed to download Sysbox"
+                      return 1
+                    }
+                  fi
+                  
+                  # Stop Docker before installing Sysbox
+                  echo "Stopping Docker for Sysbox installation..."
+                  systemctl stop docker 2>/dev/null || true
+                  
+                  # Install dependencies
+                  apt-get update
+                  apt-get install -y jq fuse rsync rclone
+                  
+                  # Install Sysbox
+                  echo "Installing Sysbox package..."
+                  dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb || {
+                    echo "Installing Sysbox dependencies..."
+                    apt-get install -f -y
+                    dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb
+                  }
+                  
+                  # Cleanup
+                  rm -f sysbox-ce_0.6.4-0.linux_amd64.deb
+                  
+                elif command -v yum >/dev/null 2>&1; then
+                  # RHEL/CentOS based - install from GitHub
+                  SYSBOX_VERSION="v0.6.4"
+                  echo "Downloading Sysbox ${SYSBOX_VERSION} for RPM..."
+                  
+                  cd /tmp
+                  curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz"
+                  
+                  tar -xzf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz
+                  
+                  # Stop Docker before installing Sysbox
+                  systemctl stop docker 2>/dev/null || true
+                  
+                  # Install Sysbox
+                  yum install -y ./sysbox-ce/*.rpm
+                  
+                  # Cleanup
+                  rm -rf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz sysbox-ce/
+                fi
+                
+                echo "Sysbox installation completed"
+                return 0
+              }
+              
+              # Function to setup XFS for Docker storage with quota support
+              setup_xfs_storage() {
+                echo "Setting up XFS filesystem for Docker storage..."
+                
+                # Check current filesystem of /var/lib/docker
+                DOCKER_DIR="/var/lib/docker"
+                
+                # Check if already on XFS
+                if [ -d "$DOCKER_DIR" ]; then
+                  FS_TYPE=$(df -T "$DOCKER_DIR" | tail -1 | awk '{print $2}')
+                  echo "Current filesystem for $DOCKER_DIR: $FS_TYPE"
+                  
+                  if [ "$FS_TYPE" = "xfs" ]; then
+                    echo "✓ Already on XFS filesystem"
+                    
+                    # Check if quota is enabled
+                    if xfs_quota -x -c 'state' "$DOCKER_DIR" 2>/dev/null | grep -q "Project quota state on"; then
+                      echo "✓ XFS quotas already enabled"
+                      return 0
+                    else
+                      echo "⚠ XFS quotas not enabled, attempting to remount..."
+                      # Try to remount with quota options
+                      MOUNT_POINT=$(df "$DOCKER_DIR" | tail -1 | awk '{print $6}')
+                      mount -o remount,prjquota "$MOUNT_POINT" 2>/dev/null || echo "Could not enable quotas on existing mount"
+                    fi
+                    return 0
+                  fi
+                  
+                  echo "⚠ $DOCKER_DIR is on $FS_TYPE, not XFS"
+                  echo "Will attempt to migrate to XFS loopback..."
+                fi
+
+                # SAFETY GUARD: never migrate a populated Docker root. If
+                # /var/lib/docker already holds containers (a previous run, i.e.
+                # live sandboxes on this node), moving it aside makes dockerd come
+                # up empty — every running sandbox then returns 404 "No such
+                # container" while its API row stays state=started, which a
+                # DaemonSet roll cannot self-heal. Migration is only safe on a
+                # pristine node; this stops a destructive re-migration on every
+                # subsequent roll if the XFS mount ever fails to stick.
+                if [ -d "$DOCKER_DIR/containers" ] && [ -n "$(ls -A "$DOCKER_DIR/containers" 2>/dev/null)" ]; then
+                  echo "⚠ $DOCKER_DIR already contains Docker containers — refusing XFS migration to avoid orphaning running sandboxes; keeping existing storage (no per-sandbox quota until the node is drained and re-provisioned)."
+                  return 0
+                fi
+
+                # Stop Docker before migration
+                systemctl stop docker 2>/dev/null || true
+                
+                # Backup existing Docker data if it exists
+                if [ -d "$DOCKER_DIR" ] && [ "$(ls -A $DOCKER_DIR)" ]; then
+                  echo "Backing up existing Docker data..."
+                  mv "$DOCKER_DIR" "${DOCKER_DIR}.backup.$(date +%s)"
+                fi
+                
+                # Create XFS loopback file for Docker storage
+                XFS_FILE="/var/lib/docker-xfs.img"
+                XFS_SIZE="${XFS_STORAGE_SIZE:-50G}"  # Default 50GB, can be configured
+                
+                if [ ! -f "$XFS_FILE" ]; then
+                  echo "Creating XFS storage file ($XFS_SIZE)..."
+                  # Create sparse file
+                  truncate -s "$XFS_SIZE" "$XFS_FILE"
+                  
+                  # Format as XFS with project quota support
+                  echo "Formatting XFS filesystem with quota support..."
+                  mkfs.xfs -f -n ftype=1 "$XFS_FILE"
+                fi
+                
+                # Create mount point
+                mkdir -p "$DOCKER_DIR"
+                
+                # Mount XFS with project quota enabled
+                echo "Mounting XFS filesystem..."
+                mount -o loop,prjquota "$XFS_FILE" "$DOCKER_DIR"
+                
+                # Add to fstab for persistence (if not already there)
+                if ! grep -q "$XFS_FILE" /etc/fstab; then
+                  echo "$XFS_FILE $DOCKER_DIR xfs loop,prjquota 0 0" >> /etc/fstab
+                fi
+                
+                # Initialize XFS quota
+                echo "Initializing XFS quota system..."
+                xfs_quota -x -c 'project -s -d 1' "$DOCKER_DIR" 2>/dev/null || true
+                
+                echo "✓ XFS storage setup completed"
+                return 0
+              }
+              
+              # Function to configure Docker to use Sysbox runtime
+              configure_docker_sysbox() {
+                echo "Configuring Docker to use Sysbox runtime..."
+                
+                mkdir -p /etc/docker
+                
+                # Create or update Docker daemon configuration
+                if [ -f /etc/docker/daemon.json ]; then
+                  # Backup existing config
+                  cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
+                fi
+                
+                # Write Docker daemon config with Sysbox runtime
+                # Note: Not including storage-driver to avoid conflicts with GKE systemd flags
+                cat > /etc/docker/daemon.json << 'DOCKERCONFIG'
+              {
+                "runtimes": {
+                  "sysbox-runc": {
+                    "path": "/usr/bin/sysbox-runc"
+                  }
+                },
+                "default-runtime": "sysbox-runc",
+                "live-restore": true,
+                "log-driver": "json-file",
+                "log-opts": {
+                  "max-size": "10m",
+                  "max-file": "3"
+                }
+              }
+              DOCKERCONFIG
+                
+                echo "Docker configuration updated"
+                return 0
+              }
+              
+              # Setup XFS filesystem for Docker storage with quotas
+              setup_xfs_storage
+              
+              # Install Sysbox (before Docker, as Docker config depends on sysbox)
+              install_sysbox
+              
+              # Install Docker
+              install_docker
+              
+              # Configure Docker to use Sysbox
+              configure_docker_sysbox
+              
+              # Start Sysbox services
+              echo "Starting Sysbox services..."
+              systemctl enable sysbox 2>/dev/null || true
+              systemctl start sysbox 2>/dev/null || true
+              
+              # Start Docker. Only bounce the host daemon when the config actually
+              # changed or docker isn't already running with the sysbox runtime. A
+              # blind `restart` on a no-op DaemonSet roll bounces the host dockerd
+              # and stops every running sandbox that predates live-restore taking
+              # effect, so we avoid restarting unless it is truly necessary.
+              echo "Ensuring Docker is running with the Sysbox runtime..."
+              need_restart=0
+              if ! systemctl is-active --quiet docker; then
+                need_restart=1
+              elif ! docker info 2>/dev/null | grep -q 'sysbox-runc'; then
+                need_restart=1
+              elif [ -f /etc/docker/daemon.json.bak ] && ! cmp -s /etc/docker/daemon.json /etc/docker/daemon.json.bak; then
+                need_restart=1
+              fi
+              if [ "$need_restart" = 1 ]; then
+                echo "Restarting Docker (first install, or daemon.json/runtime change)..."
+                systemctl restart docker
+              else
+                echo "Docker already running with Sysbox runtime and unchanged config; skipping restart to avoid disrupting running sandboxes"
+              fi
+              
+              # Verify installation
+              echo "=== Verification ==="
+              echo "Docker version:"
+              docker version
+              echo ""
+              echo "Docker runtime:"
+              docker info | grep -i runtime || echo "Runtime info not available"
+              echo ""
+              echo "Sysbox status:"
+              systemctl status sysbox --no-pager -l || echo "Sysbox service status not available"
+              
+              EOF
+              
+              echo "Docker and Sysbox installer initialized. Monitoring services..."
+              
+              # Monitor and ensure Docker and Sysbox stay running
+              while true; do
+                nsenter -t 1 -m -u -n -i sh -c '
+                  # Check Sysbox
+                  if ! systemctl is-active --quiet sysbox 2>/dev/null; then
+                    echo "Sysbox service is down, restarting..."
+                    systemctl start sysbox 2>/dev/null || echo "Failed to start Sysbox"
+                  fi
+                  
+                  # Check Docker
+                  if ! systemctl is-active --quiet docker; then
+                    echo "Docker service is down, restarting..."
+                    systemctl start docker
+                  fi
+                ' || echo "Health check failed, will retry..."
+                sleep 60
+              done
+              ln -s /host/var/lib/docker /var/lib/docker
+        # Daytona daemon binary installer sidecar.
+        #
+        # Why this exists:
+        #   The daytona-runner binary embeds the per-sandbox binaries (daemon
+        #   and computer-use) under static/*. At startup it extracts them into
+        #   its own container FS at /usr/local/bin/.tmp/binaries/ and uses
+        #   those paths as *bind-mount sources* when it creates sandbox Docker
+        #   containers via the host docker socket. Because the Docker daemon
+        #   runs on the host, it resolves those bind paths against the host
+        #   filesystem - where they don't exist. Docker then silently creates
+        #   the missing sources as empty directories, and the sandbox fails
+        #   with 'exec: "/usr/local/bin/daytona": permission denied' (you
+        #   can't exec a directory).
+        #
+        # What this sidecar does:
+        #   Run daytona-runner just long enough to extract the embedded
+        #   binaries into its own FS, then copy each one (+x) to the matching
+        #   path on the host via the host-root bind-mount. Stale empty
+        #   directories auto-created by Docker are cleaned up first.
+        - name: daytona-binary-installer
+          image: "docker.io/daytonaio/daytona-runner:v0.183.0"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          # Minimal env to satisfy daytona-runner config validation so it
+          # reaches the point of extracting its embedded binaries. These
+          # values are throwaway; the runner is killed as soon as the binaries
+          # are on disk and never contacts any control plane.
+          env:
+            - name: DAYTONA_API_URL
+              value: "http://127.0.0.1"
+            - name: SERVER_URL
+              value: "http://127.0.0.1"
+            - name: API_TOKEN
+              value: "installer"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_ENDPOINT_URL
+              value: "http://127.0.0.1"
+            - name: AWS_ACCESS_KEY_ID
+              value: "installer"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "installer"
+            - name: AWS_DEFAULT_BUCKET
+              value: "installer"
+            - name: SSH_PUBLIC_KEY
+              value: "installer"
+            - name: HOST_SRC_DIR
+              value: "/usr/local/bin/.tmp/binaries"
+            - name: BINARIES
+              value: "daemon-amd64 daytona-computer-use"
+            - name: EXTRACT_TIMEOUT_SEC
+              value: "60"
+            - name: REFRESH_INTERVAL_SEC
+              value: "300"
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+              mountPropagation: Bidirectional
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -u
+              SRC_DIR=/usr/local/bin/.tmp/binaries
+              DST_DIR="/host${HOST_SRC_DIR}"
+
+              echo "[daytona-binary-installer] binaries=[${BINARIES}] target=${HOST_SRC_DIR}/ on host"
+
+              # Docker auto-creates missing bind-mount sources as empty dirs.
+              # Those stale dirs block us from later writing the binary as a
+              # file at the same path. Remove any we'd overwrite.
+              cleanup_stale_dirs() {
+                mkdir -p "${DST_DIR}"
+                for name in ${BINARIES}; do
+                  if [ -d "${DST_DIR}/${name}" ] && [ ! -L "${DST_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] removing stale directory ${HOST_SRC_DIR}/${name}/ on host"
+                    rm -rf "${DST_DIR}/${name}"
+                  fi
+                done
+              }
+
+              install_one() {
+                # Atomic install: write to .new then rename, so a sandbox start
+                # mid-refresh never sees a half-written or non-executable file.
+                name=$1
+                install -m 0755 "${SRC_DIR}/${name}" "${DST_DIR}/${name}.new" \
+                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}"
+              }
+
+              install_all() {
+                for name in ${BINARIES}; do
+                  if [ ! -s "${SRC_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] WARN: source ${SRC_DIR}/${name} missing, skipping"
+                    continue
+                  fi
+                  install_one "${name}"
+                  echo "[daytona-binary-installer] installed ${HOST_SRC_DIR}/${name} ($(stat -c '%s bytes' "${DST_DIR}/${name}"))"
+                done
+              }
+
+              extract_binaries() {
+                cd /usr/local/bin
+                # Clear any partially-extracted files so the size-check below
+                # only returns true once the runner has re-written them fully.
+                for name in ${BINARIES}; do rm -f "${SRC_DIR}/${name}"; done
+
+                ./daytona-runner > /tmp/runner.log 2>&1 &
+                RUNNER_PID=$!
+
+                elapsed=0
+                while [ ${elapsed} -lt ${EXTRACT_TIMEOUT_SEC} ]; do
+                  all_present=1
+                  for name in ${BINARIES}; do
+                    [ -s "${SRC_DIR}/${name}" ] || { all_present=0; break; }
+                  done
+                  [ ${all_present} -eq 1 ] && break
+                  sleep 1
+                  elapsed=$((elapsed + 1))
+                done
+
+                kill -9 ${RUNNER_PID} 2>/dev/null || true
+                wait ${RUNNER_PID} 2>/dev/null || true
+
+                for name in ${BINARIES}; do
+                  if [ ! -s "${SRC_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] ERROR: ${SRC_DIR}/${name} not produced within ${EXTRACT_TIMEOUT_SEC}s. runner log:"
+                    tail -n 50 /tmp/runner.log || true
+                    return 1
+                  fi
+                done
+                return 0
+              }
+
+              cleanup_stale_dirs
+              until extract_binaries; do
+                echo "[daytona-binary-installer] extraction failed, retrying in 10s..."
+                sleep 10
+              done
+              install_all
+
+              # Keep host binaries in sync with whatever version is embedded in
+              # the current runner image. On a runner image bump the daemonset
+              # rolls, the new sidecar re-extracts, and the host files get
+              # refreshed. Also self-heals if a file is removed on the host.
+              while true; do
+                sleep "${REFRESH_INTERVAL_SEC}"
+                cleanup_stale_dirs
+                for name in ${BINARIES}; do
+                  SRC_SUM=$(sha256sum "${SRC_DIR}/${name}" 2>/dev/null | awk '{print $1}')
+                  DST_SUM=$(sha256sum "${DST_DIR}/${name}" 2>/dev/null | awk '{print $1}')
+                  if [ -z "${DST_SUM}" ] || [ "${SRC_SUM}" != "${DST_SUM}" ]; then
+                    echo "[daytona-binary-installer] refreshing ${HOST_SRC_DIR}/${name}"
+                    install_one "${name}" || echo "[daytona-binary-installer] WARN: refresh install failed for ${name}"
+                  fi
+                done
+              done
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
+---
+# Source: daytona-region/templates/proxy-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: release-name-daytona-region-proxy
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: daytona-region
+      app.kubernetes.io/instance: release-name
+      app.kubernetes.io/component: proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: daytona-region
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/component: proxy
+    spec:
+      serviceAccountName: release-name-daytona-region-proxy
+      securityContext:
+        fsGroup: 2000
+      containers:
+        - name: proxy
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+            runAsUser: 0
+          image: "docker.io/daytonaio/daytona-proxy:v0.183.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: release-name-daytona-region-region-config
+          env:
+            - name: REDIS_HOST
+              value: ""
+            # Proxy Configuration
+            - name: PROXY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: release-name-daytona-region-region-config
+                  key: proxyApiKey
+            - name: PROXY_PORT
+              value: "4000"
+            - name: PROXY_PROTOCOL
+              value: "https"
+            - name: PROXY_DOMAIN
+              value: "proxy.daytona.example.com"
+            - name: DAYTONA_API_URL
+              value: "https://api.daytona.example.com/api"
+            - name: COOKIE_DOMAIN
+              value: "daytona.example.com"
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+
+---
+# Source: daytona-region/templates/runner-manager-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: release-name-daytona-region-runnermanager
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: runnermanager
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: daytona-region
+      app.kubernetes.io/instance: release-name
+      app.kubernetes.io/component: runnermanager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: daytona-region
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/component: runnermanager
+    spec:
+      serviceAccountName: release-name-daytona-region-runnermanager
+      securityContext:
+        fsGroup: 2000
+      containers:
+        - name: runnermanager
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+            runAsUser: 0
+          image: "docker.io/daytonaio/daytona-runner-manager:v0.158.4-4-byoc-amd64"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3010
+              protocol: TCP
+          env:
+            - name: API_PORT
+              value: "3010"
+            # Floor of ready runners the manager maintains. Default 2 so a region
+            # NEVER runs on a single runner: when one is rolled/lost, a peer is
+            # already up for sandboxes to migrate onto. Pairs with the >=2 sandbox
+            # node pool (otherwise the extra runner pod has nowhere to schedule).
+            - name: MIN_RUNNERS
+              value: "2"
+            # Daytona org API key (Bearer) — same value as daytonaApiKey / registration hook secret
+            - name: API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: release-name-daytona-region-daytona-api-key
+                  key: daytona-api-key
+            - name: PROVIDER_TYPE
+              value: "kubernetes"
+            - name: PROVIDER_NAMESPACE
+              value: "default"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: POD_WAIT_TIMEOUT
+              value: "600"
+            - name: SERVER_URL
+              value: "https://api.daytona.example.com/api"
+            - name: REGION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: release-name-daytona-region-region-config
+                  key: id
+            - name: ENVIRONMENT
+              value: "production"
+            - name: RUNNER_API_PORT
+              value: "3000"
+            - name: PLACEHOLDER_POD_IMAGE
+              value: "registry.k8s.io/pause:3.6"
+            - name: RUNNER_POD_IMAGE
+              value: "docker.io/daytonaio/daytona-runner:v0.183.0"
+            - name: RUNNER_POD_SERVICE_ACCOUNT
+              value: "release-name-daytona-region-runner"
+            - name: RUNNER_POD_CONFIG_MAP
+              value: "release-name-daytona-region-runner-config"
+            - name: RUNNER_POD_SECRET
+              value: "release-name-daytona-region-runner-secrets"
+            - name: DAYTONA_PRODUCTION_API
+              value: "true"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-run
+              mountPath: /var/run
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-run
+          emptyDir: {}
+
+---
+# Source: daytona-region/templates/ssh-gateway-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-daytona-region-ssh-gateway
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: ssh-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: daytona-region
+      app.kubernetes.io/instance: release-name
+      app.kubernetes.io/component: ssh-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: daytona-region
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/component: ssh-gateway
+    spec:
+      serviceAccountName: release-name-daytona-region-ssh-gateway
+      securityContext:
+        fsGroup: 2000
+      containers:
+        - name: ssh-gateway
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+            runAsUser: 0
+          image: "docker.io/daytonaio/daytona-ssh-gateway:v0.183.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: ssh
+              containerPort: 2222
+              protocol: TCP
+          env:
+            - name: SSH_GATEWAY_PORT
+              value: "2222"
+            - name: SSH_GATEWAY_HOST
+              value: "ssh.daytona.example.com"
+            - name: API_URL
+              value: "https://api.daytona.example.com/api"
+          envFrom:
+            - secretRef:
+                name: release-name-daytona-region-secret-ssh
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+
+---
+# Source: daytona-region/templates/proxy-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: release-name-daytona-region-proxy
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: proxy
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  ingressClassName: nginx
+  rules:
+    # Proxy subdomain (exact match, e.g., proxy.daytona.example.com)
+    - host: "proxy.daytona.example.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: release-name-daytona-region-proxy
+                port:
+                  number: 4000
+    # Wildcard host for all subdomains - routes to proxy service
+    # This handles sandbox subdomains like: 3000-sandbox-id.proxy.daytona.example.com
+    - host: "*.proxy.daytona.example.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: release-name-daytona-region-proxy
+                port:
+                  number: 4000
+  tls:
+    # cert covers the apex proxy host (+ wildcard when wildcardTls=true)
+    - hosts:
+        - "proxy.daytona.example.com"
+      secretName: proxy.daytona.example.com-tls
+---
+# Source: daytona-region/templates/region-registration-rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-name-daytona-region-region-registration
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+# Source: daytona-region/templates/region-registration-hook.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-daytona-region-daytona-api-key
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    # Keep secret after hook so workloads (e.g. runner-manager API_TOKEN) can read it.
+    # Only replace on the next hook run (before-hook-creation).
+    "helm.sh/hook-delete-policy": before-hook-creation
+type: Opaque
+data:
+  daytona-api-key: "dGVzdC1hcGkta2V5LXBsYWNlaG9sZGVy"
+
+---
+# Source: daytona-region/templates/region-registration-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: release-name-daytona-region-region-registration
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "update", "patch", "get"]
+---
+# Source: daytona-region/templates/region-registration-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: release-name-daytona-region-region-registration
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: release-name-daytona-region-region-registration
+subjects:
+  - kind: ServiceAccount
+    name: release-name-daytona-region-region-registration
+    namespace: default
+
+---
+# Source: daytona-region/templates/region-registration-hook.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: release-name-daytona-region-region-registration
+  namespace: default
+  labels:
+    helm.sh/chart: daytona-region-0.1.0
+    app.kubernetes.io/name: daytona-region
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/version: "v0.183.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: region-registration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: daytona-region
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/component: region-registration
+    spec:
+      serviceAccountName: release-name-daytona-region-region-registration
+      restartPolicy: OnFailure
+      containers:
+        - name: register
+          image: daytonaio/kubectl:1.34.2-r2
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              SECRET_NAME="release-name-daytona-region-region-config"
+              NAMESPACE="default"
+
+              # Function to create/update secret from JSON response
+              create_secret() {
+                local response="$1"
+                echo "Creating/updating secret..."
+
+                SECRET_DATA=$(echo "$response" | jq -r 'to_entries | .[] | "  \(.key): \(.value | tostring | @base64)"')
+
+                cat > /tmp/secret.yaml <<SECRETEOF
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: release-name-daytona-region-region-config
+                namespace: default
+                labels:
+                  helm.sh/chart: daytona-region-0.1.0
+                  app.kubernetes.io/name: daytona-region
+                  app.kubernetes.io/instance: release-name
+                  app.kubernetes.io/version: "v0.183.0"
+                  app.kubernetes.io/managed-by: Helm
+                  app.kubernetes.io/component: region-config
+              type: Opaque
+              data:
+              ${SECRET_DATA}
+              SECRETEOF
+
+                echo "Secret manifest:"
+                cat /tmp/secret.yaml
+                kubectl apply -f /tmp/secret.yaml
+              }
+
+              # Check if region config secret already exists
+              if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
+                echo "Region config secret '${SECRET_NAME}' exists."
+
+                # Check if snapshot manager credentials are needed but missing
+                if [ -n "${SNAPSHOT_MANAGER_URL}" ]; then
+                  HAS_SM_CREDS=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o jsonpath='{.data.snapshotManagerUsername}' 2>/dev/null || echo "")
+
+                  if [ -z "${HAS_SM_CREDS}" ]; then
+                    echo "Snapshot manager URL configured but credentials missing. Regenerating..."
+
+                    # Get region ID from existing secret
+                    REGION_ID=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o jsonpath='{.data.id}' | base64 -d)
+
+                    if [ -z "${REGION_ID}" ]; then
+                      echo "Error: Could not get region ID from secret"
+                      exit 1
+                    fi
+
+                    echo "Calling API to regenerate snapshot manager credentials for region ${REGION_ID}..."
+
+                    SM_RESPONSE=$(curl -sf \
+                      -X POST \
+                      -H "Content-Type: application/json" \
+                      -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
+                      "${DAYTONA_API_URL}/regions/${REGION_ID}/regenerate-snapshot-manager-credentials")
+
+                    if [ -z "$SM_RESPONSE" ]; then
+                      echo "Error: Empty response from regenerate credentials API"
+                      exit 1
+                    fi
+
+                    echo "Credentials response received: $SM_RESPONSE"
+
+                    # Get existing secret data and merge with new credentials
+                    EXISTING_DATA=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o json | jq '.data | to_entries | map({(.key): (.value | @base64d)}) | add')
+
+                    # Merge existing data with new snapshot manager credentials
+                    MERGED_RESPONSE=$(echo "$EXISTING_DATA" | jq --argjson sm "$SM_RESPONSE" '. + {snapshotManagerUsername: $sm.username, snapshotManagerPassword: $sm.password}')
+
+                    create_secret "$MERGED_RESPONSE"
+                    echo "Snapshot manager credentials added to secret!"
+                    exit 0
+                  fi
+                fi
+
+                echo "Region already fully registered. Skipping."
+                exit 0
+              fi
+
+              echo "Registering region with Daytona API..."
+
+              # Build the request payload
+              if [ -n "${SNAPSHOT_MANAGER_URL}" ]; then
+                PAYLOAD=$(jq -n \
+                  --arg name "${REGION_NAME}" \
+                  --arg proxyUrl "${PROXY_URL}" \
+                  --arg snapshotManagerUrl "${SNAPSHOT_MANAGER_URL}" \
+                  '{name: $name, proxyUrl: $proxyUrl, snapshotManagerUrl: $snapshotManagerUrl}')
+              else
+                PAYLOAD=$(jq -n \
+                  --arg name "${REGION_NAME}" \
+                  --arg proxyUrl "${PROXY_URL}" \
+                  '{name: $name, proxyUrl: $proxyUrl}')
+              fi
+
+              echo "Calling API at ${DAYTONA_API_URL}/regions..."
+
+              # Capture HTTP status AND body. `curl -sf` (used previously) hides
+              # both, so a rejected registration surfaces only as "Job Failed"
+              # with no reason — impossible to diagnose from the pre-install hook.
+              HTTP_CODE=$(curl -s -o /tmp/register-resp.json -w '%{http_code}' \
+                -X POST \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
+                -d "${PAYLOAD}" \
+                "${DAYTONA_API_URL}/regions" || echo "000")
+              : "${HTTP_CODE:=000}"
+              RESPONSE=$(cat /tmp/register-resp.json 2>/dev/null || echo "")
+              echo "Register API returned HTTP ${HTTP_CODE}"
+
+              # Region name already taken in Daytona Cloud (a prior run, or a
+              # deleted local config secret). A fresh install can't recover its
+              # keys, so fail with an actionable message instead of silently.
+              if [ "${HTTP_CODE}" = "409" ] || printf '%s' "${RESPONSE}" | grep -qi 'already exists'; then
+                echo "ERROR: region '${REGION_NAME}' already exists in Daytona Cloud (HTTP ${HTTP_CODE})."
+                echo "Response body: ${RESPONSE}"
+                echo "This fresh install has no saved config for it. Either:"
+                echo "  - set a UNIQUE regionName and re-install, OR"
+                echo "  - delete the stale region, then re-install:"
+                echo "      curl -H 'Authorization: Bearer <key>' ${DAYTONA_API_URL}/regions    # find id by name"
+                echo "      curl -X DELETE -H 'Authorization: Bearer <key>' ${DAYTONA_API_URL}/regions/<id>"
+                exit 1
+              fi
+
+              case "${HTTP_CODE}" in
+                2??) : ;;  # success
+                *)
+                  echo "ERROR: region registration failed (HTTP ${HTTP_CODE})."
+                  echo "Response body: ${RESPONSE}"
+                  echo "Hint: 401/403 => bad/expired daytonaApiKey; 400 => payload rejected"
+                  echo "      (proxyUrl='${PROXY_URL}', name='${REGION_NAME}'); 000 => could not reach API."
+                  exit 1
+                  ;;
+              esac
+
+              if [ -z "${RESPONSE}" ]; then
+                echo "Error: Empty response body despite HTTP ${HTTP_CODE}"
+                exit 1
+              fi
+
+              echo "API response received: ${RESPONSE}"
+              create_secret "${RESPONSE}"
+              echo "Region registration complete!"
+          env:
+            - name: DAYTONA_API_URL
+              value: "https://api.daytona.example.com/api"
+            - name: DAYTONA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: release-name-daytona-region-daytona-api-key
+                  key: daytona-api-key
+            - name: PROXY_URL
+              value: "https://proxy.daytona.example.com"
+            - name: REGION_NAME
+              value: "test-region"
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi

@@ -221,3 +221,15 @@ Usage:
 {{- define "daytona.snapshotManager.tlsEnabled" -}}
 {{- or .Values.services.snapshotManager.http.tls.selfSigned .Values.services.snapshotManager.http.tls.secretName -}}
 {{- end -}}
+
+{{/*
+Secret holding the Daytona org API key (same as registration / daytonaApiKey).
+Used as API_TOKEN for runner-manager. Defaults to registration hook secret or registration.existingSecret.
+*/}}
+{{- define "daytona.runnermanagerDaytonaApiSecretName" -}}
+{{- coalesce .Values.services.runnermanager.apiTokenSecret.name .Values.registration.existingSecret (printf "%s-daytona-api-key" (include "daytona.fullname" .)) -}}
+{{- end -}}
+
+{{- define "daytona.runnermanagerDaytonaApiSecretKey" -}}
+{{- .Values.services.runnermanager.apiTokenSecret.key | default .Values.registration.secretKeys.apiKey | default "daytona-api-key" -}}
+{{- end -}}

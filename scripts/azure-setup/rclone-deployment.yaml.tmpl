@@ -1,0 +1,107 @@
+# rclone S3 gateway: presents an S3-compatible HTTP API in front of Azure Blob.
+# This sidesteps the fact that Azure Blob does not natively speak S3 (its own
+# REST API is incompatible) so the daytona RUNNERS - which only speak S3 for
+# sandbox backups and build context - can use Azure Blob as a backend.
+#
+# Architecture:
+#   runners (backups) ──S3 HTTP──> rclone-s3-gateway:8080 ──Azure Blob REST──> storage account
+#
+# DO NOT point the daytona-snapshot-manager (docker registry) at this gateway:
+# the registry's s3 storage driver (distribution v3) resumes blob uploads via
+# ListMultipartUploads and nil-panics on the stub responses rclone/gofakes3
+# returns (=> 502s on docker push, snapshots stuck in error). The registry uses
+# its filesystem driver on a PVC instead (chart: snapshotManager.storage.driver).
+# The gateway also hardcodes path-style addressing; the registry would dial
+# <bucket>.<host> (virtual-hosted style) which this serve mode rejects.
+#
+# Substituted via envsubst at runtime. Variables:
+#   AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY, RCLONE_ACCESS_KEY, RCLONE_SECRET_KEY,
+#   BLOB_BUCKET
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-config
+  namespace: daytona
+type: Opaque
+stringData:
+  rclone.conf: |
+    [azureblob]
+    type = azureblob
+    account = ${AZURE_STORAGE_ACCOUNT}
+    key = ${AZURE_STORAGE_KEY}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rclone-s3-gateway
+  namespace: daytona
+  labels:
+    app: rclone-s3-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rclone-s3-gateway
+  template:
+    metadata:
+      labels:
+        app: rclone-s3-gateway
+    spec:
+      containers:
+        - name: rclone
+          image: rclone/rclone:1.69
+          args:
+            - "serve"
+            - "s3"
+            - "--addr=:8080"
+            - "--auth-key=${RCLONE_ACCESS_KEY},${RCLONE_SECRET_KEY}"
+            - "--config=/config/rclone.conf"
+            # No write-back cache: clients may read objects back immediately
+            # after writing them; the default vfs write-back holds uploads ~5s
+            # during which the object is invisible. Stream straight to Azure
+            # (strongly consistent) and keep dir listings fresh.
+            - "--vfs-cache-mode=off"
+            - "--dir-cache-time=10s"
+            # Serve the ACCOUNT root so each Azure container is exposed as an S3
+            # bucket (the runners address bucket=${BLOB_BUCKET}). Serving
+            # "azureblob:${BLOB_BUCKET}" would instead expose the container's
+            # subdirs as buckets, so the bucket would not exist.
+            - "azureblob:"
+          ports:
+            - name: s3
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: cache
+              mountPath: /root/.cache
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: config
+          secret:
+            secretName: rclone-config
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rclone-s3-gateway
+  namespace: daytona
+  labels:
+    app: rclone-s3-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: rclone-s3-gateway
+  ports:
+    - name: s3
+      port: 8080
+      targetPort: 8080

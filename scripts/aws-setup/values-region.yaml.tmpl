@@ -1,0 +1,166 @@
+# daytona-region (BYOC) helm values - AWS / EKS, K8s-native flow.
+# Rendered by scripts/aws-setup/up.sh via envsubst against operator prompts.
+#
+# Required ${VAR} placeholders (set by up.sh from prompts or computed):
+#   BASE_DOMAIN                  - public DNS base, e.g. byoc.example.com
+#   REGION_NAME                  - Daytona region name (lowercase alnum . _ -)
+#   DAYTONA_API_URL              - Daytona Cloud API URL
+#   DAYTONA_API_KEY              - Daytona Cloud admin API key (secret)
+#   AWS_REGION                   - AWS region, e.g. us-east-1
+#   S3_BUCKET                    - S3 bucket name for snapshots + build context
+#   RUNNER_AWS_CREDENTIAL_MODE   - "static" or "irsa"
+#   IAM_ACCESS_KEY               - IAM user access key (when credentialMode=static, else empty)
+#   IAM_SECRET_KEY               - IAM user secret key (when credentialMode=static, else empty)
+#   IRSA_ROLE_ARN                - IAM role ARN annotation (when credentialMode=irsa, else empty)
+#   RUNNER_IMAGE_TAG             - daytona-runner image tag (default v0.183.0 = chart appVersion)
+#   INTERNAL_REGISTRY_HOST       - optional cluster-DNS hostname for an internal Docker registry (empty = none)
+#   PRIV_CLIENT_B64              - base64 of the gateway->sandbox client PRIVATE key file
+#   PUB_CLIENT_B64               - base64 of the matching client PUBLIC key file
+#   PRIV_GATEWAY_B64             - base64 of the gateway HOST key file
+
+baseDomain: "${BASE_DOMAIN}"
+regionName: "${REGION_NAME}"
+proxyUrl: "https://proxy.${BASE_DOMAIN}"
+snapshotManagerUrl: "https://snapshots.${BASE_DOMAIN}"
+daytonaApiUrl: "${DAYTONA_API_URL}"
+daytonaApiKey: "${DAYTONA_API_KEY}"
+
+global:
+  storageClass: "gp3"
+
+# The cluster's single node pool is the sandbox pool, tainted
+# sandbox=true:NoSchedule. With no separate untainted system node group, every
+# platform pod/hook must tolerate it or it sits Pending. These global
+# tolerations cover proxy, snapshot-manager, runner-manager and ssh-gateway
+# (they fall back to .Values.tolerations); the hook and reaper blocks below
+# need their own (different value keys).
+tolerations:
+  - key: sandbox
+    operator: Equal
+    value: "true"
+    effect: NoSchedule
+
+registration:
+  enabled: true
+  # region-registration + snapshot-manager-tls hooks read registration.tolerations.
+  tolerations:
+    - key: sandbox
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+
+services:
+  # BYOC stale-runner reaper (see docs/operations.md).
+  # REQUIRES an org API key with read/write/delete:runners scopes + the
+  # organization_infrastructure feature flag enabled for your Daytona org.
+  runnerReaper:
+    enabled: true
+    tolerations:
+      - key: sandbox
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+  proxy:
+    ingress:
+      enabled: true
+      className: "nginx"
+      tls: true
+      # wildcardTls=true requires a DNS-01 issuer; default false issues a
+      # non-wildcard proxy cert that succeeds under HTTP-01. Set by up.sh
+      # (true only when CLOUDFLARE_API_TOKEN is provided for DNS-01).
+      wildcardTls: ${PROXY_WILDCARD_TLS}
+      selfSigned: false
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        # Sandboxes hold long-running websocket and interactive sessions.
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        # Build contexts and uploads exceed nginx's 1m default body limit.
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+
+  sshGateway:
+    enabled: true
+    # BOOTSTRAP value only: the gateway validates SSH sessions against the
+    # Daytona API and the org key 403s on ValidateSshAccess. up.sh swaps in the
+    # REGION-SCOPED key right after install (omc::region_sshgateway_finalize) —
+    # that key cannot exist before the registration hook creates the region.
+    apiKey: "${DAYTONA_API_KEY}"
+    sshKeys:
+      privClientSSHKey: "${PRIV_CLIENT_B64}"
+      pubClientSSHKey: "${PUB_CLIENT_B64}"
+      privGatewaySSHKey: "${PRIV_GATEWAY_B64}"
+
+  snapshotManager:
+    enabled: true
+    logLevel: "info"
+    ingress:
+      enabled: true
+      className: "nginx"
+      hostname: "snapshots.${BASE_DOMAIN}"
+      tls: true
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        # Docker layer pushes exceed nginx's 1m default body limit (413).
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+    storage:
+      # Real AWS S3 is the canonical registry backend (full multipart-upload
+      # semantics) — unlike S3 shims, it is safe for the registry s3 driver.
+      driver: "s3"
+      s3:
+        region: "${AWS_REGION}"
+        bucket: "${S3_BUCKET}"
+        accessKey: "${IAM_ACCESS_KEY}"
+        secretKey: "${IAM_SECRET_KEY}"
+        encrypt: false
+        secure: true
+      # NOTE: deleteEnabled lives at storage level (storage.s3.deleteEnabled is
+      # silently ignored by the chart) — the registry needs delete ops for
+      # snapshot removal.
+      deleteEnabled: true
+
+  runner:
+    image:
+      tag: "${RUNNER_IMAGE_TAG}"
+    # The runner-manager owns the real (cloud-registered) runner pods; they
+    # envFrom runner-config/runner-secrets and bind hostPorts 3000/2220. A
+    # static mainContainer runner never registers with Daytona Cloud and
+    # would fight the manager's pods for those hostPorts — keep the
+    # DaemonSet sidecar-only (host prep: docker + daemon binaries).
+    mainContainer:
+      enabled: false
+    ports:
+      api: 3000
+      ssh: 2220
+    hostPaths:
+      varLibDaytona: /var/lib/daytona
+    aws:
+      # credentialMode: "static" emits AWS_ACCESS_KEY_ID/SECRET into the runner Secret;
+      # "irsa" omits them (relies on the SA's eks.amazonaws.com/role-arn annotation).
+      # Until the upstream runner supports the AWS default credential chain (see
+      # docs/issues-summary.md), runtime IRSA is non-functional;
+      # for first-pass testing, use "static".
+      credentialMode: "${RUNNER_AWS_CREDENTIAL_MODE}"
+      allowEmptyStaticKeyShim: false
+    serviceAccount:
+      create: true
+      annotations:
+        # Empty when credentialMode=static; populated when credentialMode=irsa.
+        eks.amazonaws.com/role-arn: "${IRSA_ROLE_ARN}"
+      automountServiceAccountToken: true
+    env:
+      AWS_REGION: "${AWS_REGION}"
+      AWS_ENDPOINT_URL: ""
+      AWS_DEFAULT_BUCKET: "${S3_BUCKET}"
+      AWS_ACCESS_KEY_ID: "${IAM_ACCESS_KEY}"
+      AWS_SECRET_ACCESS_KEY: "${IAM_SECRET_KEY}"
+      # Must be the base64 of the SAME client pubkey the gateway holds, or
+      # sandboxes refuse gateway SSH connections (silent SSH-only failure).
+      SSH_PUBLIC_KEY: "${PUB_CLIENT_B64}"
+    dockerInstaller:
+      dynamicHostAliases: []
+      insecureRegistries: []

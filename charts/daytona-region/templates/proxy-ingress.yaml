@@ -69,10 +69,19 @@ spec:
     {{- end }}
   {{- if .Values.services.proxy.ingress.tls }}
   tls:
-    # Use wildcard certificate (covers proxy hostname and all subdomains)
+    {{- /*
+      Proxy TLS cert. By default only the apex proxy hostname is in the SAN list
+      so the cert issues under an HTTP-01 ClusterIssuer. wildcardTls=true also
+      covers *.<proxyHostname> for per-sandbox preview subdomains — that SAN
+      REQUIRES a DNS-01 issuer (HTTP-01 cannot validate wildcard SANs). The
+      wildcard ROUTING rule above is always emitted regardless of this flag.
+    */}}
+    # cert covers the apex proxy host (+ wildcard when wildcardTls=true)
     - hosts:
         - {{ $proxyHostname | quote }}
+        {{- if .Values.services.proxy.ingress.wildcardTls }}
         - {{ $wildcardProxyHostname | quote }}
+        {{- end }}
       secretName: {{ printf "%s-tls" $proxyHostname }}
     {{- if .Values.services.proxy.ingress.extraTls }}
     {{- toYaml .Values.services.proxy.ingress.extraTls | nindent 4 }}

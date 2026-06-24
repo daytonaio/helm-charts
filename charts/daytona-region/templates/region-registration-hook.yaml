@@ -133,21 +133,51 @@ spec:
 
               echo "Calling API at ${DAYTONA_API_URL}/regions..."
 
-              # Call the API and capture response
-              RESPONSE=$(curl -sf \
+              # Capture HTTP status AND body. `curl -sf` (used previously) hides
+              # both, so a rejected registration surfaces only as "Job Failed"
+              # with no reason — impossible to diagnose from the pre-install hook.
+              HTTP_CODE=$(curl -s -o /tmp/register-resp.json -w '%{http_code}' \
                 -X POST \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
                 -d "${PAYLOAD}" \
-                "${DAYTONA_API_URL}/regions")
+                "${DAYTONA_API_URL}/regions" || echo "000")
+              : "${HTTP_CODE:=000}"
+              RESPONSE=$(cat /tmp/register-resp.json 2>/dev/null || echo "")
+              echo "Register API returned HTTP ${HTTP_CODE}"
 
-              if [ -z "$RESPONSE" ]; then
-                echo "Error: Empty response from API"
+              # Region name already taken in Daytona Cloud (a prior run, or a
+              # deleted local config secret). A fresh install can't recover its
+              # keys, so fail with an actionable message instead of silently.
+              if [ "${HTTP_CODE}" = "409" ] || printf '%s' "${RESPONSE}" | grep -qi 'already exists'; then
+                echo "ERROR: region '${REGION_NAME}' already exists in Daytona Cloud (HTTP ${HTTP_CODE})."
+                echo "Response body: ${RESPONSE}"
+                echo "This fresh install has no saved config for it. Either:"
+                echo "  - set a UNIQUE regionName and re-install, OR"
+                echo "  - delete the stale region, then re-install:"
+                echo "      curl -H 'Authorization: Bearer <key>' ${DAYTONA_API_URL}/regions    # find id by name"
+                echo "      curl -X DELETE -H 'Authorization: Bearer <key>' ${DAYTONA_API_URL}/regions/<id>"
                 exit 1
               fi
 
-              echo "API response received: $RESPONSE"
-              create_secret "$RESPONSE"
+              case "${HTTP_CODE}" in
+                2??) : ;;  # success
+                *)
+                  echo "ERROR: region registration failed (HTTP ${HTTP_CODE})."
+                  echo "Response body: ${RESPONSE}"
+                  echo "Hint: 401/403 => bad/expired daytonaApiKey; 400 => payload rejected"
+                  echo "      (proxyUrl='${PROXY_URL}', name='${REGION_NAME}'); 000 => could not reach API."
+                  exit 1
+                  ;;
+              esac
+
+              if [ -z "${RESPONSE}" ]; then
+                echo "Error: Empty response body despite HTTP ${HTTP_CODE}"
+                exit 1
+              fi
+
+              echo "API response received: ${RESPONSE}"
+              create_secret "${RESPONSE}"
               echo "Region registration complete!"
           env:
             - name: DAYTONA_API_URL
@@ -167,6 +197,13 @@ spec:
             {{- end }}
           resources:
             {{- toYaml .Values.registration.resources | nindent 12 }}
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.registration.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -188,7 +225,9 @@ metadata:
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    # Keep secret after hook so workloads (e.g. runner-manager API_TOKEN) can read it.
+    # Only replace on the next hook run (before-hook-creation).
+    "helm.sh/hook-delete-policy": before-hook-creation
 type: Opaque
 data:
   {{ .Values.registration.secretKeys.apiKey | default "daytona-api-key" }}: {{ required "daytonaApiKey is required" .Values.daytonaApiKey | b64enc | quote }}

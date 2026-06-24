@@ -75,6 +75,13 @@ spec:
               value: {{ .Values.services.proxy.env.COOKIE_DOMAIN | default (include "daytona.proxyUrl.baseDomain" .) | quote }}
           resources:
             {{- toYaml .Values.services.proxy.resources | nindent 12 }}
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.services.proxy.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

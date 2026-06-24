@@ -1,4 +1,6 @@
 {{- if .Values.services.snapshotManager.enabled -}}
+{{- $storageDriver := .Values.services.snapshotManager.storage.driver | default "s3" -}}
+{{- $fsPersistence := and (eq $storageDriver "filesystem") .Values.services.snapshotManager.storage.filesystem.persistence.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +15,14 @@ metadata:
   {{- end }}
 spec:
   replicas: {{ .Values.services.snapshotManager.replicaCount }}
+  {{- if $fsPersistence }}
+  # RWO data PVC: rolling update would deadlock on the volume attachment.
+  # Explicit null clears rollingUpdate defaults left on a live object from a
+  # prior RollingUpdate strategy (invalid combination otherwise).
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+  {{- end }}
   selector:
     matchLabels:
       {{- include "daytona.selectorLabels" . | nindent 6 }}
@@ -54,9 +64,13 @@ spec:
             {{- end }}
             # Storage configuration
             - name: SNAPSHOT_MANAGER_STORAGE_DRIVER
-              value: "s3"
+              value: {{ $storageDriver | quote }}
             - name: SNAPSHOT_MANAGER_STORAGE_DELETE_ENABLED
               value: {{ .Values.services.snapshotManager.storage.deleteEnabled | default false | quote }}
+            {{- if eq $storageDriver "filesystem" }}
+            - name: SNAPSHOT_MANAGER_STORAGE_DIR
+              value: "/var/lib/snapshot-manager"
+            {{- else }}
             # S3 storage configuration
             - name: SNAPSHOT_MANAGER_STORAGE_S3_REGION
               value: {{ required "services.snapshotManager.storage.s3.region is required" .Values.services.snapshotManager.storage.s3.region | quote }}
@@ -97,6 +111,7 @@ spec:
             - name: SNAPSHOT_MANAGER_STORAGE_S3_ROOTDIRECTORY
               value: {{ .Values.services.snapshotManager.storage.s3.rootDirectory | quote }}
             {{- end }}
+            {{- end }}
             # Authentication configuration
             {{- if .Values.registration.enabled }}
             - name: SNAPSHOT_MANAGER_AUTH_TYPE
@@ -133,11 +148,17 @@ spec:
             {{- with .Values.services.snapshotManager.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- if include "daytona.snapshotManager.tlsEnabled" . }}
+          {{- if or (include "daytona.snapshotManager.tlsEnabled" .) (eq $storageDriver "filesystem") }}
           volumeMounts:
+            {{- if include "daytona.snapshotManager.tlsEnabled" . }}
             - name: tls-certs
               mountPath: /etc/snapshot-manager/tls
               readOnly: true
+            {{- end }}
+            {{- if eq $storageDriver "filesystem" }}
+            - name: data
+              mountPath: /var/lib/snapshot-manager
+            {{- end }}
           {{- end }}
           {{- if .Values.services.snapshotManager.livenessProbe.enabled }}
           livenessProbe:
@@ -167,11 +188,29 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.services.snapshotManager.resources | nindent 12 }}
-      {{- if include "daytona.snapshotManager.tlsEnabled" . }}
+      {{- if or (include "daytona.snapshotManager.tlsEnabled" .) (eq $storageDriver "filesystem") }}
       volumes:
+        {{- if include "daytona.snapshotManager.tlsEnabled" . }}
         - name: tls-certs
           secret:
             secretName: {{ if .Values.services.snapshotManager.http.tls.secretName }}{{ .Values.services.snapshotManager.http.tls.secretName }}{{ else }}{{ include "daytona.fullname" . }}-snapshot-manager-tls{{ end }}
+        {{- end }}
+        {{- if eq $storageDriver "filesystem" }}
+        - name: data
+          {{- if $fsPersistence }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.services.snapshotManager.storage.filesystem.persistence.existingClaim | default (printf "%s-snapshot-manager-data" (include "daytona.fullname" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.services.snapshotManager.nodeSelector | default .Values.nodeSelector }}
       nodeSelector:

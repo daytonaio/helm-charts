@@ -1,0 +1,13 @@
+{{- if and .Values.services.runner.enabled .Values.services.runner.dockerInstaller.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "daytona.fullname" . }}-runner-docker-installer-config
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner
+data:
+  XFS_STORAGE_SIZE: {{ .Values.services.runner.dockerInstaller.xfsStorageSize | quote }}
+  AIRGAPPED_MODE: {{ .Values.services.runner.dockerInstaller.airgapped.enabled | quote }}
+{{- end }}
