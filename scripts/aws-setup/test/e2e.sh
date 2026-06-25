@@ -49,6 +49,42 @@ set -uo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 STATE_DIR="$SCRIPT_DIR/.state"
 
+# ---- Resolve target region + API creds from the LIVE deployment -------------
+# The running helm release is the source of truth, NOT ambient env. A stale
+# exported REGION_NAME left over from a torn-down cluster is the #1 reason a
+# create lands in a dead region and hangs forever in pending_build. Read the
+# deployed region straight from the chart values so e2e always targets what is
+# actually running; fall back to saved up.sh state / env without a cluster.
+for _pe in "$STATE_DIR/prompts.env" "$SCRIPT_DIR/../.state/prompts.env"; do
+  [[ -f "$_pe" ]] && { set -a; . "$_pe"; set +a; break; }
+done
+if command -v helm >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  _dns="$(helm ls -A -o json 2>/dev/null | jq -r '.[]|select(.name=="daytona-region")|.namespace' 2>/dev/null | head -1)"
+  if [[ -n "${_dns:-}" ]]; then
+    _dvals="$(helm -n "$_dns" get values daytona-region -o json 2>/dev/null || true)"
+    _dregion="$(printf '%s' "$_dvals" | jq -r '.regionName // empty' 2>/dev/null)"
+    _durl="$(printf '%s' "$_dvals" | jq -r '.daytonaApiUrl // empty' 2>/dev/null)"
+    _dkey="$(printf '%s' "$_dvals" | jq -r '.daytonaApiKey // empty' 2>/dev/null)"
+    if [[ -n "${_dregion:-}" ]]; then
+      # A stale exported REGION_NAME *and* DAYTONA_API_KEY (left over from a
+      # torn-down cluster) are both fatal: the old key resolves to a different
+      # org where the region doesn't exist, so the API returns "Region not
+      # found". The deployed release is the one place all three are in sync, so
+      # it wins over ambient env. (chart.daytonaApiKey IS the key up.sh/repro.sh
+      # deployed the region with, so this is always the right key.)
+      [[ -n "${REGION_NAME:-}" && "$REGION_NAME" != "$_dregion" ]] && \
+        echo "  ⚠ overriding stale REGION_NAME='$REGION_NAME' with deployed region '$_dregion' (daytona-region/$_dns)" >&2
+      REGION_NAME="$_dregion"
+      [[ -n "$_durl" ]] && DAYTONA_API_URL="$_durl"
+      if [[ -n "$_dkey" ]]; then
+        [[ -n "${DAYTONA_API_KEY:-}" && "$DAYTONA_API_KEY" != "$_dkey" ]] && \
+          echo "  ⚠ overriding stale DAYTONA_API_KEY (env) with the deployed region's key" >&2
+        DAYTONA_API_KEY="$_dkey"
+      fi
+    fi
+  fi
+fi
+
 DAYTONA_API_URL="${DAYTONA_API_URL:?required}"
 DAYTONA_API_KEY="${DAYTONA_API_KEY:?required}"
 REGION_NAME="${REGION_NAME:?required}"
@@ -69,10 +105,13 @@ ECR_TEST_IMAGE=""
 DAYTONA_REGISTRY_ID=""
 DAYTONA_REGISTRY_ENDPOINT=""
 ECR_PULLER_ROLE_ARN=""
-if [[ -f "$STATE_DIR/ecr.env" ]]; then
-  # shellcheck disable=SC1091
-  source "$STATE_DIR/ecr.env"
-fi
+# ecr.env is written by ecr-setup.sh under aws-setup/test/.state. The main
+# e2e.sh sits one dir up, so probe this script's .state AND the sibling
+# test/.state — either copy of e2e.sh then picks ECR up.
+for _ee in "$STATE_DIR/ecr.env" "$SCRIPT_DIR/test/.state/ecr.env" "$SCRIPT_DIR/../test/.state/ecr.env"; do
+  # shellcheck disable=SC1090
+  [[ -f "$_ee" ]] && { source "$_ee"; break; }
+done
 
 # Count S3 objects (used by Stage B for hard evidence). list-objects-v2 with
 # --query KeyCount can return the literal string "None" when the bucket is

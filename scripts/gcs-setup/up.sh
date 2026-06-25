@@ -47,8 +47,13 @@ fi
 
 # === 1. Interactive prompts ==================================================
 omc::log INFO "=== Daytona BYOC: GCP GKE Standard bring-up ==="
+omc::log INFO "NOTE: this assumes your base domain's DNS is hosted on Cloudflare."
+omc::log INFO "      Wildcard preview-cert issuance uses DNS-01 via the Cloudflare API,"
+omc::log INFO "      so you'll be asked for a Cloudflare API token below"
+omc::log INFO "      (Zone:Read + Zone DNS:Edit, scoped to your domain's zone)."
 omc::prompt CLUSTER_NAME "Cluster name" "daytona-byoc-$(date +%Y%m%d-%H%M%S)"
 omc::prompt BASE_DOMAIN  "Public base DNS domain"
+omc::prompt_secret CLOUDFLARE_API_TOKEN "Cloudflare API token (Zone:Read + Zone DNS:Edit)"
 omc::prompt REGION_NAME  "Daytona region name" "${CLUSTER_NAME}"
 omc::prompt CLUSTER_ISSUER_EMAIL "Email for Let's Encrypt ClusterIssuer"
 omc::prompt DAYTONA_API_URL "Daytona Cloud API URL" "https://app.daytona.io/api"
