@@ -650,6 +650,8 @@ dex:
       pullPolicy: IfNotPresent
   service:
     port: 5556
+    annotations: {}
+      #cloud.google.com/backend-config: '{"default":"daytona-dex-backendconfig"}'
   persistence:
     enabled: true
     size: 1Gi
