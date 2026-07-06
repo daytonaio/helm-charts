@@ -1,0 +1,75 @@
+suite: runner host-aliases shared function + dynamic resolution (S3)
+templates:
+  - runner-daemonset.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: docker-installer initContainer defines shared add_host_alias() function with awk-tmp-merge
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - snapshot-manager
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias\(\)'
+
+  - it: add_host_alias uses awk tmp-merge with atomic mv (idempotent dedupe)
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - snapshot-manager
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'mv\s+/etc/hosts\.tmp\s+/etc/hosts'
+
+  - it: dynamicHostAliases triggers getent hosts resolution loop (squote-hardened)
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - snapshot-manager
+        - registry.internal
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "getent\\s+hosts\\s+'snapshot-manager'"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "getent\\s+hosts\\s+'registry\\.internal'"
+
+  - it: static hostAliases ALSO route through add_host_alias (shared function, squote-hardened)
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.hostAliases:
+        - ip: "10.0.0.5"
+          hostnames:
+            - "internal.example.com"
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "add_host_alias\\s+'10\\.0\\.0\\.5'\\s+'internal\\.example\\.com'"
+
+  - it: with empty dynamicHostAliases + empty hostAliases, no dynamic loop renders but add_host_alias function still defined
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias\(\)'

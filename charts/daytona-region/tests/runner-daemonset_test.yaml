@@ -1,0 +1,130 @@
+suite: runner main container shape (S2)
+templates:
+  - runner-daemonset.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: when mainContainer.enabled=true, renders a privileged runner container
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.mainContainer.enabled: true
+    asserts:
+      - isKind:
+          of: DaemonSet
+      - contains:
+          path: spec.template.spec.containers
+          content:
+            name: runner
+          any: true
+      - equal:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].securityContext.privileged'
+          value: true
+
+  - it: runner container exposes api+ssh ports with hostPort match
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.mainContainer.enabled: true
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].ports'
+          content:
+            name: api
+            containerPort: 3000
+            hostPort: 3000
+          any: true
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].ports'
+          content:
+            name: ssh
+            containerPort: 2220
+            hostPort: 2220
+          any: true
+
+  - it: runner container has envFrom for runner-config + runner-secrets + optional region-config
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.mainContainer.enabled: true
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].envFrom'
+          content:
+            configMapRef:
+              name: test-release-daytona-region-runner-config
+          any: true
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].envFrom'
+          content:
+            secretRef:
+              name: test-release-daytona-region-runner-secrets
+          any: true
+
+  - it: runner container mounts var-lib-daytona hostPath
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.mainContainer.enabled: true
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].volumeMounts'
+          content:
+            name: var-lib-daytona
+            mountPath: /var/lib/daytona
+          any: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: var-lib-daytona
+            hostPath:
+              path: /var/lib/daytona
+              type: DirectoryOrCreate
+          any: true
+
+  - it: when insecureRegistries set, runner container also mounts runner-docker-daemon-config
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.mainContainer.enabled: true
+      services.runner.dockerInstaller.insecureRegistries:
+        - "registry.local:5000"
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].volumeMounts'
+          content:
+            name: runner-docker-daemon-config
+            mountPath: /etc/docker/daemon.json
+            subPath: daemon.json
+          any: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: runner-docker-daemon-config
+            configMap:
+              name: test-release-daytona-region-runner-docker-daemon-config
+          any: true
+
+  - it: when mainContainer.enabled=false (default), no runner container renders
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers
+          content:
+            name: runner
+          any: true

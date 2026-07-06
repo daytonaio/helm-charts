@@ -1,4 +1,20 @@
 #!/bin/bash
+# =============================================================================
+# LEGACY — NON-CANONICAL INSTALL PATH
+# -----------------------------------------------------------------------------
+# This script installs the Daytona runner as a host-process on a single VM. It
+# is retained for historical / non-Kubernetes deployments ONLY.
+#
+# The CANONICAL Daytona BYOC install path is the Helm chart at
+# `charts/daytona-region/` (see its README.md). The chart installs the runner
+# as a Kubernetes DaemonSet that handles host-side bootstrapping from inside
+# the pod via nsenter — operators DO NOT ssh into nodes and DO NOT run this
+# script in supported BYOC flows on AKS / EKS / GKE.
+#
+# Do not link to this script from any chart README, NOTES.txt, or values.yaml
+# comment as the recommended install path. The `hack/check-no-install-sh.sh`
+# guard enforces that constraint at CI time.
+# =============================================================================
 
 set -e  # Exit on any error
 
@@ -363,6 +379,45 @@ CAPACITY=${CAPACITY:-1000}
 read -p "Enter runner API key [default: auto-generated]: " RUNNER_API_KEY < /dev/tty
 RUNNER_API_KEY=${RUNNER_API_KEY:-$(openssl rand -hex 32)}
 
+# 7b. Declarative builder S3 / object storage configuration
+#
+# The runner pulls declarative-builder context tarballs from an S3-compatible
+# bucket. In a BYOC setup, this is the same
+# operator-owned bucket the region's snapshot-manager service is configured
+# against (services.snapshotManager.storage.s3.* in the daytona-region chart).
+#
+# Leaving these blank lets the runner come up, but any snapshot created from
+# the declarative builder will fail with an S3 access error.
+info "Declarative builder configuration (S3-compatible object storage)"
+echo "  These values must point at the same bucket the region's snapshot-manager"
+echo "  service uses. Leave blank to skip (declarative builder will not work)."
+echo ""
+
+if [[ -z "${AWS_ACCESS_KEY_ID:-}" ]]; then
+    read -p "Enter AWS_ACCESS_KEY_ID (leave blank to skip builder setup): " AWS_ACCESS_KEY_ID < /dev/tty
+fi
+if [[ -n "${AWS_ACCESS_KEY_ID}" && -z "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+    read -s -p "Enter AWS_SECRET_ACCESS_KEY: " AWS_SECRET_ACCESS_KEY < /dev/tty
+    echo
+fi
+if [[ -n "${AWS_ACCESS_KEY_ID}" ]]; then
+    read -p "Enter AWS_REGION [default: us-east-1]: " _AWS_REGION_IN < /dev/tty
+    AWS_REGION=${_AWS_REGION_IN:-${AWS_REGION:-us-east-1}}
+    read -p "Enter AWS_DEFAULT_BUCKET (e.g., my-org-daytona-region-us): " _AWS_BUCKET_IN < /dev/tty
+    AWS_DEFAULT_BUCKET=${_AWS_BUCKET_IN:-${AWS_DEFAULT_BUCKET:-}}
+    read -p "Enter AWS_ENDPOINT_URL [default: https://s3.${AWS_REGION}.amazonaws.com]: " _AWS_ENDPOINT_IN < /dev/tty
+    AWS_ENDPOINT_URL=${_AWS_ENDPOINT_IN:-${AWS_ENDPOINT_URL:-"https://s3.${AWS_REGION}.amazonaws.com"}}
+    if [[ -z "${AWS_DEFAULT_BUCKET}" ]]; then
+        warn "AWS_DEFAULT_BUCKET is empty; declarative builder will fail until set."
+    else
+        log "Builder bucket: ${AWS_DEFAULT_BUCKET} (${AWS_REGION})"
+    fi
+else
+    warn "Skipping declarative-builder configuration. Snapshots created via the"
+    warn "declarative builder will fail until AWS_* env vars are set in"
+    warn "/etc/systemd/system/daytona-runner.service and the service is restarted."
+fi
+
 # 8. Register runner with API
 log "Registering runner with Daytona API..."
 
@@ -436,6 +491,11 @@ Environment=ENABLE_TLS=${ENABLE_TLS:-"false"}
 Environment=API_PORT=${API_PORT:-3000}
 Environment=LOG_FILE_PATH=$RUNNER_LOG_PATH
 Environment=LOG_LEVEL=info
+# Declarative builder / object storage configuration.
+# The runner reads build-context tarballs from this S3-compatible bucket.
+# In a BYOC region, point these at the same bucket configured under
+# services.snapshotManager.storage.s3.* in the daytona-region chart values.
+# Leaving AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY blank disables declarative builds.
 Environment=AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL:-"https://s3.us-east-1.amazonaws.com"}
 Environment=AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
 Environment=AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}

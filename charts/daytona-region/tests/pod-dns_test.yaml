@@ -1,0 +1,71 @@
+suite: chart-wide pod DNS overrides (dnsPolicy/dnsConfig)
+templates:
+  - proxy-deployment.yaml
+  - region-registration-hook.yaml
+  - runner-daemonset.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: default render adds no dnsPolicy/dnsConfig to proxy or registration hook
+    templates:
+      - proxy-deployment.yaml
+      - region-registration-hook.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      - notExists:
+          path: spec.template.spec.dnsPolicy
+        documentIndex: 0
+      - notExists:
+          path: spec.template.spec.dnsConfig
+        documentIndex: 0
+
+  - it: dnsPolicy + dnsConfig land on proxy deployment and registration hook job
+    templates:
+      - proxy-deployment.yaml
+      - region-registration-hook.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      dnsPolicy: "None"
+      dnsConfig:
+        nameservers:
+          - "10.0.0.2"
+        options:
+          - name: ndots
+            value: "2"
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsPolicy
+          value: None
+        documentIndex: 0
+      - equal:
+          path: spec.template.spec.dnsConfig.nameservers[0]
+          value: 10.0.0.2
+        documentIndex: 0
+
+  - it: runner daemonset keeps ClusterFirstWithHostNet (hostNetwork) but still receives dnsConfig
+    templates:
+      - runner-daemonset.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      dnsPolicy: "None"
+      dnsConfig:
+        nameservers:
+          - "10.0.0.2"
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsPolicy
+          value: ClusterFirstWithHostNet
+      - equal:
+          path: spec.template.spec.dnsConfig.nameservers[0]
+          value: 10.0.0.2

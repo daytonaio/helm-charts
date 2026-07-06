@@ -1,0 +1,25 @@
+# Minimal values fixture for daytona-region rendering smoke test
+# Used to capture pre/post baseline render diffs
+regionName: "test-region"
+proxyUrl: "https://proxy.daytona.example.com"
+snapshotManagerUrl: "https://snapshots.daytona.example.com"
+daytonaApiUrl: "https://api.daytona.example.com/api"
+daytonaApiKey: "test-api-key-placeholder"
+
+services:
+  snapshotManager:
+    ingress:
+      enabled: true
+      hostname: "snapshots.daytona.example.com"
+    http:
+      tls:
+        enabled: false
+        selfSigned: false
+        hostname: "snapshots.daytona.example.com"
+    storage:
+      s3:
+        region: "us-east-1"
+        bucket: "test-bucket-baseline"
+        endpointUrl: "https://s3.amazonaws.com"
+        accessKey: "test-access-key"
+        secretKey: "test-secret-key"

@@ -1,0 +1,44 @@
+suite: proxy ingress TLS wildcard SAN gating (HTTP-01 vs DNS-01)
+templates:
+  - proxy-ingress.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: default keeps the proxy TLS cert NON-wildcard (apex SAN only) so it issues under HTTP-01
+    set:
+      regionName: "test"
+      proxyUrl: "https://proxy.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: "proxy.example.com"
+      - lengthEqual:
+          path: spec.tls[0].hosts
+          count: 1
+      # wildcard ROUTING rule is always present (sandbox subdomains route to proxy)
+      - equal:
+          path: spec.rules[1].host
+          value: "*.proxy.example.com"
+
+  - it: wildcardTls=true adds the *.proxy SAN to the proxy TLS cert (requires a DNS-01 issuer)
+    set:
+      regionName: "test"
+      proxyUrl: "https://proxy.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.proxy.ingress.wildcardTls: true
+    asserts:
+      - lengthEqual:
+          path: spec.tls[0].hosts
+          count: 2
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: "proxy.example.com"
+      - equal:
+          path: spec.tls[0].hosts[1]
+          value: "*.proxy.example.com"

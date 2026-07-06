@@ -1,0 +1,174 @@
+{{- if .Values.services.runnerReaper.enabled -}}
+{{- $rr := .Values.services.runnerReaper -}}
+{{- $repo := $rr.image.repository | default .Values.registration.image.repository -}}
+{{- $tag := $rr.image.tag | default .Values.registration.image.tag -}}
+{{- $pullPolicy := $rr.image.pullPolicy | default .Values.registration.image.pullPolicy -}}
+# BYOC stale-runner reaper.
+# In BYOC the control-plane database lives in Daytona Cloud, so a cluster-local
+# database reaper cannot run here. This CronJob instead calls the Daytona
+# Cloud runner API: it finds runners stuck in state=unresponsive (their node was
+# rolled/lost and they stopped heartbeating) for at least graceSeconds, and marks
+# them unschedulable + draining — handing them to the platform's own decommission
+# pipeline, which archives/migrates the backed-up sandboxes off them and retires
+# the runner. It optionally deletes runners already in state=decommissioned.
+#
+# REQUIRES (otherwise the API returns 401/403 and the job fails loudly):
+#   - an org API key (daytonaApiKey) minted with read:runners + write:runners +
+#     delete:runners scopes, AND
+#   - the `organization_infrastructure` feature flag enabled for your Daytona org.
+# See docs/operations.md.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "daytona.fullname" . }}-runner-reaper
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner-reaper
+{{- with .Values.imagePullSecrets }}
+imagePullSecrets:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "daytona.fullname" . }}-runner-reaper
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner-reaper
+spec:
+  schedule: {{ $rr.schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: {{ $rr.successfulJobsHistoryLimit | default 3 }}
+  failedJobsHistoryLimit: {{ $rr.failedJobsHistoryLimit | default 3 }}
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: {{ $rr.activeDeadlineSeconds | default 300 }}
+      ttlSecondsAfterFinished: 300
+      template:
+        metadata:
+          labels:
+            {{- include "daytona.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: runner-reaper
+        spec:
+          serviceAccountName: {{ include "daytona.fullname" . }}-runner-reaper
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: reaper
+              image: "{{ $repo }}:{{ $tag }}"
+              imagePullPolicy: {{ $pullPolicy }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -u
+                  : "${DAYTONA_API_URL:?}" "${DAYTONA_API_KEY:?}" "${REGION_ID:?}"
+                  echo "runner-reaper: region=${REGION_ID} grace=${GRACE_SECONDS}s dryRun=${DRY_RUN} deleteDecommissioned=${DELETE_DECOMMISSIONED}"
+
+                  # http METHOD URL [JSON_BODY] -> prints HTTP code; body in /tmp/body
+                  http() {
+                    _m="$1"; _u="$2"; _d="${3:-}"
+                    if [ -n "$_d" ]; then
+                      curl -sS -m 30 -o /tmp/body -w '%{http_code}' -X "$_m" \
+                        -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
+                        -H "Content-Type: application/json" -d "$_d" "$_u"
+                    else
+                      curl -sS -m 30 -o /tmp/body -w '%{http_code}' -X "$_m" \
+                        -H "Authorization: Bearer ${DAYTONA_API_KEY}" "$_u"
+                    fi
+                  }
+
+                  code="$(http GET "${DAYTONA_API_URL}/runners?regionId=${REGION_ID}")"
+                  case "$code" in
+                    200) ;;
+                    401|403)
+                      echo "ERROR: runner API returned HTTP ${code}. The reaper needs an org API key with read:runners + write:runners + delete:runners scopes AND the 'organization_infrastructure' feature flag enabled for your Daytona org. See docs/operations.md."
+                      exit 1 ;;
+                    *)
+                      echo "ERROR: list runners failed (HTTP ${code}): $(cat /tmp/body)"
+                      exit 1 ;;
+                  esac
+                  runners="$(cat /tmp/body)"
+
+                  # Stale = state unresponsive AND lastChecked older than grace.
+                  stale="$(printf '%s' "$runners" | jq -r --argjson g "${GRACE_SECONDS}" '
+                    [ .[]
+                      | select(.state == "unresponsive")
+                      | select(.lastChecked != null)
+                      | . as $r
+                      | (try ($r.lastChecked | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) catch null) as $t
+                      | select($t != null and (now - $t) >= $g)
+                      | $r.id ] | .[]')"
+                  deco="$(printf '%s' "$runners" | jq -r '[ .[] | select(.state == "decommissioned") | .id ] | .[]')"
+
+                  acted=0
+                  for id in $stale; do
+                    [ -z "$id" ] && continue
+                    acted=1
+                    echo "runner ${id}: unresponsive >= ${GRACE_SECONDS}s -> unschedulable + draining"
+                    if [ "$DRY_RUN" = "true" ]; then echo "  [dry-run] no API calls made"; continue; fi
+                    c1="$(http PATCH "${DAYTONA_API_URL}/runners/${id}/scheduling" '{"unschedulable":true}')"
+                    [ "$c1" = 200 ] && echo "  unschedulable=true (200)" || echo "  WARN: scheduling PATCH HTTP ${c1}: $(cat /tmp/body)"
+                    c2="$(http PATCH "${DAYTONA_API_URL}/runners/${id}/draining" '{"draining":true}')"
+                    [ "$c2" = 200 ] && echo "  draining=true (200)" || echo "  WARN: draining PATCH HTTP ${c2}: $(cat /tmp/body)"
+                  done
+
+                  if [ "$DELETE_DECOMMISSIONED" = "true" ]; then
+                    for id in $deco; do
+                      [ -z "$id" ] && continue
+                      acted=1
+                      echo "runner ${id}: decommissioned -> delete"
+                      if [ "$DRY_RUN" = "true" ]; then echo "  [dry-run] no API calls made"; continue; fi
+                      http PATCH "${DAYTONA_API_URL}/runners/${id}/scheduling" '{"unschedulable":true}' >/dev/null 2>&1 || true
+                      cd="$(http DELETE "${DAYTONA_API_URL}/runners/${id}")"
+                      [ "$cd" = 204 ] && echo "  deleted (204)" || echo "  WARN: delete HTTP ${cd} (may still have live sandboxes): $(cat /tmp/body)"
+                    done
+                  fi
+
+                  [ "$acted" = 0 ] && echo "no stale/decommissioned runners in region ${REGION_ID}"
+                  echo "runner-reaper: done"
+              env:
+                - name: DAYTONA_API_URL
+                  value: {{ required "daytonaApiUrl is required" .Values.daytonaApiUrl | quote }}
+                - name: DAYTONA_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.registration.existingSecret | default (printf "%s-daytona-api-key" (include "daytona.fullname" .)) }}
+                      key: {{ .Values.registration.secretKeys.apiKey | default "daytona-api-key" }}
+                - name: REGION_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "daytona.fullname" . }}-region-config
+                      key: id
+                - name: GRACE_SECONDS
+                  value: {{ $rr.graceSeconds | default 900 | quote }}
+                - name: DRY_RUN
+                  value: {{ $rr.dryRun | default false | quote }}
+                - name: DELETE_DECOMMISSIONED
+                  value: {{ $rr.deleteDecommissioned | default true | quote }}
+              resources:
+                {{- toYaml $rr.resources | nindent 16 }}
+          {{- with .Values.dnsPolicy }}
+          dnsPolicy: {{ . }}
+          {{- end }}
+          {{- with .Values.dnsConfig }}
+          dnsConfig:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with ($rr.nodeSelector | default .Values.nodeSelector) }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $rr.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,1038 @@
+{{- if .Values.services.runner.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "daytona.fullname" . }}-runner
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner
+  {{- with .Values.services.runner.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "daytona.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: runner
+      daytona.io/runner: "true"
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      {{- with .Values.services.runner.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "daytona.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: runner
+        daytona.io/runner: "true"
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      nodeSelector:
+        daytona-sandbox-c: "true"
+      tolerations:
+        - key: "sandbox"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with .Values.dnsConfig }}
+      # hostNetwork pod: the global .Values.dnsPolicy is intentionally NOT
+      # applied here (ClusterFirstWithHostNet is required for cluster DNS),
+      # but custom resolvers/searches/options are still merged in.
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "daytona.serviceAccountName" (dict "Values" .Values "service" "runner" "Chart" .Chart "Release" .Release) }}
+      terminationGracePeriodSeconds: 30
+      {{- if .Values.services.runner.hostAliases }}
+      hostAliases:
+        {{- toYaml .Values.services.runner.hostAliases | nindent 8 }}
+      {{- end }}
+      {{- if and .Values.services.runner.dockerInstaller.enabled .Values.services.runner.dockerInstaller.airgapped.enabled }}
+      initContainers:
+        - name: extract-packages
+          image: {{ .Values.services.runner.dockerInstaller.airgapped.packagesImage }}
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+              mountPropagation: Bidirectional
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Extracting packages from image to host filesystem..."
+              if [ ! -f /packages/packages.tar.gz ]; then
+                echo "ERROR: /packages/packages.tar.gz not found in image"
+                exit 1
+              fi
+              echo "Copying packages.tar.gz to host..."
+              cp /packages/packages.tar.gz /host/tmp/packages.tar.gz
+              echo "Extracting packages to host filesystem..."
+              cd /host/tmp
+              tar -xzf packages.tar.gz
+              echo "Packages extracted successfully"
+              ls -la /host/tmp/offline-packages/
+      {{- end }}
+      containers:
+        {{- if .Values.services.runner.registryProxy.enabled }}
+        # Socat sidecar to forward registry -> external registry
+        - name: registry-proxy
+          image: {{ .Values.services.runner.registryProxy.image }}
+          args:
+            - "TCP-LISTEN:{{ .Values.services.runner.registryProxy.listenPort }},fork,reuseaddr"
+            - "TCP:{{ .Values.services.runner.registryProxy.targetHost }}:{{ .Values.services.runner.registryProxy.targetPort }}"
+          securityContext:
+            privileged: false
+        {{- end }}
+        {{- if .Values.services.runner.dockerInstaller.enabled }}
+        # Docker installer sidecar - installs Docker on the host node
+        - name: docker-installer
+          image: {{ .Values.services.runner.dockerInstaller.image }}
+          securityContext:
+            privileged: true
+          envFrom:
+            - configMapRef:
+                name: {{ include "daytona.fullname" . }}-runner-docker-installer-config
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+              mountPropagation: Bidirectional
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting Docker and Sysbox installation on host node..."
+              echo "XFS Storage Size: ${XFS_STORAGE_SIZE}"
+              echo "Airgapped Mode: ${AIRGAPPED_MODE}"
+              
+              {{- if .Values.services.runner.dockerInstaller.airgapped.enabled }}
+              # Airgapped mode: Packages are already extracted by init container
+              echo "Verifying packages are available..."
+              if [ ! -d "/host/tmp/offline-packages" ]; then
+                echo "ERROR: Packages directory not found at /host/tmp/offline-packages"
+                exit 1
+              fi
+              ls -la /host/tmp/offline-packages/
+              {{- end }}
+              
+              # Shared add_host_alias() function — used by BOTH the static hostAliases loop
+              # below and the dynamicHostAliases loop. The awk-based tmp-merge writes the
+              # entry into a temp file and atomically renames it onto /etc/hosts via nsenter,
+              # so the host file is never half-written. Idempotent: re-running with the same
+              # (ip,name) pair leaves /etc/hosts in a deduplicated state — existing entries
+              # for that hostname are overwritten in place, new entries are appended exactly
+              # once.
+              echo "Setting up host aliases..."
+              add_host_alias() {
+                ip="$1"; name="$2"
+                if [ -z "$ip" ] || [ -z "$name" ]; then
+                  echo "[host-alias] WARN: skipping empty ip='$ip' name='$name'" >&2
+                  return 0
+                fi
+                nsenter -t 1 -m -u -n -i sh -c "
+                  awk -v ip=\"$ip\" -v name=\"$name\" '
+                    BEGIN { found=0 }
+                    {
+                      if (\$2 == name) { print ip\" \"name; found=1 }
+                      else { print }
+                    }
+                    END { if (!found) print ip\" \"name }
+                  ' /etc/hosts > /etc/hosts.tmp && mv /etc/hosts.tmp /etc/hosts
+                "
+                echo "[host-alias] set $ip $name"
+              }
+              # Static aliases (explicit ip + hostnames in services.runner.hostAliases)
+              # `squote` shell-quotes the helm-substituted values so a hostname containing
+              # special characters (e.g. quotes or backslashes) cannot break the surrounding
+              # shell context. add_host_alias receives the unquoted contents via positional
+              # arguments and re-quotes them safely with awk -v.
+              {{- range .Values.services.runner.hostAliases }}
+              {{- $ip := .ip -}}
+              {{- range .hostnames }}
+              add_host_alias {{ $ip | squote }} {{ . | squote }}
+              {{- end }}
+              {{- end }}
+              # Dynamic aliases resolved at install time via Kubernetes DNS (services.runner.dockerInstaller.dynamicHostAliases)
+              {{- range .Values.services.runner.dockerInstaller.dynamicHostAliases }}
+              resolved_ip="$(getent hosts {{ . | squote }} | awk '{print $1; exit}')"
+              if [ -n "$resolved_ip" ]; then
+                add_host_alias "$resolved_ip" {{ . | squote }}
+              else
+                echo "[host-alias] WARN: could not resolve {{ . }} via getent hosts" >&2
+              fi
+              {{- end }}
+              # Surface the resulting host entries we care about
+              nsenter -t 1 -m -u -n -i sh -c 'grep -E "registry|minio|snapshot-manager" /etc/hosts || true'
+              
+              # Enter the host namespace and install Docker + Sysbox
+              nsenter -t 1 -m -u -n -i sh <<'EOF'
+              
+              # Set XFS storage size in host namespace (value injected at pod creation)
+              export XFS_STORAGE_SIZE="{{ .Values.services.runner.dockerInstaller.xfsStorageSize }}"
+              export AIRGAPPED_MODE="{{ .Values.services.runner.dockerInstaller.airgapped.enabled }}"
+              
+              # Offline packages location (used in airgapped mode)
+              PACKAGES_DIR="/tmp/offline-packages"
+              
+              {{- if .Values.services.runner.dockerInstaller.airgapped.enabled }}
+              # Function to install all dependencies from offline packages
+              install_dependencies() {
+                echo "Installing dependencies from offline packages..."
+                
+                if [ ! -d "$PACKAGES_DIR/dependencies" ]; then
+                  echo "ERROR: Dependencies directory not found at $PACKAGES_DIR/dependencies"
+                  return 1
+                fi
+                
+                echo "Installing all dependency .deb packages (first pass)..."
+                cd $PACKAGES_DIR/dependencies
+                sudo dpkg -i --skip-same-version --refuse-downgrade *.deb 2>/dev/null || true
+                
+                echo "Installing all dependency .deb packages (second pass)..."
+                sudo dpkg -i --skip-same-version --refuse-downgrade *.deb 2>/dev/null || true
+                
+                # Run dpkg configure to fix any remaining issues
+                dpkg --configure -a
+                
+                echo "Dependencies installation completed"
+                return 0
+              }
+              
+              # Function to install Docker from offline packages
+              install_docker() {
+                if command -v docker >/dev/null 2>&1; then
+                  echo "Docker is already installed"
+                  docker version
+                  return 0
+                fi
+                
+                echo "Installing Docker from offline packages..."
+                
+                if [ ! -d "$PACKAGES_DIR/docker" ]; then
+                  echo "ERROR: Docker packages directory not found at $PACKAGES_DIR/docker"
+                  return 1
+                fi
+                
+                # Install Docker CLI first, then Docker CE
+                echo "Installing Docker CE CLI..."
+                dpkg --force-depends -i $PACKAGES_DIR/docker/docker-ce-cli_*.deb
+                
+                echo "Installing Docker CE..."
+                dpkg --force-depends -i $PACKAGES_DIR/docker/docker-ce_*.deb
+                
+                mkdir -p /etc/docker
+                systemctl daemon-reload
+                systemctl enable docker
+                
+                echo "Docker installation completed"
+                return 0
+              }
+              
+              # Function to install Sysbox from offline packages
+              install_sysbox() {
+                if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
+                  echo "Sysbox is already installed"
+                  return 0
+                fi
+                
+                echo "Installing Sysbox from offline packages..."
+                
+                if [ ! -d "$PACKAGES_DIR/sysbox" ]; then
+                  echo "ERROR: Sysbox packages directory not found at $PACKAGES_DIR/sysbox"
+                  return 1
+                fi
+                
+                # Determine architecture
+                ARCH=$(uname -m)
+                if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
+                  echo "Sysbox only supports x86_64 architecture"
+                  return 1
+                fi
+                
+                # Stop Docker before installing Sysbox
+                echo "Stopping Docker for Sysbox installation..."
+                systemctl stop docker 2>/dev/null || true
+                
+                # Install Sysbox package
+                echo "Installing Sysbox package..."
+                dpkg -i $PACKAGES_DIR/sysbox/sysbox-ce_*.deb || {
+                  echo "Sysbox install had issues, running dpkg configure..."
+                  dpkg --configure -a
+                }
+                
+                echo "Sysbox installation completed"
+                return 0
+              }
+              {{- else }}
+              # Function to install Docker and XFS tools (online mode)
+              install_docker() {
+                if command -v docker >/dev/null 2>&1 && [ -x /usr/bin/dockerd ]; then
+                  echo "Docker is already installed"
+                  docker version
+                  
+                  # Still check/install XFS tools even if Docker exists
+                  if ! command -v xfs_quota >/dev/null 2>&1; then
+                    echo "Installing XFS tools..."
+                    if command -v apt-get >/dev/null 2>&1; then
+                      apt-get update
+                      apt-get install -y xfsprogs
+                    elif command -v yum >/dev/null 2>&1; then
+                      yum install -y xfsprogs
+                    fi
+                  fi
+                  return 0
+                fi
+                
+                echo "Installing Docker and XFS tools..."
+                
+                if command -v apt-get >/dev/null 2>&1; then
+                  # Debian/Ubuntu based - download Docker CE packages directly
+                  cd /tmp
+                  
+                  # For Ubuntu 24.04 (noble)
+                  DOCKER_VERSION="27.4.1-1~ubuntu.24.04~noble"
+
+                  apt-get update
+                  apt-get install -y wget xfsprogs
+                  
+                  wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-ce_${DOCKER_VERSION}_amd64.deb
+                  wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-ce-cli_${DOCKER_VERSION}_amd64.deb
+                  #wget https://download.docker.com/linux/ubuntu/dists/noble/pool/stable/amd64/docker-buildx-plugin_0.19.3-1~ubuntu.24.04~noble_amd64.deb
+                  # Install with --force-depends to skip the containerd.io dependency
+                  dpkg --force-depends -i docker-ce-cli_${DOCKER_VERSION}_amd64.deb
+                  dpkg --force-depends -i docker-ce_${DOCKER_VERSION}_amd64.deb
+
+                  # AKS compatibility: AKS nodes ship moby-containerd which has a hard
+                  # apt-package conflict with docker-ce, so dpkg refuses to install the
+                  # daemon (CLI installs fine, daemon does not). If dockerd is missing
+                  # after the deb install, fall back to the static-binary tarball.
+                  # EKS/GKE/vanilla Ubuntu nodes install dockerd via the deb above and
+                  # skip this block entirely.
+                  if [ ! -x /usr/bin/dockerd ]; then
+                    echo "dockerd not installed by deb (managed-runtime conflict?) - using static tarball"
+                    curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.4.1.tgz -o /tmp/docker.tgz
+                    tar xzf /tmp/docker.tgz -C /tmp
+                    install -m 0755 /tmp/docker/dockerd /usr/bin/dockerd
+                    install -m 0755 /tmp/docker/docker-proxy /usr/bin/docker-proxy
+                    install -m 0755 /tmp/docker/docker-init /usr/bin/docker-init
+                    getent group docker >/dev/null 2>&1 || groupadd docker
+                    printf '%s\n' '[Unit]' 'Description=Docker Application Container Engine' 'After=network-online.target' 'Wants=network-online.target' '' '[Service]' 'Type=notify' 'ExecStart=/usr/bin/dockerd' 'ExecReload=/bin/kill -s HUP $MAINPID' 'Restart=always' 'RestartSec=2' 'LimitNOFILE=infinity' 'LimitNPROC=infinity' 'LimitCORE=infinity' 'Delegate=yes' 'KillMode=process' '' '[Install]' 'WantedBy=multi-user.target' > /etc/systemd/system/docker.service
+                  fi
+
+                  mkdir -p /etc/docker
+                  systemctl daemon-reload
+                  systemctl enable docker
+                elif command -v yum >/dev/null 2>&1; then
+                  # RHEL/CentOS based
+                  yum install -y docker curl xfsprogs
+                  systemctl enable docker
+                fi
+                
+                echo "Docker and XFS tools installation completed"
+                return 0
+              }
+              
+              # Function to install Sysbox (online mode)
+              install_sysbox() {
+                if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
+                  echo "Sysbox is already installed"
+                  return 0
+                fi
+                
+                echo "Installing Sysbox from GitHub releases..."
+                
+                if command -v apt-get >/dev/null 2>&1; then
+                  # Debian/Ubuntu based - install from GitHub
+                  . /etc/os-release
+                  
+                  # Determine architecture
+                  ARCH=$(uname -m)
+                  if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
+                    echo "Sysbox only supports x86_64 architecture"
+                    return 1
+                  fi
+                  
+                  # Download latest Sysbox release
+                  SYSBOX_VERSION="v0.6.4"
+                  echo "Downloading Sysbox ${SYSBOX_VERSION}..."
+                  
+                  cd /tmp
+                  
+                  # Download the deb package
+                  if curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb"; then
+                    echo "Downloaded Sysbox package successfully"
+                  else
+                    echo "Failed to download Sysbox, trying alternative download..."
+                    # Try without SSL verification as fallback
+                    curl -kLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb" || {
+                      echo "Failed to download Sysbox"
+                      return 1
+                    }
+                  fi
+                  
+                  # Stop Docker before installing Sysbox
+                  echo "Stopping Docker for Sysbox installation..."
+                  systemctl stop docker 2>/dev/null || true
+                  
+                  # Install dependencies
+                  apt-get update
+                  apt-get install -y jq fuse rsync rclone
+                  
+                  # Install Sysbox
+                  echo "Installing Sysbox package..."
+                  dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb || {
+                    echo "Installing Sysbox dependencies..."
+                    apt-get install -f -y
+                    dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb
+                  }
+                  
+                  # Cleanup
+                  rm -f sysbox-ce_0.6.4-0.linux_amd64.deb
+                  
+                elif command -v yum >/dev/null 2>&1; then
+                  # RHEL/CentOS based - install from GitHub
+                  SYSBOX_VERSION="v0.6.4"
+                  echo "Downloading Sysbox ${SYSBOX_VERSION} for RPM..."
+                  
+                  cd /tmp
+                  curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz"
+                  
+                  tar -xzf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz
+                  
+                  # Stop Docker before installing Sysbox
+                  systemctl stop docker 2>/dev/null || true
+                  
+                  # Install Sysbox
+                  yum install -y ./sysbox-ce/*.rpm
+                  
+                  # Cleanup
+                  rm -rf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz sysbox-ce/
+                fi
+                
+                echo "Sysbox installation completed"
+                return 0
+              }
+              {{- end }}
+              
+              # Function to setup XFS for Docker storage with quota support
+              setup_xfs_storage() {
+                echo "Setting up XFS filesystem for Docker storage..."
+                
+                # Check current filesystem of /var/lib/docker
+                DOCKER_DIR="/var/lib/docker"
+                
+                # Check if already on XFS
+                if [ -d "$DOCKER_DIR" ]; then
+                  FS_TYPE=$(df -T "$DOCKER_DIR" | tail -1 | awk '{print $2}')
+                  echo "Current filesystem for $DOCKER_DIR: $FS_TYPE"
+                  
+                  if [ "$FS_TYPE" = "xfs" ]; then
+                    echo "✓ Already on XFS filesystem"
+                    
+                    # Check if quota is enabled
+                    if xfs_quota -x -c 'state' "$DOCKER_DIR" 2>/dev/null | grep -q "Project quota state on"; then
+                      echo "✓ XFS quotas already enabled"
+                      return 0
+                    else
+                      echo "⚠ XFS quotas not enabled, attempting to remount..."
+                      # Try to remount with quota options
+                      MOUNT_POINT=$(df "$DOCKER_DIR" | tail -1 | awk '{print $6}')
+                      mount -o remount,prjquota "$MOUNT_POINT" 2>/dev/null || echo "Could not enable quotas on existing mount"
+                    fi
+                    return 0
+                  fi
+                  
+                  echo "⚠ $DOCKER_DIR is on $FS_TYPE, not XFS"
+                  echo "Will attempt to migrate to XFS loopback..."
+                fi
+
+                # SAFETY GUARD: never migrate a populated Docker root. If
+                # /var/lib/docker already holds containers (a previous run, i.e.
+                # live sandboxes on this node), moving it aside makes dockerd come
+                # up empty — every running sandbox then returns 404 "No such
+                # container" while its API row stays state=started, which a
+                # DaemonSet roll cannot self-heal. Migration is only safe on a
+                # pristine node; this stops a destructive re-migration on every
+                # subsequent roll if the XFS mount ever fails to stick.
+                if [ -d "$DOCKER_DIR/containers" ] && [ -n "$(ls -A "$DOCKER_DIR/containers" 2>/dev/null)" ]; then
+                  echo "⚠ $DOCKER_DIR already contains Docker containers — refusing XFS migration to avoid orphaning running sandboxes; keeping existing storage (no per-sandbox quota until the node is drained and re-provisioned)."
+                  return 0
+                fi
+
+                # Stop Docker before migration
+                systemctl stop docker 2>/dev/null || true
+                
+                # Backup existing Docker data if it exists
+                if [ -d "$DOCKER_DIR" ] && [ "$(ls -A $DOCKER_DIR)" ]; then
+                  echo "Backing up existing Docker data..."
+                  mv "$DOCKER_DIR" "${DOCKER_DIR}.backup.$(date +%s)"
+                fi
+                
+                # Create XFS loopback file for Docker storage
+                XFS_FILE="/var/lib/docker-xfs.img"
+                XFS_SIZE="${XFS_STORAGE_SIZE:-50G}"  # Default 50GB, can be configured
+                
+                if [ ! -f "$XFS_FILE" ]; then
+                  echo "Creating XFS storage file ($XFS_SIZE)..."
+                  # Create sparse file
+                  truncate -s "$XFS_SIZE" "$XFS_FILE"
+                  
+                  # Format as XFS with project quota support
+                  echo "Formatting XFS filesystem with quota support..."
+                  mkfs.xfs -f -n ftype=1 "$XFS_FILE"
+                fi
+                
+                # Create mount point
+                mkdir -p "$DOCKER_DIR"
+                
+                # Mount XFS with project quota enabled
+                echo "Mounting XFS filesystem..."
+                mount -o loop,prjquota "$XFS_FILE" "$DOCKER_DIR"
+                
+                # Add to fstab for persistence (if not already there)
+                if ! grep -q "$XFS_FILE" /etc/fstab; then
+                  echo "$XFS_FILE $DOCKER_DIR xfs loop,prjquota 0 0" >> /etc/fstab
+                fi
+                
+                # Initialize XFS quota
+                echo "Initializing XFS quota system..."
+                xfs_quota -x -c 'project -s -d 1' "$DOCKER_DIR" 2>/dev/null || true
+                
+                echo "✓ XFS storage setup completed"
+                return 0
+              }
+              
+              # Function to configure Docker to use Sysbox runtime
+              configure_docker_sysbox() {
+                echo "Configuring Docker to use Sysbox runtime..."
+                
+                mkdir -p /etc/docker
+                
+                # Create or update Docker daemon configuration
+                if [ -f /etc/docker/daemon.json ]; then
+                  # Backup existing config
+                  cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
+                fi
+                
+                # Write Docker daemon config with Sysbox runtime
+                # Note: Not including storage-driver to avoid conflicts with GKE systemd flags
+                cat > /etc/docker/daemon.json << 'DOCKERCONFIG'
+              {
+                "runtimes": {
+                  "sysbox-runc": {
+                    "path": "/usr/bin/sysbox-runc"
+                  }
+                },
+                "default-runtime": "sysbox-runc",
+                {{- if .Values.services.runner.dockerInstaller.liveRestore }}
+                "live-restore": true,
+                {{- end }}
+                {{- if .Values.services.runner.dockerInstaller.dns }}
+                "dns": {{ .Values.services.runner.dockerInstaller.dns | toJson }},
+                {{- end }}
+                {{- if .Values.services.runner.dockerInstaller.insecureRegistries }}
+                "insecure-registries": {{ .Values.services.runner.dockerInstaller.insecureRegistries | toJson }},
+                {{- end }}
+                "log-driver": "json-file",
+                "log-opts": {
+                  "max-size": "10m",
+                  "max-file": "3"
+                }
+              }
+              DOCKERCONFIG
+                
+                echo "Docker configuration updated"
+                return 0
+              }
+              
+              # Setup XFS filesystem for Docker storage with quotas
+              setup_xfs_storage
+              
+              {{- if .Values.services.runner.dockerInstaller.airgapped.enabled }}
+              # Install dependencies first (required for sysbox and docker) - airgapped mode
+              install_dependencies
+              {{- end }}
+              
+              # Install Sysbox (before Docker, as Docker config depends on sysbox)
+              install_sysbox
+              
+              # Install Docker
+              install_docker
+              
+              # Configure Docker to use Sysbox
+              configure_docker_sysbox
+              {{- if .Values.services.runner.buildkit.dns.nameservers }}
+
+              # Write BuildKit DNS config (chart: services.runner.buildkit.dns).
+              # Build ("RUN ...") containers do not reliably inherit the docker
+              # daemon's "dns" setting; standalone buildkitd reads this file.
+              mkdir -p /etc/buildkit
+              cat > /etc/buildkit/buildkitd.toml << 'BUILDKITCONFIG'
+              [dns]
+                nameservers = {{ .Values.services.runner.buildkit.dns.nameservers | toJson }}
+              {{- if .Values.services.runner.buildkit.dns.searchDomains }}
+                searchDomains = {{ .Values.services.runner.buildkit.dns.searchDomains | toJson }}
+              {{- end }}
+              {{- if .Values.services.runner.buildkit.dns.options }}
+                options = {{ .Values.services.runner.buildkit.dns.options | toJson }}
+              {{- end }}
+              BUILDKITCONFIG
+              echo "BuildKit DNS config written to /etc/buildkit/buildkitd.toml"
+              {{- end }}
+              
+              # Start Sysbox services
+              echo "Starting Sysbox services..."
+              systemctl enable sysbox 2>/dev/null || true
+              systemctl start sysbox 2>/dev/null || true
+              
+              # Start Docker. Only bounce the host daemon when the config actually
+              # changed or docker isn't already running with the sysbox runtime. A
+              # blind `restart` on a no-op DaemonSet roll bounces the host dockerd
+              # and stops every running sandbox that predates live-restore taking
+              # effect, so we avoid restarting unless it is truly necessary.
+              echo "Ensuring Docker is running with the Sysbox runtime..."
+              need_restart=0
+              if ! systemctl is-active --quiet docker; then
+                need_restart=1
+              elif ! docker info 2>/dev/null | grep -q 'sysbox-runc'; then
+                need_restart=1
+              elif [ -f /etc/docker/daemon.json.bak ] && ! cmp -s /etc/docker/daemon.json /etc/docker/daemon.json.bak; then
+                need_restart=1
+              fi
+              if [ "$need_restart" = 1 ]; then
+                echo "Restarting Docker (first install, or daemon.json/runtime change)..."
+                systemctl restart docker
+              else
+                echo "Docker already running with Sysbox runtime and unchanged config; skipping restart to avoid disrupting running sandboxes"
+              fi
+              
+              # Verify installation
+              echo "=== Verification ==="
+              echo "Docker version:"
+              docker version
+              echo ""
+              echo "Docker runtime:"
+              docker info | grep -i runtime || echo "Runtime info not available"
+              echo ""
+              echo "Sysbox status:"
+              systemctl status sysbox --no-pager -l || echo "Sysbox service status not available"
+              
+              EOF
+              
+              echo "Docker and Sysbox installer initialized. Monitoring services..."
+              
+              # Monitor and ensure Docker and Sysbox stay running
+              while true; do
+                nsenter -t 1 -m -u -n -i sh -c '
+                  # Check Sysbox
+                  if ! systemctl is-active --quiet sysbox 2>/dev/null; then
+                    echo "Sysbox service is down, restarting..."
+                    systemctl start sysbox 2>/dev/null || echo "Failed to start Sysbox"
+                  fi
+                  
+                  # Check Docker
+                  if ! systemctl is-active --quiet docker; then
+                    echo "Docker service is down, restarting..."
+                    systemctl start docker
+                  fi
+                ' || echo "Health check failed, will retry..."
+                sleep 60
+              done
+              ln -s /host/var/lib/docker /var/lib/docker
+        {{- end }}
+        {{- if .Values.services.runner.networkPolicy.enabled }}
+        {{- $np := .Values.services.runner.networkPolicy }}
+        {{- $npHash := printf "%s|%v|%v|%v|%v" $np.policyMode $np.blockCIDRs $np.allowCIDRs $np.blockHostPorts .Values.services.runner.dockerInstaller.dns | sha256sum | trunc 12 }}
+        # Sandbox egress policy reconciler. Programs the SBX_EGRESS (FORWARD
+        # path, hooked from DOCKER-USER which docker never flushes) and
+        # SBX_INPUT (host-local services) iptables chains in the HOST netns
+        # via nsenter, covering the default docker0 bridge and any br-+
+        # user-defined bridges (the runner's runner-bridge included). Rules
+        # carry a config-hash marker so the chain is only rebuilt when chart
+        # values change; the jumps are re-asserted every cycle in case of
+        # dockerd restarts. See values: services.runner.networkPolicy.
+        - name: egress-enforcer
+          image: {{ $np.image | default .Values.services.runner.dockerInstaller.image }}
+          securityContext:
+            privileged: true
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Sandbox egress policy: mode={{ $np.policyMode }} cfg=sbx-cfg-{{ $npHash }}"
+              while true; do
+                nsenter -t 1 -m -u -n -i sh <<'SBXEOF' || echo "egress reconcile failed; retrying..."
+              ipt() { iptables -w "$@"; }
+              if ! ipt -C SBX_EGRESS -m comment --comment "sbx-cfg-{{ $npHash }}" -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN 2>/dev/null; then
+                echo "(re)building SBX_EGRESS/SBX_INPUT chains (sbx-cfg-{{ $npHash }})"
+                ipt -t filter -N SBX_EGRESS 2>/dev/null || true
+                ipt -t filter -F SBX_EGRESS
+                # marker + return traffic of runner->sandbox connections
+                ipt -A SBX_EGRESS -m comment --comment "sbx-cfg-{{ $npHash }}" -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+              {{- range .Values.services.runner.dockerInstaller.dns }}
+                # sandbox DNS resolver (dockerInstaller.dns) — always reachable
+                ipt -A SBX_EGRESS -d {{ . }}/32 -j RETURN
+              {{- end }}
+              {{- range $np.allowCIDRs }}
+                ipt -A SBX_EGRESS -d {{ . }} -j RETURN
+              {{- end }}
+              {{- if eq $np.policyMode "allowlist" }}
+                # deny-by-default: everything not explicitly allowed is dropped
+                ipt -A SBX_EGRESS -j DROP
+              {{- else }}
+              {{- range $np.blockCIDRs }}
+                ipt -A SBX_EGRESS -d {{ . }} -j DROP
+              {{- end }}
+              {{- end }}
+                ipt -t filter -N SBX_INPUT 2>/dev/null || true
+                ipt -t filter -F SBX_INPUT
+              {{- range $np.blockHostPorts }}
+                ipt -A SBX_INPUT -p tcp --dport {{ . }} -j DROP
+              {{- end }}
+              fi
+              # keep the chains attached (cheap, idempotent, survives dockerd restarts)
+              ipt -t filter -N DOCKER-USER 2>/dev/null || true
+              ipt -C FORWARD -j DOCKER-USER 2>/dev/null || ipt -I FORWARD 1 -j DOCKER-USER
+              for IFACE in docker0 br-+; do
+                ipt -C DOCKER-USER -i "$IFACE" -j SBX_EGRESS 2>/dev/null || ipt -I DOCKER-USER 1 -i "$IFACE" -j SBX_EGRESS
+                ipt -C INPUT -i "$IFACE" -j SBX_INPUT 2>/dev/null || ipt -I INPUT 1 -i "$IFACE" -j SBX_INPUT
+              done
+              SBXEOF
+                sleep {{ $np.reconcileSeconds | default 30 }}
+              done
+        {{- end }}
+        {{- if .Values.services.runner.sandboxResources.enabled }}
+        {{- $sr := .Values.services.runner.sandboxResources }}
+        # Fractional sandbox CPU reconciler. The upstream runner grants whole
+        # cores (cpu-quota = vCPUs x 100000); this sidecar rewrites each new
+        # sandbox container's quota to limitMillicoresPerVcpu per declared
+        # vCPU (and optionally cpu.shares as the request analog). Sandbox
+        # containers are the only host-docker containers named with a UUID.
+        # Applied once per container id (markers under stateDir).
+        - name: sandbox-cpu-reconciler
+          image: {{ $sr.image }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              LIMIT_MILLI={{ $sr.limitMillicoresPerVcpu | int }}
+              REQ_MILLI={{ $sr.requestMillicoresPerVcpu | int }}
+              STATE=/sandbox-cpu-state
+              UUID_RE='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+              echo "sandbox CPU reconciler: limit=${LIMIT_MILLI}m/vCPU request=${REQ_MILLI}m/vCPU"
+              mkdir -p "$STATE"
+              while true; do
+                docker ps --format '{{`{{.ID}} {{.Names}}`}}' 2>/dev/null | while read -r CID NAME; do
+                  echo "$NAME" | grep -Eq "$UUID_RE" || continue
+                  [ -e "$STATE/$CID" ] && continue
+                  QUOTA=$(docker inspect -f '{{`{{.HostConfig.CpuQuota}}`}}' "$CID" 2>/dev/null) || continue
+                  PERIOD=$(docker inspect -f '{{`{{.HostConfig.CpuPeriod}}`}}' "$CID" 2>/dev/null) || continue
+                  if [ -z "$QUOTA" ] || [ "$QUOTA" -le 0 ] || [ -z "$PERIOD" ] || [ "$PERIOD" -le 0 ]; then
+                    # no CPU limit set (RESOURCE_LIMITS_DISABLED) — leave untouched
+                    : > "$STATE/$CID"
+                    continue
+                  fi
+                  VCPUS=$(( (QUOTA + PERIOD - 1) / PERIOD ))
+                  [ "$VCPUS" -lt 1 ] && VCPUS=1
+                  NEW_QUOTA=$(( VCPUS * LIMIT_MILLI * 100 ))
+                  SET_ARGS="--cpu-period 100000 --cpu-quota $NEW_QUOTA"
+                  if [ "$REQ_MILLI" -gt 0 ]; then
+                    SHARES=$(( VCPUS * REQ_MILLI * 1024 / 1000 ))
+                    [ "$SHARES" -lt 2 ] && SHARES=2
+                    SET_ARGS="$SET_ARGS --cpu-shares $SHARES"
+                  fi
+                  if docker update $SET_ARGS "$CID" >/dev/null 2>&1; then
+                    : > "$STATE/$CID"
+                    echo "sandbox $NAME ($CID): ${VCPUS} vCPU -> cpu-quota ${NEW_QUOTA}/100000"
+                  else
+                    echo "docker update failed for $NAME ($CID); will retry"
+                  fi
+                done
+                # drop markers of containers that no longer exist
+                ALL_IDS=" $(docker ps -aq 2>/dev/null | tr '\n' ' ') "
+                for f in "$STATE"/*; do
+                  [ -e "$f" ] || continue
+                  case "$ALL_IDS" in *" $(basename "$f") "*) ;; *) rm -f "$f" ;; esac
+                done
+                sleep {{ $sr.reconcileSeconds | default 10 }}
+              done
+          volumeMounts:
+            - name: host-docker-socket
+              mountPath: /var/run/
+            - name: sandbox-cpu-state
+              mountPath: /sandbox-cpu-state
+        {{- end }}
+        {{- if .Values.services.runner.daemonInstaller.enabled }}
+        # Daytona daemon binary installer sidecar.
+        #
+        # Why this exists:
+        #   The daytona-runner binary embeds the per-sandbox binaries (daemon
+        #   and computer-use) under static/*. At startup it extracts them into
+        #   its own container FS at /usr/local/bin/.tmp/binaries/ and uses
+        #   those paths as *bind-mount sources* when it creates sandbox Docker
+        #   containers via the host docker socket. Because the Docker daemon
+        #   runs on the host, it resolves those bind paths against the host
+        #   filesystem - where they don't exist. Docker then silently creates
+        #   the missing sources as empty directories, and the sandbox fails
+        #   with 'exec: "/usr/local/bin/daytona": permission denied' (you
+        #   can't exec a directory).
+        #
+        # What this sidecar does:
+        #   Run daytona-runner just long enough to extract the embedded
+        #   binaries into its own FS, then copy each one (+x) to the matching
+        #   path on the host via the host-root bind-mount. Stale empty
+        #   directories auto-created by Docker are cleaned up first.
+        - name: daytona-binary-installer
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ .Values.services.runner.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.runner.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          # Minimal env to satisfy daytona-runner config validation so it
+          # reaches the point of extracting its embedded binaries. These
+          # values are throwaway; the runner is killed as soon as the binaries
+          # are on disk and never contacts any control plane.
+          env:
+            - name: DAYTONA_API_URL
+              value: "http://127.0.0.1"
+            - name: SERVER_URL
+              value: "http://127.0.0.1"
+            - name: API_TOKEN
+              value: "installer"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_ENDPOINT_URL
+              value: "http://127.0.0.1"
+            - name: AWS_ACCESS_KEY_ID
+              value: "installer"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "installer"
+            - name: AWS_DEFAULT_BUCKET
+              value: "installer"
+            - name: SSH_PUBLIC_KEY
+              value: "installer"
+            - name: HOST_SRC_DIR
+              value: {{ .Values.services.runner.daemonInstaller.hostSrcDir | quote }}
+            - name: BINARIES
+              value: {{ .Values.services.runner.daemonInstaller.binaries | join " " | quote }}
+            - name: EXTRACT_TIMEOUT_SEC
+              value: {{ .Values.services.runner.daemonInstaller.extractTimeoutSec | quote }}
+            - name: REFRESH_INTERVAL_SEC
+              value: {{ .Values.services.runner.daemonInstaller.refreshIntervalSec | quote }}
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+              mountPropagation: Bidirectional
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -u
+              SRC_DIR=/usr/local/bin/.tmp/binaries
+              DST_DIR="/host${HOST_SRC_DIR}"
+
+              echo "[daytona-binary-installer] binaries=[${BINARIES}] target=${HOST_SRC_DIR}/ on host"
+
+              # Docker auto-creates missing bind-mount sources as empty dirs.
+              # Those stale dirs block us from later writing the binary as a
+              # file at the same path. Remove any we'd overwrite.
+              cleanup_stale_dirs() {
+                mkdir -p "${DST_DIR}"
+                for name in ${BINARIES}; do
+                  if [ -d "${DST_DIR}/${name}" ] && [ ! -L "${DST_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] removing stale directory ${HOST_SRC_DIR}/${name}/ on host"
+                    rm -rf "${DST_DIR}/${name}"
+                  fi
+                done
+              }
+
+              install_one() {
+                # Atomic install: write to .new then rename, so a sandbox start
+                # mid-refresh never sees a half-written or non-executable file.
+                name=$1
+                install -m 0755 "${SRC_DIR}/${name}" "${DST_DIR}/${name}.new" \
+                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}"
+              }
+
+              install_all() {
+                for name in ${BINARIES}; do
+                  if [ ! -s "${SRC_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] WARN: source ${SRC_DIR}/${name} missing, skipping"
+                    continue
+                  fi
+                  install_one "${name}"
+                  echo "[daytona-binary-installer] installed ${HOST_SRC_DIR}/${name} ($(stat -c '%s bytes' "${DST_DIR}/${name}"))"
+                done
+              }
+
+              extract_binaries() {
+                cd /usr/local/bin
+                # Clear any partially-extracted files so the size-check below
+                # only returns true once the runner has re-written them fully.
+                for name in ${BINARIES}; do rm -f "${SRC_DIR}/${name}"; done
+
+                ./daytona-runner > /tmp/runner.log 2>&1 &
+                RUNNER_PID=$!
+
+                elapsed=0
+                while [ ${elapsed} -lt ${EXTRACT_TIMEOUT_SEC} ]; do
+                  all_present=1
+                  for name in ${BINARIES}; do
+                    [ -s "${SRC_DIR}/${name}" ] || { all_present=0; break; }
+                  done
+                  [ ${all_present} -eq 1 ] && break
+                  sleep 1
+                  elapsed=$((elapsed + 1))
+                done
+
+                kill -9 ${RUNNER_PID} 2>/dev/null || true
+                wait ${RUNNER_PID} 2>/dev/null || true
+
+                for name in ${BINARIES}; do
+                  if [ ! -s "${SRC_DIR}/${name}" ]; then
+                    echo "[daytona-binary-installer] ERROR: ${SRC_DIR}/${name} not produced within ${EXTRACT_TIMEOUT_SEC}s. runner log:"
+                    tail -n 50 /tmp/runner.log || true
+                    return 1
+                  fi
+                done
+                return 0
+              }
+
+              cleanup_stale_dirs
+              until extract_binaries; do
+                echo "[daytona-binary-installer] extraction failed, retrying in 10s..."
+                sleep 10
+              done
+              install_all
+
+              # Keep host binaries in sync with whatever version is embedded in
+              # the current runner image. On a runner image bump the daemonset
+              # rolls, the new sidecar re-extracts, and the host files get
+              # refreshed. Also self-heals if a file is removed on the host.
+              while true; do
+                sleep "${REFRESH_INTERVAL_SEC}"
+                cleanup_stale_dirs
+                for name in ${BINARIES}; do
+                  SRC_SUM=$(sha256sum "${SRC_DIR}/${name}" 2>/dev/null | awk '{print $1}')
+                  DST_SUM=$(sha256sum "${DST_DIR}/${name}" 2>/dev/null | awk '{print $1}')
+                  if [ -z "${DST_SUM}" ] || [ "${SRC_SUM}" != "${DST_SUM}" ]; then
+                    echo "[daytona-binary-installer] refreshing ${HOST_SRC_DIR}/${name}"
+                    install_one "${name}" || echo "[daytona-binary-installer] WARN: refresh install failed for ${name}"
+                  fi
+                done
+              done
+        {{- end }}
+        {{- if .Values.services.runner.mainContainer.enabled }}
+        # K8s-native runner main container — runs daytona-runner as a privileged Kubernetes
+        # container alongside the host-bootstrap docker-installer + daytona-binary-installer
+        # sidecars. envFrom pulls runner-config (non-secret) + runner-secrets (AWS creds,
+        # API token) + region-config (REGION_ID; optional, populated by the registration hook).
+        # ports api+ssh are exposed both as containerPort and hostPort so they survive
+        # hostNetwork=true and reach the host network namespace.
+        - name: runner
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ .Values.services.runner.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.services.runner.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          ports:
+            - name: api
+              containerPort: {{ .Values.services.runner.ports.api }}
+              hostPort: {{ .Values.services.runner.ports.api }}
+            - name: ssh
+              containerPort: {{ .Values.services.runner.ports.ssh }}
+              hostPort: {{ .Values.services.runner.ports.ssh }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "daytona.fullname" . }}-runner-config
+            - secretRef:
+                name: {{ include "daytona.fullname" . }}-runner-secrets
+            - secretRef:
+                name: {{ include "daytona.fullname" . }}-region-config
+                optional: true
+          {{- with .Values.services.runner.extraEnv }}
+          env:
+            {{- include "daytona.tplvalues.render" (dict "value" . "context" $) | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: var-lib-daytona
+              mountPath: /var/lib/daytona
+            {{- if or .Values.services.runner.docker.daemonConfig.enabled (gt (len (default (list) .Values.services.runner.dockerInstaller.insecureRegistries)) 0) }}
+            - name: runner-docker-daemon-config
+              mountPath: /etc/docker/daemon.json
+              subPath: daemon.json
+            {{- end }}
+            {{- if .Values.services.runner.volumes.backend }}
+            # Volume (volume.share) support: the runner FUSE-mounts buckets at
+            # {{ .Values.services.runner.volumes.hostMountPath }}/daytona-volume-<id>; Bidirectional propagation
+            # makes those mounts visible on the HOST so the host dockerd can
+            # bind-mount them into sandbox containers.
+            - name: volume-host-mnt
+              mountPath: {{ .Values.services.runner.volumes.hostMountPath | quote }}
+              mountPropagation: Bidirectional
+            {{- if has .Values.services.runner.volumes.backend (list "gcs" "rclone") }}
+            # Shim shadowing the hardcoded `mount-s3` binary name with a
+            # delegating wrapper (/usr/local/bin precedes /usr/bin in PATH).
+            - name: volume-mount-shim
+              mountPath: /usr/local/bin/mount-s3
+              subPath: mount-s3
+            {{- end }}
+            {{- end }}
+            {{- with .Values.services.runner.extraVolumeMounts }}
+            {{- include "daytona.tplvalues.render" (dict "value" . "context" $) | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.services.runner.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
+        {{- if .Values.services.runner.mainContainer.enabled }}
+        - name: var-lib-daytona
+          hostPath:
+            path: {{ .Values.services.runner.hostPaths.varLibDaytona }}
+            type: DirectoryOrCreate
+        {{- if or .Values.services.runner.docker.daemonConfig.enabled (gt (len (default (list) .Values.services.runner.dockerInstaller.insecureRegistries)) 0) }}
+        - name: runner-docker-daemon-config
+          configMap:
+            name: {{ include "daytona.fullname" . }}-runner-docker-daemon-config
+        {{- end }}
+        {{- if .Values.services.runner.volumes.backend }}
+        - name: volume-host-mnt
+          hostPath:
+            path: {{ .Values.services.runner.volumes.hostMountPath | quote }}
+            type: DirectoryOrCreate
+        {{- if has .Values.services.runner.volumes.backend (list "gcs" "rclone") }}
+        - name: volume-mount-shim
+          configMap:
+            name: {{ include "daytona.fullname" . }}-volume-shim
+            defaultMode: 0755
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.services.runner.sandboxResources.enabled }}
+        - name: host-docker-socket
+          hostPath:
+            path: /var/run/
+            type: Directory
+        - name: sandbox-cpu-state
+          hostPath:
+            path: {{ .Values.services.runner.sandboxResources.stateDir | quote }}
+            type: DirectoryOrCreate
+        {{- end }}
+        {{- if .Values.services.runner.extraVolumes }}
+        {{- include "daytona.tplvalues.render" (dict "value" .Values.services.runner.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
+      {{- with .Values.services.runner.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

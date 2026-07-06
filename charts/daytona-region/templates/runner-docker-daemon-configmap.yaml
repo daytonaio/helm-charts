@@ -1,0 +1,39 @@
+{{- /*
+runner-docker-daemon-config: optional ConfigMap that ships a chart-rendered
+/etc/docker/daemon.json to the runner main container when either
+  - services.runner.docker.daemonConfig.enabled is true, OR
+  - services.runner.dockerInstaller.insecureRegistries is non-empty.
+
+Mounted at /etc/docker/daemon.json on the runner container via subPath. The
+host-side daemon.json written by the docker-installer sidecar is unaffected;
+this ConfigMap gives the runner container a deterministic registry config that
+survives any host-side drift.
+
+Gated to a no-op when both knobs are at their defaults — keeps S6 baseline
+identical for operators who don't opt in.
+*/ -}}
+{{- if and .Values.services.runner.enabled (or .Values.services.runner.docker.daemonConfig.enabled (gt (len (default (list) .Values.services.runner.dockerInstaller.insecureRegistries)) 0)) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "daytona.fullname" . }}-runner-docker-daemon-config
+  namespace: {{ include "daytona.namespace" . }}
+  labels:
+    {{- include "daytona.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner
+data:
+  daemon.json: |
+    {
+      {{- with .Values.services.runner.dockerInstaller.dns }}
+      "dns": {{ . | toJson }},
+      {{- end }}
+      {{- with .Values.services.runner.dockerInstaller.insecureRegistries }}
+      "insecure-registries": {{ . | toJson }},
+      {{- end }}
+      "log-driver": "json-file",
+      "log-opts": {
+        "max-size": "10m",
+        "max-file": "3"
+      }
+    }
+{{- end }}

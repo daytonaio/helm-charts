@@ -1,0 +1,101 @@
+suite: runner AWS credentialMode (S4)
+templates:
+  - runner-secret.yaml
+  - runner-serviceaccount.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: credentialMode=irsa with shim=false OMITS AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+    template: runner-secret.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.aws.credentialMode: irsa
+      services.runner.aws.allowEmptyStaticKeyShim: false
+      services.runner.env.AWS_REGION: "us-east-1"
+      services.runner.env.AWS_DEFAULT_BUCKET: "test-bucket"
+      services.runner.env.AWS_ENDPOINT_URL: "https://s3.amazonaws.com"
+    asserts:
+      - isKind:
+          of: Secret
+      - notExists:
+          path: stringData.AWS_ACCESS_KEY_ID
+      - notExists:
+          path: stringData.AWS_SECRET_ACCESS_KEY
+      - equal:
+          path: stringData.AWS_REGION
+          value: "us-east-1"
+      - equal:
+          path: stringData.AWS_DEFAULT_BUCKET
+          value: "test-bucket"
+      - equal:
+          path: stringData.AWS_ENDPOINT_URL
+          value: "https://s3.amazonaws.com"
+
+  - it: credentialMode=irsa with shim=true EMITS empty-string AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+    template: runner-secret.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.aws.credentialMode: irsa
+      services.runner.aws.allowEmptyStaticKeyShim: true
+    asserts:
+      - equal:
+          path: stringData.AWS_ACCESS_KEY_ID
+          value: ""
+      - equal:
+          path: stringData.AWS_SECRET_ACCESS_KEY
+          value: ""
+
+  - it: credentialMode=static (default) EMITS AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from values
+    template: runner-secret.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.env.AWS_ACCESS_KEY_ID: "AKIATEST"
+      services.runner.env.AWS_SECRET_ACCESS_KEY: "SECRETTEST"
+    asserts:
+      - equal:
+          path: stringData.AWS_ACCESS_KEY_ID
+          value: "AKIATEST"
+      - equal:
+          path: stringData.AWS_SECRET_ACCESS_KEY
+          value: "SECRETTEST"
+
+  - it: ServiceAccount renders eks.amazonaws.com/role-arn annotation when set
+    template: runner-serviceaccount.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.serviceAccount.create: true
+      services.runner.serviceAccount.annotations:
+        eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/daytona-runner-test"
+    asserts:
+      - isKind:
+          of: ServiceAccount
+      - equal:
+          path: 'metadata.annotations["eks.amazonaws.com/role-arn"]'
+          value: "arn:aws:iam::123456789012:role/daytona-runner-test"
+
+  - it: ServiceAccount honors automountServiceAccountToken=false when set
+    template: runner-serviceaccount.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.serviceAccount.create: true
+      services.runner.serviceAccount.automountServiceAccountToken: false
+    asserts:
+      - equal:
+          path: automountServiceAccountToken
+          value: false

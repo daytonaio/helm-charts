@@ -1,0 +1,182 @@
+suite: runner sandbox hardening (egress, dns, fractional cpu, volumes)
+templates:
+  - runner-daemonset.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  # Container order reference (with chart defaults dockerInstaller.enabled=true,
+  # daemonInstaller.enabled=true): [0]=docker-installer, then any enabled
+  # hardening sidecars (egress-enforcer before sandbox-cpu-reconciler), then
+  # daytona-binary-installer, then the opt-in runner main container.
+  - it: renders NO hardening containers by default (backward compat)
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      - isKind:
+          of: DaemonSet
+      - notContains:
+          path: spec.template.spec.containers
+          content:
+            name: egress-enforcer
+          any: true
+      - notContains:
+          path: spec.template.spec.containers
+          content:
+            name: sandbox-cpu-reconciler
+          any: true
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: buildkitd\.toml
+
+  - it: networkPolicy.enabled renders the egress-enforcer with block + input rules
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.networkPolicy.enabled: true
+      services.runner.dockerInstaller.dns:
+        - "8.8.8.8"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: egress-enforcer
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_EGRESS -d 10\\.0\\.0\\.0/8 -j DROP"
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_EGRESS -d 169\\.254\\.0\\.0/16 -j DROP"
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_EGRESS -d 8\\.8\\.8\\.8/32 -j RETURN"
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_INPUT -p tcp --dport 22 -j DROP"
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_INPUT -p tcp --dport 10250 -j DROP"
+
+  - it: networkPolicy allowlist mode renders the terminal deny instead of per-CIDR drops
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.networkPolicy.enabled: true
+      services.runner.networkPolicy.policyMode: allowlist
+      services.runner.networkPolicy.allowCIDRs:
+        - "203.0.113.0/24"
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_EGRESS -d 203\\.0\\.113\\.0/24 -j RETURN"
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_EGRESS -j DROP"
+      - notMatchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "ipt -A SBX_EGRESS -d 10\\.0\\.0\\.0/8 -j DROP"
+
+  - it: buildkit.dns.nameservers writes buildkitd.toml on the host via the installer
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.buildkit.dns.nameservers:
+        - "8.8.8.8"
+        - "1.1.1.1"
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "/etc/buildkit/buildkitd\\.toml"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'nameservers = \["8\.8\.8\.8","1\.1\.1\.1"\]'
+
+  - it: sandboxResources.enabled renders the cpu reconciler with the configured scale
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.sandboxResources.enabled: true
+      services.runner.sandboxResources.limitMillicoresPerVcpu: 500
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: sandbox-cpu-reconciler
+      - matchRegex:
+          path: spec.template.spec.containers[1].args[0]
+          pattern: "LIMIT_MILLI=500"
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: host-docker-socket
+          any: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: sandbox-cpu-state
+          any: true
+
+  - it: volumes.backend=rclone mounts /mnt Bidirectional + the mount-s3 shim on the main container
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.mainContainer.enabled: true
+      services.runner.volumes.backend: rclone
+    asserts:
+      # containers: [0]=docker-installer, [1]=daytona-binary-installer, [2]=runner
+      - equal:
+          path: spec.template.spec.containers[2].name
+          value: runner
+      - contains:
+          path: spec.template.spec.containers[2].volumeMounts
+          content:
+            name: volume-host-mnt
+            mountPath: /mnt
+            mountPropagation: Bidirectional
+      - contains:
+          path: spec.template.spec.containers[2].volumeMounts
+          content:
+            name: volume-mount-shim
+            mountPath: /usr/local/bin/mount-s3
+            subPath: mount-s3
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: volume-host-mnt
+          any: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: volume-mount-shim
+          any: true
+
+  - it: volumes.backend=s3 mounts /mnt but does NOT inject the shim
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.mainContainer.enabled: true
+      services.runner.volumes.backend: s3
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: volume-host-mnt
+          any: true
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: volume-mount-shim
+          any: true

@@ -1,0 +1,41 @@
+regionName: "test-region-irsa"
+proxyUrl: "https://proxy.daytona.example.com"
+snapshotManagerUrl: "https://snapshots.daytona.example.com"
+daytonaApiUrl: "https://api.daytona.example.com/api"
+daytonaApiKey: "test-api-key-placeholder"
+
+services:
+  snapshotManager:
+    ingress:
+      enabled: true
+      hostname: "snapshots.daytona.example.com"
+    http:
+      tls:
+        enabled: false
+        selfSigned: false
+        hostname: "snapshots.daytona.example.com"
+    storage:
+      s3:
+        region: "us-east-1"
+        bucket: "test-bucket-irsa"
+        endpointUrl: "https://s3.amazonaws.com"
+        accessKey: ""
+        secretKey: ""
+
+  runner:
+    mainContainer:
+      enabled: true
+    aws:
+      credentialMode: irsa
+      allowEmptyStaticKeyShim: false
+    serviceAccount:
+      create: true
+      automountServiceAccountToken: true
+      annotations:
+        eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/daytona-runner-test"
+        eks.amazonaws.com/sts-regional-endpoints: "true"
+    dockerInstaller:
+      dynamicHostAliases:
+        - snapshot-manager
+      insecureRegistries:
+        - "registry.local:5000"
