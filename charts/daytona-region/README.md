@@ -590,6 +590,10 @@ Snapshot-manager log shows `panic ... nil pointer` in `s3-aws.(*driver).Writer` 
 
 Not every chart `appVersion` has a matching `daytonaio/daytona-runner-manager` tag on Docker Hub. Keep the chart's pinned default tag, or verify the tag exists before overriding `services.runnermanager.image.tag`.
 
+### New runners never register / runner-manager loops every 20s
+
+Check whether `services.runnermanager.image.tag` is overridden. Runner-manager tags are not interchangeable — a tag other than the chart's pinned default (including `*-byoc` / `*-k8s-oss` tags, regardless of version number) is incompatible with the chart's runner image, so every registration fails and the autoscaler loop retries forever. Remove the override so the chart's pinned tag applies.
+
 ### ECR snapshot creation fails with `no basic auth credentials`
 
 The runner's `INSPECT_SNAPSHOT_IN_REGISTRY` job is not the right layer to look at — it has no ECR-auth code path of its own. Credentials are obtained centrally by the Daytona API via `sts:AssumeRole` into a role you register, and handed to the runner per-job. If that flow breaks, the runner has nothing to fall back on and the inspect call goes anonymous.
