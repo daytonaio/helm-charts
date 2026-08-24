@@ -472,10 +472,9 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner
-      # Also the default RUNNER_POD_IMAGE the runner-manager spawns (amd64-only
-      # tag). Empty falls back to appVersion (v0.183.0), which is also
-      # compatible with the pinned runner-manager.
-      tag: "v0.201.0-b24aa9b-amd64"
+      # Also the default RUNNER_POD_IMAGE the runner-manager spawns.
+      # Empty falls back to the chart appVersion.
+      tag: ""
       pullPolicy: IfNotPresent
     # mainContainer: opt-in K8s-native runner container that runs `daytona-runner` as a
     # privileged container inside the DaemonSet pod (sibling to the host-bootstrap
