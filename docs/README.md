@@ -90,6 +90,10 @@ Chart-side runner hardening and operations knobs are collected in
 [`operations.md`](operations.md). The cloud values templates opt into the
 security defaults where appropriate.
 
+The supported upgrade process and the blessed per-component version matrix are
+in [`upgrades.md`](upgrades.md) — component versions are intentionally not in
+lockstep; upgrade via the chart, not by overriding image tags.
+
 | Improvement | Values key(s) | Doc |
 |---|---|---|
 | Stale runner cleanup | `services.runnerReaper` | [`operations.md`](operations.md#runner-reaper) |

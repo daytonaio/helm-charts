@@ -350,9 +350,12 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      # NOTE: keep a tag that exists on Docker Hub for this BYOC fork lineage.
-      # v0.183.0 has no published daytona-runner-manager image (ImagePullBackOff).
-      tag: "v0.158.4-4-byoc-amd64"
+      # NOTE: keep the chart's pinned tag. Runner-manager tags on Docker Hub are
+      # not interchangeable and are not comparable by version number alone —
+      # only the tag pinned here is validated against this chart's runner image.
+      # Overriding it (e.g. with a *-byoc or *-k8s-oss tag) breaks registration
+      # of new runners.
+      tag: "v0.174.0-amd64"
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
@@ -469,7 +472,10 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner
-      tag: ""
+      # Also the default RUNNER_POD_IMAGE the runner-manager spawns (amd64-only
+      # tag). Empty falls back to appVersion (v0.183.0), which is also
+      # compatible with the pinned runner-manager.
+      tag: "v0.201.0-b24aa9b-amd64"
       pullPolicy: IfNotPresent
     # mainContainer: opt-in K8s-native runner container that runs `daytona-runner` as a
     # privileged container inside the DaemonSet pod (sibling to the host-bootstrap
