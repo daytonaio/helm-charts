@@ -592,7 +592,7 @@ Not every chart `appVersion` has a matching `daytonaio/daytona-runner-manager` t
 
 ### New runners never register / runner-manager loops every 20s
 
-Check whether `services.runnermanager.image.tag` is overridden. Runner-manager tags are not interchangeable — a tag other than the chart's pinned default (including `*-byoc` / `*-k8s-oss` tags, regardless of version number) is incompatible with the chart's runner image, so every registration fails and the autoscaler loop retries forever. Remove the override so the chart's pinned tag applies.
+Check whether `services.runnermanager.image.tag` is overridden. Runner-manager tags are not interchangeable — a tag other than the chart's pinned default is not validated against this chart's runner image, regardless of version number — `v0.174.0`, for example, is an older, incomplete build that only creates placeholder pods and never launches a runner. Remove the override so the chart's pinned tag applies.
 
 ### ECR snapshot creation fails with `no basic auth credentials`
 
