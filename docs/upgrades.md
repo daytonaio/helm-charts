@@ -7,20 +7,21 @@ snapshot-manager, and ssh-gateway. The chart's pinned defaults are the blessed
 combination; upgrade by upgrading the chart, not by overriding individual image
 tags.
 
-## Blessed version matrix (chart 0.2.0)
+## Blessed version matrix (chart 0.2.1)
 
 | Component | Image | Version |
 |---|---|---|
 | Runner | `daytonaio/daytona-runner` | chart `appVersion` (`v0.207.0`) |
-| Runner manager | `daytonaio/daytona-runner-manager` | `v0.174.0-amd64` |
+| Runner manager | `daytonaio/daytona-runner-manager` | `v0.158.4-4-byoc-amd64` |
 | Proxy | `daytonaio/daytona-proxy` | chart `appVersion` (`v0.207.0`) |
 | Snapshot manager | `daytonaio/daytona-snapshot-manager` | chart `appVersion` (`v0.207.0`) |
 | SSH gateway | `daytonaio/daytona-ssh-gateway` | chart `appVersion` (`v0.207.0`) |
 
 Do not select image tags from Docker Hub by version number — tags are not
-comparable across components, and some published runner-manager tags (e.g.
-`*-byoc`, `*-k8s-oss`) are not compatible with this chart's runner image even
-though their version numbers are higher. The matrix above is the only
+comparable across components, and runner-manager tags are not comparable to
+each other either. Some published runner-manager tags with higher version
+numbers (e.g. `v0.174.0`) are older or incomplete builds that never launch a
+runner. The matrix above is the only
 supported combination; pairing anything else can break registration of new
 runners.
 

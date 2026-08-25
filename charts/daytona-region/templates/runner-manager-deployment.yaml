@@ -61,9 +61,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "daytona.runnermanagerDaytonaApiSecretName" . }}
                   key: {{ include "daytona.runnermanagerDaytonaApiSecretKey" . }}
-            # Required (but unused) by the v0.174.0 runner-manager's config
-            # validation — without it the manager exits at boot. Same secret as
-            # API_TOKEN.
+            # Required by the runner-manager's config validation — without it the
+            # manager exits at boot. Same secret as API_TOKEN.
             - name: SYSTEM_API_TOKEN
               valueFrom:
                 secretKeyRef:

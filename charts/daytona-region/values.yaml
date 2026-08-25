@@ -351,11 +351,11 @@ services:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
       # NOTE: keep the chart's pinned tag. Runner-manager tags on Docker Hub are
-      # not interchangeable and are not comparable by version number alone —
+      # NOT comparable by version number — they come from different builds, and
       # only the tag pinned here is validated against this chart's runner image.
-      # Overriding it (e.g. with a *-byoc or *-k8s-oss tag) breaks registration
-      # of new runners.
-      tag: "v0.174.0-amd64"
+      # In particular v0.174.0 is an older, incomplete build despite the higher
+      # number: it only creates placeholder pods and never launches a runner.
+      tag: "v0.158.4-4-byoc-amd64"
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
