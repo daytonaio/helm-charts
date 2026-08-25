@@ -7,12 +7,12 @@ snapshot-manager, and ssh-gateway. The chart's pinned defaults are the blessed
 combination; upgrade by upgrading the chart, not by overriding individual image
 tags.
 
-## Blessed version matrix (chart 0.2.1)
+## Blessed version matrix (chart 0.2.2)
 
 | Component | Image | Version |
 |---|---|---|
 | Runner | `daytonaio/daytona-runner` | chart `appVersion` (`v0.207.0`) |
-| Runner manager | `daytonaio/daytona-runner-manager` | `v0.158.4-4-byoc-amd64` |
+| Runner manager | `daytonaio/daytona-runner-manager` | chart `appVersion` (`v0.207.0`, amd64-only) |
 | Proxy | `daytonaio/daytona-proxy` | chart `appVersion` (`v0.207.0`) |
 | Snapshot manager | `daytonaio/daytona-snapshot-manager` | chart `appVersion` (`v0.207.0`) |
 | SSH gateway | `daytonaio/daytona-ssh-gateway` | chart `appVersion` (`v0.207.0`) |

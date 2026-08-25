@@ -350,12 +350,12 @@ services:
     image:
       registry: docker.io
       repository: daytonaio/daytona-runner-manager
-      # NOTE: keep the chart's pinned tag. Runner-manager tags on Docker Hub are
-      # NOT comparable by version number — they come from different builds, and
-      # only the tag pinned here is validated against this chart's runner image.
-      # In particular v0.174.0 is an older, incomplete build despite the higher
-      # number: it only creates placeholder pods and never launches a runner.
-      tag: "v0.158.4-4-byoc-amd64"
+      # Empty falls back to the chart appVersion, like the other components.
+      # NOTE: do not override with another Docker Hub tag — runner-manager tags
+      # come from different builds and are NOT comparable by version number
+      # (v0.174.0, for example, only creates placeholder pods and never
+      # launches a runner). The appVersion image is amd64-only.
+      tag: ""
       pullPolicy: IfNotPresent
     service:
       type: ClusterIP
