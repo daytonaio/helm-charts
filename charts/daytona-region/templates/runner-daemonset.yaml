@@ -527,13 +527,18 @@ spec:
                 
                 # Write Docker daemon config with Sysbox runtime
                 # Note: Not including storage-driver to avoid conflicts with GKE systemd flags
-                # icc=false denies container-to-container traffic on the default bridge.
-                # It only takes effect on a daemon start with no running containers: moby skips
-                # configureNetworking when live-restore hands it active sandboxes, so on an
-                # in-place upgrade this key is inert and docker0 keeps EnableICC=true from the
-                # bridge store. Peer denial therefore does NOT rest on this key -- see the
-                # DOCKER-USER rule asserted by ensure_sandbox_peer_denial below, which needs no
-                # daemon restart. This key covers freshly provisioned nodes.
+                # icc=false does two things, neither of which is the whole control.
+                # 1. It makes moby load br_netfilter and set bridge-nf-call-iptables=1
+                #    (moby libnetwork/drivers/bridge/bridge_linux.go:849-851), which is the
+                #    precondition the DOCKER-USER rule needs to see same-bridge traffic at all.
+                # 2. It installs moby's own FORWARD drop before any pod schedules, which covers
+                #    the boot window the DaemonSet cannot.
+                # Both only happen on a daemon start with no running containers: moby skips
+                # configureNetworking when live-restore hands it active sandboxes
+                # (daemon/daemon_unix.go:848-850), so on an in-place upgrade this key is inert.
+                # daytona-peer-denial.sh therefore asserts the same precondition itself and
+                # carries the running population.
+                # NOTE: changing this file makes the installer restart dockerd once per node.
                 cat > /etc/docker/daemon.json << 'DOCKERCONFIG'
               {
                 "runtimes": {
@@ -542,7 +547,9 @@ spec:
                   }
                 },
                 "default-runtime": "sysbox-runc",
+                {{- if .Values.services.runner.sandboxIsolation.enabled }}
                 "icc": false,
+                {{- end }}
                 {{- if .Values.services.runner.dockerInstaller.liveRestore }}
                 "live-restore": true,
                 {{- end }}
@@ -599,29 +606,83 @@ spec:
               echo "BuildKit DNS config written to /etc/buildkit/buildkitd.toml"
               {{- end }}
               
-              # Start Sysbox services
-              # Deny traffic between unrelated sandboxes on the default bridge.
+{{- if .Values.services.runner.sandboxIsolation.enabled }}
+              # Single-source the peer-denial logic to a host script. The bootstrap heredoc and
+              # the monitor loop run in separate shells and cannot share a function, and an
+              # inline copy in each has already been observed to drift.
+              cat > /usr/local/sbin/daytona-peer-denial.sh << 'PEERDENIAL'
+              #!/bin/sh
+              # Deny traffic between unrelated sandboxes on the host default bridge.
               #
-              # This is the control that actually holds. It lives in DOCKER-USER, which docker
-              # never flushes, so it survives a dockerd restart and -- unlike the icc key -- it
-              # applies immediately to sandboxes that are already running.
+              # Scope: exactly one topology -- sandboxes on docker0. It does not apply when
+              # CONTAINER_NETWORK puts sandboxes on a br-<id> bridge.
               #
-              # Anchored on -i docker0 -o docker0, so it matches only same-bridge peer traffic.
-              # Deliberately linked sandboxes are unaffected: the runner puts them on their own
-              # link bridge and anchors its ACCEPT rules to that interface, so the two rules can
-              # never match the same packet and their relative order does not matter.
+              # Contract with linked sandboxes: both peers hold a docker0 endpoint AND a link
+              # endpoint. DNS by name and by sandbox id resolves to the link address, so linked
+              # traffic is unaffected. Traffic addressed to a peer's raw docker0 address IS
+              # denied -- intentionally, since an interface matcher cannot tell it apart from
+              # unrelated-tenant traffic.
               #
-              # Check-then-insert: a bare -I on a 60s reconcile stacks a duplicate every pass.
-              ensure_sandbox_peer_denial() {
-                iptables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null \
-                  || iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP
-                # Best effort: only reachable if the operator enabled IPv6 on the bridge.
-                if command -v ip6tables >/dev/null 2>&1; then
-                  ip6tables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null \
-                    || ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP 2>/dev/null || true
-                fi
-              }
+              # Invariant: nothing above this rule in DOCKER-USER may ACCEPT sandbox peer
+              # traffic. The runner anchors its link ACCEPTs to -i <link-bridge> for exactly
+              # this reason (apps/runner/pkg/netrules/link_icc.go); keep it that way.
+              set -u
+              rc=0
 
+              # Kernel precondition. Same-bridge frames are switched at L2 and reach iptables
+              # only when br_netfilter is loaded with bridge-nf-call-iptables=1. Docker
+              # provisions this itself when icc=false, but only on a daemon start with no
+              # running containers -- so on an in-place upgrade it is absent and the rule below
+              # would install cleanly and filter nothing. Assert it here and read it back.
+              modprobe br_netfilter 2>/dev/null || true
+              echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null || true
+              echo 1 > /proc/sys/net/bridge/bridge-nf-call-ip6tables 2>/dev/null || true
+              echo br_netfilter > /etc/modules-load.d/daytona-sandbox-isolation.conf 2>/dev/null || true
+              printf 'net.bridge.bridge-nf-call-iptables = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n' \
+                > /etc/sysctl.d/99-daytona-sandbox-isolation.conf 2>/dev/null || true
+              nf=$(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null || echo missing)
+              if [ "$nf" != "1" ]; then
+                echo "ERROR: bridge-nf-call-iptables=$nf -- the peer-denial rule will NOT filter same-bridge traffic on this node"
+                rc=1
+              fi
+
+              # Check-then-insert: a bare -I on a reconcile stacks a duplicate every pass.
+              if ! iptables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
+                if iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP; then
+                  echo "Installed IPv4 sandbox peer-denial rule"
+                else
+                  echo "ERROR: failed to install IPv4 sandbox peer-denial rule"
+                  rc=1
+                fi
+              fi
+
+              # ip6tables defaults on from Docker 27.4.1, so this chain exists. Non-fatal, but
+              # never silent: containers can hold IPv6 addresses and sandbox services bind ::.
+              if ! ip6tables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
+                if ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP 2>/dev/null; then
+                  echo "Installed IPv6 sandbox peer-denial rule"
+                else
+                  echo "WARNING: failed to install IPv6 sandbox peer-denial rule; IPv6 peer traffic is not denied"
+                fi
+              fi
+
+              exit $rc
+              PEERDENIAL
+              sed -i 's/^              //' /usr/local/sbin/daytona-peer-denial.sh
+              chmod 0755 /usr/local/sbin/daytona-peer-denial.sh
+{{- else }}
+              # sandboxIsolation disabled: remove the rules and the script rather than
+              # orphaning a DROP that nothing else will ever delete.
+              rm -f /usr/local/sbin/daytona-peer-denial.sh /etc/sysctl.d/99-daytona-sandbox-isolation.conf
+              while iptables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; do
+                iptables -w -D DOCKER-USER -i docker0 -o docker0 -j DROP || break
+              done
+              while ip6tables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; do
+                ip6tables -w -D DOCKER-USER -i docker0 -o docker0 -j DROP || break
+              done
+{{- end }}
+
+              # Start Sysbox services
               echo "Starting Sysbox services..."
               systemctl enable sysbox 2>/dev/null || true
               systemctl start sysbox 2>/dev/null || true
@@ -647,9 +708,12 @@ spec:
                 echo "Docker already running with Sysbox runtime and unchanged config; skipping restart to avoid disrupting running sandboxes"
               fi
               
+{{- if .Values.services.runner.sandboxIsolation.enabled }}
               # Assert peer denial now that dockerd is up and DOCKER-USER exists.
-              echo "Asserting sandbox peer-denial rule..."
-              ensure_sandbox_peer_denial || echo "WARNING: failed to assert sandbox peer-denial rule"
+              echo "Asserting sandbox peer-denial..."
+              /usr/local/sbin/daytona-peer-denial.sh \
+                || echo "WARNING: sandbox peer-denial assert FAILED -- peers may be reachable on this node"
+{{- end }}
 
               # Verify installation
               echo "=== Verification ==="
@@ -675,17 +739,22 @@ spec:
                     systemctl start sysbox 2>/dev/null || echo "Failed to start Sysbox"
                   fi
                   
-                  # Check Docker
+                  # Check Docker. Each check reports its own failure: the payload exit
+                  # status is fixed at 0 below, so no later command can mask an earlier one.
                   if ! systemctl is-active --quiet docker; then
                     echo "Docker service is down, restarting..."
-                    systemctl start docker
+                    systemctl start docker || echo "Failed to start Docker"
                   fi
+{{- if .Values.services.runner.sandboxIsolation.enabled }}
 
                   # Re-assert sandbox peer denial. DOCKER-USER survives a dockerd restart, but
                   # re-check anyway: an operator iptables flush would otherwise silently reopen
                   # peer reachability until the next pod start.
-                  iptables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null \
-                    || iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP
+                  /usr/local/sbin/daytona-peer-denial.sh \
+                    || echo "WARNING: sandbox peer-denial re-assert FAILED"
+{{- end }}
+
+                  exit 0
                 ' || echo "Health check failed, will retry..."
                 sleep 60
               done

@@ -32,32 +32,64 @@ tests:
           path: spec.template.spec.containers[0].args[0]
           pattern: buildkitd\.toml
 
-  # NOTE: a render assertion proves the text is emitted, NOT that peer traffic is
-  # denied on a node. The property is proven only by a live two-sandbox probe plus
-  # captured kernel state; see the peer-denial validation runbook.
-  - it: asserts sandbox peer denial by default, without depending on a daemon restart
+  # NOTE: these prove the text is emitted, NOT that peer traffic is denied on a
+  # node. The property is proven only by a live two-sandbox probe with captured
+  # kernel state. Assertions target executable statements, never comments.
+  - it: asserts sandbox peer denial by default
     set:
       regionName: "test"
       proxyUrl: "https://p.example.com"
       daytonaApiUrl: "https://api.example.com/api"
       daytonaApiKey: "test"
     asserts:
-      # The reconciled DOCKER-USER rule is the control that holds.
+      # Single-sourced host script, so the two call sites cannot drift.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'cat > /usr/local/sbin/daytona-peer-denial\.sh'
+      # Invoked at bootstrap AND from the monitor loop.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)Asserting sandbox peer-denial\.\.\..*?/usr/local/sbin/daytona-peer-denial\.sh'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)Re-assert sandbox peer denial.*?/usr/local/sbin/daytona-peer-denial\.sh'
+      # The rule itself.
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
           pattern: 'iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
-      # Asserted during bootstrap ...
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'ensure_sandbox_peer_denial'
-      # ... and re-asserted by the monitor loop, so an iptables flush self-heals.
+          pattern: 'ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+      # The kernel precondition, without which the rule filters nothing.
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'Re-assert sandbox peer denial'
-      # Belt and braces for freshly provisioned nodes only.
+          pattern: 'modprobe br_netfilter'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'bridge-nf-call-iptables'
+      # Boot-window coverage.
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
           pattern: '"icc": false'
+
+  - it: removes the peer-denial rule when sandboxIsolation is disabled
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.sandboxIsolation.enabled: false
+    asserts:
+      # No enforcement, and no orphaned rule left behind.
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '"icc": false'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w -D DOCKER-USER -i docker0 -o docker0 -j DROP'
 
   - it: networkPolicy.enabled renders the egress-enforcer with block + input rules
     set:
