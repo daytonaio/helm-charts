@@ -82,7 +82,11 @@ tests:
       # Bootstrap and monitor loop both exit non-zero rather than warn and continue.
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: '(?s)FATAL: sandbox peer-denial could not be established.*?exit 1'
+          pattern: '(?s)FATAL: sandbox peer-denial could not be established.*?exit 3'
+      # ...and that inner exit must reach the outer shell, not die inside nsenter.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)bootstrap_rc=\$\?.*?bootstrap_rc" = 3.*?exit 1'
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
           pattern: '(?s)FATAL: sandbox peer-denial re-assert failed.*?exit 1'
@@ -270,3 +274,16 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "services.runner.sandboxIsolation.enabled=true requires services.runner.dockerInstaller.enabled=true (the peer-denial control is applied by the docker-installer). Set services.runner.sandboxIsolation.enabled=false to run without inter-sandbox isolation, and provide an equivalent host-level control yourself."
+
+  - it: does not reject the config when no runner is deployed
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.enabled: false
+      services.runner.sandboxIsolation.enabled: true
+      services.runner.dockerInstaller.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -7,7 +7,7 @@
   rendered when that container is absent. Reject the combination rather than silently
   shipping a runner with no isolation while values claim it is enabled.
 */ -}}
-{{- if and .Values.services.runner.sandboxIsolation.enabled (not .Values.services.runner.dockerInstaller.enabled) }}
+{{- if and .Values.services.runner.enabled .Values.services.runner.sandboxIsolation.enabled (not .Values.services.runner.dockerInstaller.enabled) }}
 {{-   fail "services.runner.sandboxIsolation.enabled=true requires services.runner.dockerInstaller.enabled=true (the peer-denial control is applied by the docker-installer). Set services.runner.sandboxIsolation.enabled=false to run without inter-sandbox isolation, and provide an equivalent host-level control yourself." }}
 {{- end }}
 {{- if .Values.services.runner.enabled }}
@@ -736,7 +736,10 @@ spec:
               echo "Asserting sandbox peer-denial..."
               if ! /usr/local/sbin/daytona-peer-denial.sh; then
                 echo "FATAL: sandbox peer-denial could not be established; refusing to report this node healthy"
-                exit 1
+                # Distinct code: the outer shell treats only this as fatal. The rest of this
+                # bootstrap script was never written to be exit-status clean, so gating the
+                # container on its overall status would crash nodes for unrelated reasons.
+                exit 3
               fi
 {{- end }}
 
@@ -752,6 +755,16 @@ spec:
               systemctl status sysbox --no-pager -l || echo "Sysbox service status not available"
               
               EOF
+              bootstrap_rc=$?
+{{- if .Values.services.runner.sandboxIsolation.enabled }}
+              # Propagate the peer-denial failure out of nsenter. Without this the inner
+              # exit is swallowed and the container proceeds as though the node were
+              # protected.
+              if [ "$bootstrap_rc" = 3 ]; then
+                echo "FATAL: host bootstrap could not establish sandbox peer-denial; exiting"
+                exit 1
+              fi
+{{- end }}
               
               echo "Docker and Sysbox installer initialized. Monitoring services..."
               
