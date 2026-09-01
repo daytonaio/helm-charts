@@ -682,6 +682,13 @@ spec:
                 
                 # Write Docker daemon config with Sysbox runtime
                 # Note: Not including storage-driver to avoid conflicts with GKE systemd flags
+                # icc=false denies container-to-container traffic on the default bridge.
+                # It only takes effect on a daemon start with no running containers: moby skips
+                # configureNetworking when live-restore hands it active sandboxes, so on an
+                # in-place upgrade this key is inert and docker0 keeps EnableICC=true from the
+                # bridge store. Peer denial therefore does NOT rest on this key -- see the
+                # DOCKER-USER rule asserted by ensure_sandbox_peer_denial below, which needs no
+                # daemon restart. This key covers freshly provisioned nodes.
                 cat > /etc/docker/daemon.json << 'DOCKERCONFIG'
               {
                 "runtimes": {
@@ -690,6 +697,7 @@ spec:
                   }
                 },
                 "default-runtime": "sysbox-runc",
+                "icc": false,
                 "live-restore": true,
                 "log-driver": "json-file",
                 "log-opts": {
@@ -716,6 +724,28 @@ spec:
               configure_docker_sysbox
               
               # Start Sysbox services
+              # Deny traffic between unrelated sandboxes on the default bridge.
+              #
+              # This is the control that actually holds. It lives in DOCKER-USER, which docker
+              # never flushes, so it survives a dockerd restart and -- unlike the icc key -- it
+              # applies immediately to sandboxes that are already running.
+              #
+              # Anchored on -i docker0 -o docker0, so it matches only same-bridge peer traffic.
+              # Deliberately linked sandboxes are unaffected: the runner puts them on their own
+              # link bridge and anchors its ACCEPT rules to that interface, so the two rules can
+              # never match the same packet and their relative order does not matter.
+              #
+              # Check-then-insert: a bare -I on a 60s reconcile stacks a duplicate every pass.
+              ensure_sandbox_peer_denial() {
+                iptables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null \
+                  || iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP
+                # Best effort: only reachable if the operator enabled IPv6 on the bridge.
+                if command -v ip6tables >/dev/null 2>&1; then
+                  ip6tables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null \
+                    || ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP 2>/dev/null || true
+                fi
+              }
+
               echo "Starting Sysbox services..."
               systemctl enable sysbox 2>/dev/null || true
               systemctl start sysbox 2>/dev/null || true
@@ -741,6 +771,10 @@ spec:
                 echo "Docker already running with Sysbox runtime and unchanged config; skipping restart to avoid disrupting running sandboxes"
               fi
               
+              # Assert peer denial now that dockerd is up and DOCKER-USER exists.
+              echo "Asserting sandbox peer-denial rule..."
+              ensure_sandbox_peer_denial || echo "WARNING: failed to assert sandbox peer-denial rule"
+
               # Verify installation
               echo "=== Verification ==="
               echo "Docker version:"
@@ -770,6 +804,12 @@ spec:
                     echo "Docker service is down, restarting..."
                     systemctl start docker
                   fi
+
+                  # Re-assert sandbox peer denial. DOCKER-USER survives a dockerd restart, but
+                  # re-check anyway: an operator iptables flush would otherwise silently reopen
+                  # peer reachability until the next pod start.
+                  iptables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null \
+                    || iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP
                 ' || echo "Health check failed, will retry..."
                 sleep 60
               done

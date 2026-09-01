@@ -32,6 +32,33 @@ tests:
           path: spec.template.spec.containers[0].args[0]
           pattern: buildkitd\.toml
 
+  # NOTE: a render assertion proves the text is emitted, NOT that peer traffic is
+  # denied on a node. The property is proven only by a live two-sandbox probe plus
+  # captured kernel state; see the peer-denial validation runbook.
+  - it: asserts sandbox peer denial by default, without depending on a daemon restart
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      # The reconciled DOCKER-USER rule is the control that holds.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+      # Asserted during bootstrap ...
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'ensure_sandbox_peer_denial'
+      # ... and re-asserted by the monitor loop, so an iptables flush self-heals.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'Re-assert sandbox peer denial'
+      # Belt and braces for freshly provisioned nodes only.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '"icc": false'
+
   - it: networkPolicy.enabled renders the egress-enforcer with block + input rules
     set:
       regionName: "test"
