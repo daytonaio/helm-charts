@@ -72,6 +72,25 @@ tests:
           path: spec.template.spec.containers[0].args[0]
           pattern: '"icc": false'
 
+  - it: fails closed when peer denial cannot be established
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      # Bootstrap and monitor loop both exit non-zero rather than warn and continue.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)FATAL: sandbox peer-denial could not be established.*?exit 1'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)FATAL: sandbox peer-denial re-assert failed.*?exit 1'
+      # IPv6 insertion failure counts toward the exit status, not a bare warning.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)ERROR: failed to install IPv6 sandbox peer-denial rule[^\n]*\n\s*rc=1'
+
   - it: removes the peer-denial rule when sandboxIsolation is disabled
     set:
       regionName: "test"
@@ -239,3 +258,15 @@ tests:
           content:
             name: volume-mount-shim
           any: true
+
+  - it: rejects isolation enabled without the docker installer
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.sandboxIsolation.enabled: true
+      services.runner.dockerInstaller.enabled: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "services.runner.sandboxIsolation.enabled=true requires services.runner.dockerInstaller.enabled=true (the peer-denial control is applied by the docker-installer). Set services.runner.sandboxIsolation.enabled=false to run without inter-sandbox isolation, and provide an equivalent host-level control yourself."

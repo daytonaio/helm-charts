@@ -1,3 +1,15 @@
+{{- /*
+  Isolation contract:
+    sandboxIsolation.enabled: false -> intentional operator opt-out.
+    sandboxIsolation.enabled: true  -> isolation is enforced, or the installer fails closed.
+    dockerInstaller.enabled         -> controls Docker/Sysbox installation ONLY.
+  The peer-denial control is applied by the docker-installer container, so it cannot be
+  rendered when that container is absent. Reject the combination rather than silently
+  shipping a runner with no isolation while values claim it is enabled.
+*/ -}}
+{{- if and .Values.services.runner.sandboxIsolation.enabled (not .Values.services.runner.dockerInstaller.enabled) }}
+{{-   fail "services.runner.sandboxIsolation.enabled=true requires services.runner.dockerInstaller.enabled=true (the peer-denial control is applied by the docker-installer). Set services.runner.sandboxIsolation.enabled=false to run without inter-sandbox isolation, and provide an equivalent host-level control yourself." }}
+{{- end }}
 {{- if .Values.services.runner.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
@@ -656,13 +668,16 @@ spec:
                 fi
               fi
 
-              # ip6tables defaults on from Docker 27.4.1, so this chain exists. Non-fatal, but
-              # never silent: containers can hold IPv6 addresses and sandbox services bind ::.
+              # ip6tables defaults on from Docker 27.4.1 (cmd/dockerd/config_unix.go:31), so this
+              # chain exists on every node this chart provisions and a failure here is a real
+              # gap, not an absent feature: containers can hold IPv6 addresses and sandbox
+              # services bind ::. Counts toward the exit status.
               if ! ip6tables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
-                if ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP 2>/dev/null; then
+                if ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP; then
                   echo "Installed IPv6 sandbox peer-denial rule"
                 else
-                  echo "WARNING: failed to install IPv6 sandbox peer-denial rule; IPv6 peer traffic is not denied"
+                  echo "ERROR: failed to install IPv6 sandbox peer-denial rule; IPv6 peer traffic is NOT denied"
+                  rc=1
                 fi
               fi
 
@@ -710,9 +725,19 @@ spec:
               
 {{- if .Values.services.runner.sandboxIsolation.enabled }}
               # Assert peer denial now that dockerd is up and DOCKER-USER exists.
+              #
+              # FAIL CLOSED. If isolation is enabled and cannot be established, this container
+              # exits non-zero rather than leaving the node running while values claim peers
+              # are denied. The node becomes visibly broken instead of quietly unprotected.
+              #
+              # Limit worth knowing: in the runner-manager topology this DaemonSet only
+              # bootstraps the node, so a crash here does not by itself stop sandboxes being
+              # placed on it. Blocking admission requires the runner-side health probe.
               echo "Asserting sandbox peer-denial..."
-              /usr/local/sbin/daytona-peer-denial.sh \
-                || echo "WARNING: sandbox peer-denial assert FAILED -- peers may be reachable on this node"
+              if ! /usr/local/sbin/daytona-peer-denial.sh; then
+                echo "FATAL: sandbox peer-denial could not be established; refusing to report this node healthy"
+                exit 1
+              fi
 {{- end }}
 
               # Verify installation
@@ -750,12 +775,23 @@ spec:
                   # Re-assert sandbox peer denial. DOCKER-USER survives a dockerd restart, but
                   # re-check anyway: an operator iptables flush would otherwise silently reopen
                   # peer reachability until the next pod start.
-                  /usr/local/sbin/daytona-peer-denial.sh \
-                    || echo "WARNING: sandbox peer-denial re-assert FAILED"
+                  #
+                  # Fail closed: exit non-zero so the container restarts and re-runs the full
+                  # bootstrap assert, rather than looping forever on an unprotected node.
+                  if ! /usr/local/sbin/daytona-peer-denial.sh; then
+                    echo "FATAL: sandbox peer-denial re-assert failed"
+                    exit 1
+                  fi
 {{- end }}
 
                   exit 0
-                ' || echo "Health check failed, will retry..."
+                ' || { rc=$?
+                  if [ "$rc" = 1 ]; then
+                    echo "Sandbox peer-denial enforcement lost; exiting so the container restarts"
+                    exit 1
+                  fi
+                  echo "Health check failed, will retry..."
+                }
                 sleep 60
               done
               ln -s /host/var/lib/docker /var/lib/docker
