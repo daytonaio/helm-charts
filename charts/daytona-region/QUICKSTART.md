@@ -112,7 +112,7 @@ All available keys and their defaults live in [`charts/daytona-region/values.yam
 
 - `services.proxy.ingress.tls`, `services.proxy.ingress.selfSigned`, `services.proxy.ingress.certificate` — TLS setup for the proxy ingress.
 - `services.runner.daemonInstaller.enabled` — pre-installs the sandbox binaries onto each runner node. Keep enabled unless you manage those binaries out-of-band.
-- `services.runner.dockerInstaller.enabled` — installs Docker + Sysbox on the node. Disable if your node image already has them.
+- `services.runner.dockerInstaller.enabled` — installs Docker + Sysbox on the node. Disable if your node image already has them. The chart installs Sysbox **v0.7.1** (amd64 `.deb`, verified against the published sha256) onto Ubuntu 24.04 (noble) nodes — the same requirement the Docker install already has. A node that already has Sysbox keeps the version it was provisioned with — upgrading in place would stop dockerd and kill every sandbox on that node, so a newer pin is picked up by replacing nodes, not by re-running the installer.
 - `services.snapshotManager.*` — the region's snapshot registry. A region needs it (plus `snapshotManagerUrl`) before snapshots can be created in it. `storage.driver: s3` requires REAL S3 (AWS); for everything else use `storage.driver: filesystem` with the built-in PVC — S3 shims (rclone gateway, GCS interop) break the registry's multipart-upload resume path.
 
 ## 3. Install the chart

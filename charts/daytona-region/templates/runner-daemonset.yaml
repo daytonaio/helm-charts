@@ -254,35 +254,48 @@ spec:
               # Function to install Sysbox from offline packages
               install_sysbox() {
                 if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
-                  echo "Sysbox is already installed"
+                  # Nodes keep the Sysbox they were provisioned with. Upgrading in place
+                  # means stopping dockerd, which kills every sandbox on the node; version
+                  # changes are picked up by replacing nodes, not by re-running this.
+                  echo "Sysbox is already installed; leaving it alone"
+                  /usr/bin/sysbox-runc --version 2>/dev/null || true
                   return 0
                 fi
-                
+
                 echo "Installing Sysbox from offline packages..."
-                
+
                 if [ ! -d "$PACKAGES_DIR/sysbox" ]; then
                   echo "ERROR: Sysbox packages directory not found at $PACKAGES_DIR/sysbox"
                   return 1
                 fi
-                
-                # Determine architecture
+
+                # This chart installs the amd64 package only.
                 ARCH=$(uname -m)
                 if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
-                  echo "Sysbox only supports x86_64 architecture"
+                  echo "ERROR: this chart installs the amd64 Sysbox package only; node is ${ARCH}"
                   return 1
                 fi
-                
+
                 # Stop Docker before installing Sysbox
                 echo "Stopping Docker for Sysbox installation..."
                 systemctl stop docker 2>/dev/null || true
-                
+
                 # Install Sysbox package
                 echo "Installing Sysbox package..."
-                dpkg -i $PACKAGES_DIR/sysbox/sysbox-ce_*.deb || {
+                # dpkg's status is not the verdict here: the glob can match packages for
+                # other architectures shipped in the same image, and one of those failing
+                # says nothing about whether the amd64 package installed. Tolerate it as
+                # before and let the runnable check below decide.
+                if ! dpkg -i $PACKAGES_DIR/sysbox/sysbox-ce_*.deb; then
                   echo "Sysbox install had issues, running dpkg configure..."
                   dpkg --configure -a
-                }
-                
+                fi
+
+                if ! /usr/bin/sysbox-runc --version >/dev/null 2>&1; then
+                  echo "ERROR: sysbox-runc is not runnable after install"
+                  return 1
+                fi
+
                 echo "Sysbox installation completed"
                 return 0
               }
@@ -357,82 +370,93 @@ spec:
               
               # Function to install Sysbox (online mode)
               install_sysbox() {
+                # Pinned upstream release, verified by the sha256 published with it.
+                # Bumping these three lines is the whole version change.
+                SYSBOX_VERSION="v0.7.1"
+                SYSBOX_DEB="sysbox-ce_0.7.1.linux_amd64.deb"
+                SYSBOX_SHA256="9d6d5484f980d0a17f86c492c1262015c2afb66280bdb97215b79fde6a0261c5"
+
                 if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
-                  echo "Sysbox is already installed"
+                  # Nodes keep the Sysbox they were provisioned with. Upgrading in place
+                  # means stopping dockerd, which kills every sandbox on the node; the pin
+                  # is picked up by replacing nodes, not by re-running this.
+                  echo "Sysbox is already installed (chart pins ${SYSBOX_VERSION}); leaving it alone"
+                  /usr/bin/sysbox-runc --version 2>/dev/null || true
                   return 0
                 fi
-                
-                echo "Installing Sysbox from GitHub releases..."
-                
+
+                echo "Installing Sysbox ${SYSBOX_VERSION} from GitHub releases..."
+
                 if command -v apt-get >/dev/null 2>&1; then
                   # Debian/Ubuntu based - install from GitHub
                   . /etc/os-release
-                  
-                  # Determine architecture
+
+                  # This chart installs the amd64 package only.
                   ARCH=$(uname -m)
                   if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
-                    echo "Sysbox only supports x86_64 architecture"
+                    echo "ERROR: this chart installs the amd64 Sysbox package only; node is ${ARCH}"
                     return 1
                   fi
-                  
-                  # Download latest Sysbox release
-                  SYSBOX_VERSION="v0.6.4"
-                  echo "Downloading Sysbox ${SYSBOX_VERSION}..."
-                  
-                  cd /tmp
-                  
-                  # Download the deb package
-                  if curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb"; then
-                    echo "Downloaded Sysbox package successfully"
-                  else
-                    echo "Failed to download Sysbox, trying alternative download..."
-                    # Try without SSL verification as fallback
-                    curl -kLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce_0.6.4-0.linux_amd64.deb" || {
-                      echo "Failed to download Sysbox"
-                      return 1
-                    }
+
+                  cd /tmp || return 1
+                  rm -f "$SYSBOX_DEB" /tmp/sysbox.sha256
+
+                  # Download over TLS. There is deliberately no unverified retry here:
+                  # whatever lands in this file becomes the node's container runtime.
+                  echo "Downloading ${SYSBOX_DEB}..."
+                  if ! curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/${SYSBOX_DEB}"; then
+                    echo "ERROR: failed to download ${SYSBOX_DEB}"
+                    return 1
                   fi
-                  
+
+                  echo "${SYSBOX_SHA256}  ${SYSBOX_DEB}" > /tmp/sysbox.sha256
+                  if ! sha256sum -c /tmp/sysbox.sha256; then
+                    echo "ERROR: ${SYSBOX_DEB} failed sha256 verification; refusing to install"
+                    rm -f "$SYSBOX_DEB" /tmp/sysbox.sha256
+                    return 1
+                  fi
+                  rm -f /tmp/sysbox.sha256
+
                   # Stop Docker before installing Sysbox
                   echo "Stopping Docker for Sysbox installation..."
                   systemctl stop docker 2>/dev/null || true
-                  
+
                   # Install dependencies
                   apt-get update
                   apt-get install -y jq fuse rsync rclone
-                  
+
                   # Install Sysbox
                   echo "Installing Sysbox package..."
-                  dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb || {
-                    echo "Installing Sysbox dependencies..."
+                  if ! dpkg -i "$SYSBOX_DEB"; then
+                    echo "Resolving Sysbox dependencies..."
                     apt-get install -f -y
-                    dpkg -i sysbox-ce_0.6.4-0.linux_amd64.deb
-                  }
-                  
+                    if ! dpkg -i "$SYSBOX_DEB"; then
+                      echo "ERROR: dpkg -i ${SYSBOX_DEB} failed"
+                      rm -f "$SYSBOX_DEB"
+                      return 1
+                    fi
+                  fi
+
                   # Cleanup
-                  rm -f sysbox-ce_0.6.4-0.linux_amd64.deb
-                  
-                elif command -v yum >/dev/null 2>&1; then
-                  # RHEL/CentOS based - install from GitHub
-                  SYSBOX_VERSION="v0.6.4"
-                  echo "Downloading Sysbox ${SYSBOX_VERSION} for RPM..."
-                  
-                  cd /tmp
-                  curl -fsSLO "https://github.com/nestybox/sysbox/releases/download/${SYSBOX_VERSION}/sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz"
-                  
-                  tar -xzf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz
-                  
-                  # Stop Docker before installing Sysbox
-                  systemctl stop docker 2>/dev/null || true
-                  
-                  # Install Sysbox
-                  yum install -y ./sysbox-ce/*.rpm
-                  
-                  # Cleanup
-                  rm -rf sysbox-ce-0.6.4-0.linux_amd64-rpm.tar.gz sysbox-ce/
+                  rm -f "$SYSBOX_DEB"
+
+                else
+                  # Upstream publishes .deb only. The RPM tarball this chart used to fetch
+                  # has never existed as a release asset, so the yum path could only ever
+                  # 404 and then leave dockerd pointed at a runtime that was not installed.
+                  echo "ERROR: Sysbox upstream publishes .deb packages only; this node has no apt-get."
+                  echo "       Sandbox nodes must run Ubuntu 24.04 (noble) -- the same requirement the"
+                  echo "       Docker install below has. Either use an Ubuntu 24.04 node image, or"
+                  echo "       pre-install Sysbox and set services.runner.dockerInstaller.enabled=false."
+                  return 1
                 fi
-                
-                echo "Sysbox installation completed"
+
+                if ! /usr/bin/sysbox-runc --version >/dev/null 2>&1; then
+                  echo "ERROR: sysbox-runc is not runnable after install"
+                  return 1
+                fi
+
+                echo "Sysbox ${SYSBOX_VERSION} installation completed"
                 return 0
               }
               {{- end }}
@@ -592,8 +616,16 @@ spec:
               {{- end }}
               
               # Install Sysbox (before Docker, as Docker config depends on sysbox)
-              install_sysbox
-              
+              #
+              # FAIL CLOSED. configure_docker_sysbox is about to set sysbox-runc as the
+              # daemon's default runtime. If the install did not succeed, dockerd would come
+              # up pointed at a runtime that is not on the node. Distinct exit code so the
+              # outer shell can tell this apart from the peer-denial failure (3).
+              if ! install_sysbox; then
+                echo "FATAL: Sysbox installation failed; refusing to configure Docker for a runtime that is not installed"
+                exit 4
+              fi
+
               # Install Docker
               install_docker
               
@@ -795,6 +827,13 @@ spec:
               
               EOF
               bootstrap_rc=$?
+              # Propagate the Sysbox install failure out of nsenter. Without this the inner
+              # exit is swallowed and the sidecar drops into its monitor loop on a node whose
+              # Docker daemon is configured for a runtime that was never installed.
+              if [ "$bootstrap_rc" = 4 ]; then
+                echo "FATAL: host bootstrap could not install Sysbox; exiting"
+                exit 1
+              fi
 {{- if .Values.services.runner.sandboxIsolation.enabled }}
               # Propagate the peer-denial failure out of nsenter. Without this the inner
               # exit is swallowed and the container proceeds as though the node were
