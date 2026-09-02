@@ -48,7 +48,7 @@ if [[ -f "$PROMPTS_FILE" ]]; then
   set +a
 else
   unset CLUSTER_NAME BASE_DOMAIN REGION_NAME CLUSTER_ISSUER_EMAIL DAYTONA_API_URL \
-        AWS_REGION S3_BUCKET RUNNER_AWS_CREDENTIAL_MODE RUNNER_IMAGE_TAG \
+        AWS_REGION S3_BUCKET RUNNER_AWS_CREDENTIAL_MODE \
         AWS_NODE_VM_SIZE
 fi
 
@@ -68,7 +68,6 @@ omc::prompt_secret DAYTONA_API_KEY "Daytona Cloud admin API key"
 omc::prompt AWS_REGION   "AWS region" "us-east-1"
 omc::prompt S3_BUCKET    "S3 bucket name (snapshots + build context)" "${CLUSTER_NAME}-snapshots"
 omc::prompt RUNNER_AWS_CREDENTIAL_MODE "Runner credential mode (static or irsa)" "static"
-omc::prompt RUNNER_IMAGE_TAG "Runner image tag" "v0.183.0"
 
 if [[ "$RUNNER_AWS_CREDENTIAL_MODE" != "static" && "$RUNNER_AWS_CREDENTIAL_MODE" != "irsa" ]]; then
   omc::die "RUNNER_AWS_CREDENTIAL_MODE must be 'static' or 'irsa' (got: $RUNNER_AWS_CREDENTIAL_MODE)"
@@ -84,7 +83,6 @@ fi
   printf 'export AWS_REGION=%q\n'   "$AWS_REGION"
   printf 'export S3_BUCKET=%q\n'    "$S3_BUCKET"
   printf 'export RUNNER_AWS_CREDENTIAL_MODE=%q\n' "$RUNNER_AWS_CREDENTIAL_MODE"
-  printf 'export RUNNER_IMAGE_TAG=%q\n' "$RUNNER_IMAGE_TAG"
 } > "$PROMPTS_FILE"
 chmod 600 "$PROMPTS_FILE"
 omc::log INFO "Prompts saved: $PROMPTS_FILE"
@@ -340,7 +338,7 @@ fi
 omc::log INFO "=== Step 9/10: helm install daytona-region ==="
 omc::ssh_keys_ensure "$STATE_DIR"
 export CLUSTER_NAME BASE_DOMAIN REGION_NAME DAYTONA_API_URL DAYTONA_API_KEY \
-       AWS_REGION S3_BUCKET RUNNER_AWS_CREDENTIAL_MODE RUNNER_IMAGE_TAG \
+       AWS_REGION S3_BUCKET RUNNER_AWS_CREDENTIAL_MODE \
        IAM_ACCESS_KEY IAM_SECRET_KEY IRSA_ROLE_ARN INTERNAL_REGISTRY_HOST=""
 omc::render_template "$SCRIPT_DIR/values-region.yaml.tmpl" "$VALUES_OUT"
 omc::helm_install_wait daytona-region "$SCRIPT_DIR/../../charts/daytona-region" daytona "$VALUES_OUT"

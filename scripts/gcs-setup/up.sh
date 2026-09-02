@@ -42,7 +42,7 @@ if [[ -f "$PROMPTS_FILE" ]]; then
   set +a
 else
   unset CLUSTER_NAME BASE_DOMAIN REGION_NAME CLUSTER_ISSUER_EMAIL DAYTONA_API_URL \
-        GCP_PROJECT GCP_REGION GCS_BUCKET RUNNER_IMAGE_TAG GCP_NODE_MACHINE_TYPE
+        GCP_PROJECT GCP_REGION GCS_BUCKET GCP_NODE_MACHINE_TYPE
 fi
 
 # === 1. Interactive prompts ==================================================
@@ -61,7 +61,6 @@ omc::prompt_secret DAYTONA_API_KEY "Daytona Cloud admin API key"
 omc::prompt GCP_PROJECT "GCP project ID"
 omc::prompt GCP_REGION "GCP region" "us-central1"
 omc::prompt GCS_BUCKET "GCS bucket name" "${CLUSTER_NAME}-snapshots"
-omc::prompt RUNNER_IMAGE_TAG "Runner image tag" "v0.183.0"
 
 GCS_LOCATION="$GCP_REGION"
 RUNNER_AWS_CREDENTIAL_MODE="static"
@@ -77,7 +76,6 @@ GCP_SERVICE_ACCOUNT_EMAIL=""
   printf 'export GCP_REGION=%q\n'   "$GCP_REGION"
   printf 'export GCS_LOCATION=%q\n' "$GCS_LOCATION"
   printf 'export GCS_BUCKET=%q\n'   "$GCS_BUCKET"
-  printf 'export RUNNER_IMAGE_TAG=%q\n' "$RUNNER_IMAGE_TAG"
 } > "$PROMPTS_FILE"
 chmod 600 "$PROMPTS_FILE"
 
@@ -213,7 +211,7 @@ omc::log INFO "=== Step 9/10: helm install daytona-region ==="
 omc::ssh_keys_ensure "$STATE_DIR"
 export CLUSTER_NAME BASE_DOMAIN REGION_NAME DAYTONA_API_URL DAYTONA_API_KEY \
        GCS_LOCATION GCS_BUCKET HMAC_ACCESS_KEY HMAC_SECRET_KEY \
-       RUNNER_AWS_CREDENTIAL_MODE GCP_SERVICE_ACCOUNT_EMAIL RUNNER_IMAGE_TAG \
+       RUNNER_AWS_CREDENTIAL_MODE GCP_SERVICE_ACCOUNT_EMAIL \
        INTERNAL_REGISTRY_HOST=""
 omc::render_template "$SCRIPT_DIR/values-region.yaml.tmpl" "$VALUES_OUT"
 omc::helm_install_wait daytona-region "$SCRIPT_DIR/../../charts/daytona-region" daytona "$VALUES_OUT"
