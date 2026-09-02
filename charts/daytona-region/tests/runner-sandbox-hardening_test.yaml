@@ -72,6 +72,26 @@ tests:
           path: spec.template.spec.containers[0].args[0]
           pattern: '"icc": false'
 
+  - it: does not bounce dockerd for the icc key alone
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      # The restart decision compares daemon.json with the icc key filtered out, so
+      # adding it never stops a running sandbox to apply a key that is inert there.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "grep -v '\"icc\"' /etc/docker/daemon.json > /tmp/daytona-dj-new"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'elif \[ "\$daemon_json_changed" = 1 \]'
+      # Bounded xtables wait: the runner writes DOCKER-USER on every sandbox change.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w 5 -I DOCKER-USER 1 -i docker0'
+
   - it: fails closed when peer denial cannot be established
     set:
       regionName: "test"

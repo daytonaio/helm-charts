@@ -748,6 +748,7 @@ spec:
               # this reason (apps/runner/pkg/netrules/link_icc.go); keep it that way.
               set -u
               rc=0
+              changed=0
 
               # Kernel precondition. Same-bridge frames are switched at L2 and reach iptables
               # only when br_netfilter is loaded with bridge-nf-call-iptables=1. Docker
@@ -760,6 +761,13 @@ spec:
               echo br_netfilter > /etc/modules-load.d/daytona-sandbox-isolation.conf 2>/dev/null || true
               printf 'net.bridge.bridge-nf-call-iptables = 1\nnet.bridge.bridge-nf-call-ip6tables = 1\n' \
                 > /etc/sysctl.d/99-daytona-sandbox-isolation.conf 2>/dev/null || true
+              # The rule is anchored to docker0. If sandboxes are placed elsewhere (for
+              # example CONTAINER_NETWORK on a user-defined bridge, where ICC is on by
+              # default) it matches nothing. Say so rather than reporting a silent success.
+              if ! ip link show docker0 >/dev/null 2>&1; then
+                echo "WARNING: docker0 is not present on this node; the sandbox peer-denial rule matches no traffic"
+              fi
+
               nf=$(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null || echo missing)
               if [ "$nf" != "1" ]; then
                 echo "ERROR: bridge-nf-call-iptables=$nf -- the peer-denial rule will NOT filter same-bridge traffic on this node"
@@ -767,9 +775,10 @@ spec:
               fi
 
               # Check-then-insert: a bare -I on a reconcile stacks a duplicate every pass.
-              if ! iptables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
-                if iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP; then
+              if ! iptables -w 5 -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
+                if iptables -w 5 -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP; then
                   echo "Installed IPv4 sandbox peer-denial rule"
+                  changed=1
                 else
                   echo "ERROR: failed to install IPv4 sandbox peer-denial rule"
                   rc=1
@@ -783,10 +792,19 @@ spec:
               if ! ip6tables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
                 if ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP; then
                   echo "Installed IPv6 sandbox peer-denial rule"
+                  changed=1
                 else
                   echo "ERROR: failed to install IPv6 sandbox peer-denial rule; IPv6 peer traffic is NOT denied"
                   rc=1
                 fi
+              fi
+
+              # Log the chain when we changed something or could not enforce. Silent on a
+              # steady-state reconcile, so the 60s loop does not spam the node log.
+              if [ "$changed" = 1 ] || [ "$rc" != 0 ]; then
+                echo "DOCKER-USER after assert:"
+                iptables -w 5 -L DOCKER-USER -n -v 2>/dev/null | head -20 || true
+                echo "bridge-nf-call-iptables=$nf"
               fi
 
               exit $rc
@@ -805,12 +823,27 @@ spec:
               # and stops every running sandbox that predates live-restore taking
               # effect, so we avoid restarting unless it is truly necessary.
               echo "Ensuring Docker is running with the Sysbox runtime..."
+              # Decide whether the daemon config changed in a way that warrants a restart.
+              # The icc key is deliberately excluded from the comparison. It only takes effect
+              # on a daemon start with no running containers, so bouncing dockerd to apply it
+              # either does nothing (live-restore on: sandboxes survive, moby skips
+              # configureNetworking) or stops every sandbox on the node to apply a key the
+              # DOCKER-USER rule already covers. The key still lands in daemon.json and applies
+              # at the next natural restart, which is a reboot or a fresh node -- both of which
+              # start dockerd clean anyway.
+              daemon_json_changed=0
+              if [ -f /etc/docker/daemon.json.bak ]; then
+                grep -v '"icc"' /etc/docker/daemon.json > /tmp/daytona-dj-new 2>/dev/null || true
+                grep -v '"icc"' /etc/docker/daemon.json.bak > /tmp/daytona-dj-old 2>/dev/null || true
+                cmp -s /tmp/daytona-dj-new /tmp/daytona-dj-old || daemon_json_changed=1
+                rm -f /tmp/daytona-dj-new /tmp/daytona-dj-old
+              fi
               need_restart=0
               if ! systemctl is-active --quiet docker; then
                 need_restart=1
               elif ! docker info 2>/dev/null | grep -q 'sysbox-runc'; then
                 need_restart=1
-              elif [ -f /etc/docker/daemon.json.bak ] && ! cmp -s /etc/docker/daemon.json /etc/docker/daemon.json.bak; then
+              elif [ "$daemon_json_changed" = 1 ]; then
                 need_restart=1
               fi
               if [ "$need_restart" = 1 ]; then
