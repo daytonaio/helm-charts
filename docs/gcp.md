@@ -42,7 +42,6 @@ Prompts:
 | GCP project ID | — | no default; must prompt |
 | GCP region | `us-central1` | |
 | GCS bucket name | `<cluster>-snapshots` | Globally unique |
-| Runner image tag | `v0.183.0` | Default matches chart appVersion |
 
 The script selects a GKE machine type that fits the regional node footprint and
 your quota, unless you override it with `OMC_INSTANCE_TYPE`.

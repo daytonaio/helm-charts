@@ -42,7 +42,6 @@ Prompts (defaults in `[brackets]`):
 | Resource group | `<cluster>-rg` | |
 | Storage account | `daytonabyoc<random8>` | Globally unique, lowercase alnum 3-24 chars |
 | Blob container | `snapshots` | |
-| Runner image tag | `v0.183.0` | Default matches chart appVersion |
 
 Answers persist in `scripts/azure-setup/.state/prompts.env`.
 The script selects an AKS VM size that fits the required node count and your
