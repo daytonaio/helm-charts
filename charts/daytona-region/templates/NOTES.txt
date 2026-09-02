@@ -71,3 +71,29 @@ To trust this certificate in your system, add the CA certificate to your
 trust store. Instructions vary by operating system.
 
 {{- end }}
+
+{{- if and .Values.services.runner.enabled .Values.services.runner.sandboxIsolation.enabled }}
+
+Inter-sandbox isolation is ON (services.runner.sandboxIsolation.enabled).
+
+Sandboxes on the same runner node cannot reach each other over the host default
+bridge, including sandboxes belonging to the same organization. Use linked
+sandboxes where two sandboxes need to talk; they are placed on their own bridge
+and are unaffected.
+
+Two things to know:
+
+  - Linked sandboxes addressed by DNS name or sandbox id keep working. Traffic
+    sent to a peer's raw docker0 address is denied.
+  - The rule covers sandboxes on the default bridge, which is what this chart
+    produces. It would not apply if sandboxes were moved to another bridge.
+    Confirm from the DOCKER-USER packet counters rather than assuming.
+
+Verify enforcement from kernel state rather than from this chart's output:
+
+  iptables -L DOCKER-USER -n -v
+  sysctl net.bridge.bridge-nf-call-iptables
+
+To run without it, set services.runner.sandboxIsolation.enabled=false. The rule
+is then removed from each node on the next DaemonSet roll.
+{{- end }}

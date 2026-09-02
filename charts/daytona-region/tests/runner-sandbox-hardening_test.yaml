@@ -32,6 +32,108 @@ tests:
           path: spec.template.spec.containers[0].args[0]
           pattern: buildkitd\.toml
 
+  # NOTE: these prove the text is emitted, NOT that peer traffic is denied on a
+  # node. The property is proven only by a live two-sandbox probe with captured
+  # kernel state. Assertions target executable statements, never comments.
+  - it: asserts sandbox peer denial by default
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      # Single-sourced host script, so the two call sites cannot drift.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'cat > /usr/local/sbin/daytona-peer-denial\.sh'
+      # Invoked at bootstrap AND from the monitor loop.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)Asserting sandbox peer-denial\.\.\..*?/usr/local/sbin/daytona-peer-denial\.sh'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)Re-assert sandbox peer denial.*?/usr/local/sbin/daytona-peer-denial\.sh'
+      # The rule itself.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+      # The kernel precondition, without which the rule filters nothing.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'modprobe br_netfilter'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'bridge-nf-call-iptables'
+      # Boot-window coverage.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '"icc": false'
+
+  - it: does not bounce dockerd for the icc key alone
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      # The restart decision compares daemon.json with the icc key filtered out, so
+      # adding it never stops a running sandbox to apply a key that is inert there.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "grep -v '\"icc\"' /etc/docker/daemon.json > /tmp/daytona-dj-new"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'elif \[ "\$daemon_json_changed" = 1 \]'
+      # Bounded xtables wait: the runner writes DOCKER-USER on every sandbox change.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w 5 -I DOCKER-USER 1 -i docker0'
+
+  - it: fails closed when peer denial cannot be established
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+    asserts:
+      # Bootstrap and monitor loop both exit non-zero rather than warn and continue.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)FATAL: sandbox peer-denial could not be established.*?exit 3'
+      # ...and that inner exit must reach the outer shell, not die inside nsenter.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)bootstrap_rc=\$\?.*?bootstrap_rc" = 3.*?exit 1'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)FATAL: sandbox peer-denial re-assert failed.*?exit 1'
+      # IPv6 insertion failure counts toward the exit status, not a bare warning.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)ERROR: failed to install IPv6 sandbox peer-denial rule[^\n]*\n\s*rc=1'
+
+  - it: removes the peer-denial rule when sandboxIsolation is disabled
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.sandboxIsolation.enabled: false
+    asserts:
+      # No enforcement, and no orphaned rule left behind.
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '"icc": false'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'iptables -w -D DOCKER-USER -i docker0 -o docker0 -j DROP'
+
   - it: networkPolicy.enabled renders the egress-enforcer with block + input rules
     set:
       regionName: "test"
@@ -180,3 +282,28 @@ tests:
           content:
             name: volume-mount-shim
           any: true
+
+  - it: rejects isolation enabled without the docker installer
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.sandboxIsolation.enabled: true
+      services.runner.dockerInstaller.enabled: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "services.runner.sandboxIsolation.enabled=true requires services.runner.dockerInstaller.enabled=true (the peer-denial control is applied by the docker-installer). Set services.runner.sandboxIsolation.enabled=false to run without inter-sandbox isolation, and provide an equivalent host-level control yourself."
+
+  - it: does not reject the config when no runner is deployed
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.enabled: false
+      services.runner.sandboxIsolation.enabled: true
+      services.runner.dockerInstaller.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
