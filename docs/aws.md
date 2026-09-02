@@ -41,7 +41,6 @@ You will be prompted for (defaults shown in `[brackets]`):
 | AWS region | `us-east-1` | |
 | S3 bucket name | `<cluster>-snapshots` | Globally unique |
 | Runner credential mode | `static` | `static` (recommended for v1) or `irsa` |
-| Runner image tag | `v0.183.0` | Default matches chart appVersion |
 
 The script saves your answers to `scripts/aws-setup/.state/prompts.env` so a re-run reuses them.
 It also selects an EKS node instance type that satisfies the script's minimum

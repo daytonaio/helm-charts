@@ -12,7 +12,6 @@
 #   IAM_ACCESS_KEY               - IAM user access key (when credentialMode=static, else empty)
 #   IAM_SECRET_KEY               - IAM user secret key (when credentialMode=static, else empty)
 #   IRSA_ROLE_ARN                - IAM role ARN annotation (when credentialMode=irsa, else empty)
-#   RUNNER_IMAGE_TAG             - daytona-runner image tag (default v0.183.0 = chart appVersion)
 #   INTERNAL_REGISTRY_HOST       - optional cluster-DNS hostname for an internal Docker registry (empty = none)
 #   PRIV_CLIENT_B64              - base64 of the gateway->sandbox client PRIVATE key file
 #   PUB_CLIENT_B64               - base64 of the matching client PUBLIC key file
@@ -124,8 +123,6 @@ services:
       deleteEnabled: true
 
   runner:
-    image:
-      tag: "${RUNNER_IMAGE_TAG}"
     # The runner-manager owns the real (cloud-registered) runner pods; they
     # envFrom runner-config/runner-secrets and bind hostPorts 3000/2220. A
     # static mainContainer runner never registers with Daytona Cloud and

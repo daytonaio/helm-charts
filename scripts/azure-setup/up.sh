@@ -45,7 +45,7 @@ if [[ -f "$PROMPTS_FILE" ]]; then
 else
   unset CLUSTER_NAME BASE_DOMAIN REGION_NAME CLUSTER_ISSUER_EMAIL DAYTONA_API_URL \
         AZURE_LOCATION RESOURCE_GROUP STORAGE_ACCOUNT BLOB_BUCKET \
-        RUNNER_IMAGE_TAG AZURE_NODE_VM_SIZE
+ AZURE_NODE_VM_SIZE
 fi
 
 # === 1. Interactive prompts ==================================================
@@ -66,7 +66,6 @@ omc::prompt RESOURCE_GROUP "Azure resource group" "${CLUSTER_NAME}-rg"
 DEFAULT_STG="daytonabyoc$(openssl rand -hex 4)"
 omc::prompt STORAGE_ACCOUNT "Storage account (lowercase alnum, 3-24 chars, globally unique)" "$DEFAULT_STG"
 omc::prompt BLOB_BUCKET "Blob container name" "snapshots"
-omc::prompt RUNNER_IMAGE_TAG "Runner image tag" "v0.183.0"
 
 # Azure region alias used by template.
 AZURE_REGION="$AZURE_LOCATION"
@@ -84,7 +83,6 @@ AZURE_CLIENT_ID=""
   printf 'export RESOURCE_GROUP=%q\n' "$RESOURCE_GROUP"
   printf 'export STORAGE_ACCOUNT=%q\n' "$STORAGE_ACCOUNT"
   printf 'export BLOB_BUCKET=%q\n'   "$BLOB_BUCKET"
-  printf 'export RUNNER_IMAGE_TAG=%q\n' "$RUNNER_IMAGE_TAG"
 } > "$PROMPTS_FILE"
 chmod 600 "$PROMPTS_FILE"
 
@@ -288,7 +286,7 @@ omc::ssh_keys_ensure "$STATE_DIR"
 export CLUSTER_NAME BASE_DOMAIN REGION_NAME DAYTONA_API_URL DAYTONA_API_KEY \
        AZURE_REGION BLOB_BUCKET RCLONE_GATEWAY_ENDPOINT \
        RCLONE_ACCESS_KEY RCLONE_SECRET_KEY \
-       RUNNER_AWS_CREDENTIAL_MODE AZURE_CLIENT_ID RUNNER_IMAGE_TAG \
+       RUNNER_AWS_CREDENTIAL_MODE AZURE_CLIENT_ID \
        INTERNAL_REGISTRY_HOST=""
 omc::render_template "$SCRIPT_DIR/values-region.yaml.tmpl" "$VALUES_OUT"
 omc::helm_install_wait daytona-region "$SCRIPT_DIR/../../charts/daytona-region" daytona "$VALUES_OUT"

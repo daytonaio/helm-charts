@@ -219,9 +219,9 @@ bash scripts/gcs-setup/up.sh
 ```
 
 `up.sh` prompts for the cluster name, base domain, region name, Let's Encrypt
-email, Daytona Cloud API URL + admin key, GCP project/region, GCS bucket, and
-runner image tag (answers are saved 0600 to `.state/prompts.env` and reused on
-re-run).
+email, Daytona Cloud API URL + admin key, GCP project/region and GCS bucket
+(answers are saved 0600 to `.state/prompts.env` and reused on re-run). The
+runner image is not prompted for; it follows the chart appVersion.
 
 After it completes:
 
