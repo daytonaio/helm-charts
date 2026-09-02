@@ -253,12 +253,21 @@ spec:
               
               # Function to install Sysbox from offline packages
               install_sysbox() {
-                if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
+                # /usr/bin/sysbox-runc is the exact path configure_docker_sysbox writes into
+                # daemon.json as the default runtime, so it is the only thing worth detecting.
+                # The package ships sysbox-fs, sysbox-mgr and sysbox-runc -- there is no plain
+                # "sysbox" binary for command -v to find, only a sysbox.service unit.
+                if [ -f /usr/bin/sysbox-runc ]; then
+                  # The file existing is not enough: a partial or corrupt install would
+                  # otherwise be reported as healthy and Docker configured against it.
+                  if ! /usr/bin/sysbox-runc --version; then
+                    echo "ERROR: /usr/bin/sysbox-runc is present but not runnable; refusing to treat this node as installed"
+                    return 1
+                  fi
                   # Nodes keep the Sysbox they were provisioned with. Upgrading in place
                   # means stopping dockerd, which kills every sandbox on the node; version
                   # changes are picked up by replacing nodes, not by re-running this.
                   echo "Sysbox is already installed; leaving it alone"
-                  /usr/bin/sysbox-runc --version 2>/dev/null || true
                   return 0
                 fi
 
@@ -376,12 +385,21 @@ spec:
                 SYSBOX_DEB="sysbox-ce_0.7.1.linux_amd64.deb"
                 SYSBOX_SHA256="9d6d5484f980d0a17f86c492c1262015c2afb66280bdb97215b79fde6a0261c5"
 
-                if command -v sysbox >/dev/null 2>&1 || [ -f /usr/bin/sysbox-runc ]; then
+                # /usr/bin/sysbox-runc is the exact path configure_docker_sysbox writes into
+                # daemon.json as the default runtime, so it is the only thing worth detecting.
+                # The package ships sysbox-fs, sysbox-mgr and sysbox-runc -- there is no plain
+                # "sysbox" binary for command -v to find, only a sysbox.service unit.
+                if [ -f /usr/bin/sysbox-runc ]; then
+                  # The file existing is not enough: a partial or corrupt install would
+                  # otherwise be reported as healthy and Docker configured against it.
+                  if ! /usr/bin/sysbox-runc --version; then
+                    echo "ERROR: /usr/bin/sysbox-runc is present but not runnable; refusing to treat this node as installed"
+                    return 1
+                  fi
                   # Nodes keep the Sysbox they were provisioned with. Upgrading in place
                   # means stopping dockerd, which kills every sandbox on the node; the pin
                   # is picked up by replacing nodes, not by re-running this.
                   echo "Sysbox is already installed (chart pins ${SYSBOX_VERSION}); leaving it alone"
-                  /usr/bin/sysbox-runc --version 2>/dev/null || true
                   return 0
                 fi
 
