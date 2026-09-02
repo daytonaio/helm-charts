@@ -989,9 +989,9 @@ entries:
   daytona-region:
   - apiVersion: v2
     appVersion: v0.207.0
-    created: "2026-09-02T06:56:02.393416821Z"
+    created: "2026-09-02T08:09:34.272437937Z"
     description: A Helm chart for Daytona custom region
-    digest: 0797f1787caec95aba6985a8155280e38b95adcdb5cfa60d5242787589d01ea0
+    digest: 2f5ef193829cd9104a90eff5251cc1616505fa4543db8dfabf4d482e8d918d53
     home: https://daytona.io
     keywords:
     - ai
@@ -1273,4 +1273,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/daytona-region-0.0.1.tgz
     version: 0.0.1
-generated: "2026-09-02T06:56:02.389888302Z"
+generated: "2026-09-02T08:09:34.268912605Z"
