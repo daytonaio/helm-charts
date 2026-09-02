@@ -85,9 +85,9 @@ Two things to know:
 
   - Linked sandboxes addressed by DNS name or sandbox id keep working. Traffic
     sent to a peer's raw docker0 address is denied.
-  - The rule covers sandboxes on the default bridge. If CONTAINER_NETWORK places
-    them on a user-defined bridge it does not apply, and the installer logs a
-    warning.
+  - The rule covers sandboxes on the default bridge, which is what this chart
+    produces. It would not apply if sandboxes were moved to another bridge.
+    Confirm from the DOCKER-USER packet counters rather than assuming.
 
 Verify enforcement from kernel state rather than from this chart's output:
 

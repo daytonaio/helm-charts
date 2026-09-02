@@ -666,8 +666,8 @@ services:
     # On by default. Disabling it removes the rule from every node on the next
     # roll -- sandboxes on a node can then reach each other's internal services.
     #
-    # Only covers sandboxes on the default bridge; it does not apply when
-    # CONTAINER_NETWORK places sandboxes on a user-defined bridge.
+    # Only covers sandboxes on the default bridge, which is what this chart
+    # produces. It would not apply if sandboxes were placed on another bridge.
     #
     # Toggling this changes the host daemon.json and so restarts dockerd once per
     # node. With dockerInstaller.liveRestore true (default) running sandboxes
