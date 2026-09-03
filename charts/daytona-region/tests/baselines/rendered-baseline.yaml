@@ -6,7 +6,7 @@ metadata:
   name: release-name-daytona-region-proxy
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -21,7 +21,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -36,7 +36,7 @@ metadata:
   name: release-name-daytona-region-runner
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -51,7 +51,7 @@ metadata:
   name: release-name-daytona-region-ssh-gateway
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -66,7 +66,7 @@ metadata:
   name: release-name-daytona-region-runner-secrets
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -92,7 +92,7 @@ metadata:
   name: release-name-daytona-region-secret-ssh
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -112,7 +112,7 @@ metadata:
   name: release-name-daytona-region-runner-config
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -146,7 +146,7 @@ metadata:
   name: release-name-daytona-region-runner-docker-installer-config
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -163,7 +163,7 @@ kind: ClusterRole
 metadata:
   name: release-name-daytona-region-runner-manager-nodes
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -181,7 +181,7 @@ kind: ClusterRoleBinding
 metadata:
   name: release-name-daytona-region-runner-manager-nodes
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -204,7 +204,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -229,7 +229,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -252,7 +252,7 @@ metadata:
   namespace: default
   name: release-name-daytona-region-proxy
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -278,7 +278,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -304,7 +304,7 @@ metadata:
   name: release-name-daytona-region-ssh-gateway
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -330,7 +330,7 @@ metadata:
   name: release-name-daytona-region-runner
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -563,7 +563,7 @@ spec:
 
                   # Install dependencies
                   apt-get update
-                  apt-get install -y jq fuse rsync rclone
+                  apt-get install -y jq fuse3 rsync rclone
 
                   # Install Sysbox
                   echo "Installing Sysbox package..."
@@ -1054,9 +1054,20 @@ spec:
               install_one() {
                 # Atomic install: write to .new then rename, so a sandbox start
                 # mid-refresh never sees a half-written or non-executable file.
+                #
+                # These files are bind-mounted into every sandbox on the node from a
+                # single host inode, so they are held immutable. A read-only bind is not
+                # a boundary by itself: a container can make its own view writable, and
+                # the immutable attribute is enforced at the inode layer instead, where
+                # a container cannot clear it. Clear it here so the rename can replace
+                # the file, then set it on the new inode -- rename swaps the inode, so
+                # the attribute does not carry across.
                 name=$1
+                chattr -i "${DST_DIR}/${name}" 2>/dev/null || true
                 install -m 0755 "${SRC_DIR}/${name}" "${DST_DIR}/${name}.new" \
-                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}"
+                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}" \
+                  && { chattr +i "${DST_DIR}/${name}" 2>/dev/null \
+                       || echo "[daytona-binary-installer] WARN: could not set immutable attribute on ${HOST_SRC_DIR}/${name}; a sandbox that makes its bind writable could overwrite it for every sandbox on this node"; }
               }
 
               install_all() {
@@ -1139,7 +1150,7 @@ metadata:
   namespace: default
   name: release-name-daytona-region-proxy
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1214,7 +1225,7 @@ metadata:
   namespace: default
   name: release-name-daytona-region-runnermanager
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1333,7 +1344,7 @@ metadata:
   name: release-name-daytona-region-ssh-gateway
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1397,7 +1408,7 @@ metadata:
   name: release-name-daytona-region-proxy
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1444,7 +1455,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1463,7 +1474,7 @@ metadata:
   name: release-name-daytona-region-daytona-api-key
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1487,7 +1498,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1510,7 +1521,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1537,7 +1548,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.4
+    helm.sh/chart: daytona-region-0.2.5
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1586,7 +1597,7 @@ spec:
                 name: release-name-daytona-region-region-config
                 namespace: default
                 labels:
-                  helm.sh/chart: daytona-region-0.2.4
+                  helm.sh/chart: daytona-region-0.2.5
                   app.kubernetes.io/name: daytona-region
                   app.kubernetes.io/instance: release-name
                   app.kubernetes.io/version: "v0.207.0"

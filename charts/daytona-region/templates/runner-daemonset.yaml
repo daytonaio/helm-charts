@@ -1110,9 +1110,20 @@ spec:
               install_one() {
                 # Atomic install: write to .new then rename, so a sandbox start
                 # mid-refresh never sees a half-written or non-executable file.
+                #
+                # These files are bind-mounted into every sandbox on the node from a
+                # single host inode, so they are held immutable. A read-only bind is not
+                # a boundary by itself: a container can make its own view writable, and
+                # the immutable attribute is enforced at the inode layer instead, where
+                # a container cannot clear it. Clear it here so the rename can replace
+                # the file, then set it on the new inode -- rename swaps the inode, so
+                # the attribute does not carry across.
                 name=$1
+                chattr -i "${DST_DIR}/${name}" 2>/dev/null || true
                 install -m 0755 "${SRC_DIR}/${name}" "${DST_DIR}/${name}.new" \
-                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}"
+                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}" \
+                  && { chattr +i "${DST_DIR}/${name}" 2>/dev/null \
+                       || echo "[daytona-binary-installer] WARN: could not set immutable attribute on ${HOST_SRC_DIR}/${name}; a sandbox that makes its bind writable could overwrite it for every sandbox on this node"; }
               }
 
               install_all() {
