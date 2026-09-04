@@ -989,6 +989,28 @@ entries:
   daytona-region:
   - apiVersion: v2
     appVersion: v0.207.0
+    created: "2026-09-04T11:50:06.484693796Z"
+    description: A Helm chart for Daytona custom region
+    digest: 7ea400369b531b8d41b5758921210fd19303474fd75d37e49230833b0840b75d
+    home: https://daytona.io
+    keywords:
+    - ai
+    - infrastructure
+    - security
+    - cloud
+    - sandbox
+    maintainers:
+    - email: engineering@daytona.io
+      name: Daytona
+    name: daytona-region
+    sources:
+    - https://github.com/daytonaio/daytona
+    type: application
+    urls:
+    - https://charts.daytona.io/charts/daytona-region-0.2.5.tgz
+    version: 0.2.5
+  - apiVersion: v2
+    appVersion: v0.207.0
     created: "2026-09-02T08:09:34.272437937Z"
     description: A Helm chart for Daytona custom region
     digest: 2f5ef193829cd9104a90eff5251cc1616505fa4543db8dfabf4d482e8d918d53
@@ -1273,4 +1295,4 @@ entries:
     urls:
     - https://charts.daytona.io/charts/daytona-region-0.0.1.tgz
     version: 0.0.1
-generated: "2026-09-02T08:09:34.268912605Z"
+generated: "2026-09-04T11:50:06.481305575Z"
