@@ -1051,6 +1051,28 @@ spec:
                 done
               }
 
+              # sha256 of a file; empty when the file is absent.
+              file_sum() {
+                sha256sum "$1" 2>/dev/null | awk '{print $1}'
+              }
+
+              # True when the host copy differs from the one this sidecar carries.
+              # Gates both the initial install and the refresh loop so a DaemonSet
+              # roll or a sidecar restart does not rewrite an already-current file.
+              needs_install() {
+                _src=$(file_sum "${SRC_DIR}/$1")
+                _dst=$(file_sum "${DST_DIR}/$1")
+                [ -z "${_dst}" ] || [ "${_src}" != "${_dst}" ]
+              }
+
+              # Re-assert the immutable attribute. Idempotent and cheap, so it runs on
+              # every pass rather than only after a write: that self-heals a node where
+              # the attribute was never set or was cleared out of band.
+              lock_one() {
+                chattr +i "${DST_DIR}/$1" 2>/dev/null \
+                  || echo "[daytona-binary-installer] WARN: could not set immutable attribute on ${HOST_SRC_DIR}/$1; the file is writable by anything that can reach it on this node"
+              }
+
               install_one() {
                 # Atomic install: write to .new then rename, so a sandbox start
                 # mid-refresh never sees a half-written or non-executable file.
@@ -1062,12 +1084,25 @@ spec:
                 # a container cannot clear it. Clear it here so the rename can replace
                 # the file, then set it on the new inode -- rename swaps the inode, so
                 # the attribute does not carry across.
+                #
+                # A sandbox is attached to the inode it mounted, not to this pathname, so
+                # the copy displaced by the rename keeps its own lifetime: it is not
+                # re-protected, and sandboxes already running stay on it until they exit.
+                # Accepted here. The checksum gate means this only happens on a genuine
+                # binary change, and carrying protection across a replace needs a
+                # publish-a-new-generation scheme rather than an in-place swap.
                 name=$1
                 chattr -i "${DST_DIR}/${name}" 2>/dev/null || true
-                install -m 0755 "${SRC_DIR}/${name}" "${DST_DIR}/${name}.new" \
-                  && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}" \
-                  && { chattr +i "${DST_DIR}/${name}" 2>/dev/null \
-                       || echo "[daytona-binary-installer] WARN: could not set immutable attribute on ${HOST_SRC_DIR}/${name}; a sandbox that makes its bind writable could overwrite it for every sandbox on this node"; }
+                if install -m 0755 "${SRC_DIR}/${name}" "${DST_DIR}/${name}.new" \
+                   && mv -f "${DST_DIR}/${name}.new" "${DST_DIR}/${name}"; then
+                  lock_one "${name}"
+                  return 0
+                fi
+                # The replace failed, but the clear above succeeded: drop the partial
+                # copy and put the attribute back on whatever is still at the path.
+                rm -f "${DST_DIR}/${name}.new"
+                lock_one "${name}"
+                return 1
               }
 
               install_all() {
@@ -1076,7 +1111,15 @@ spec:
                     echo "[daytona-binary-installer] WARN: source ${SRC_DIR}/${name} missing, skipping"
                     continue
                   fi
-                  install_one "${name}"
+                  if ! needs_install "${name}"; then
+                    lock_one "${name}"
+                    echo "[daytona-binary-installer] ${HOST_SRC_DIR}/${name} already current, leaving in place"
+                    continue
+                  fi
+                  if ! install_one "${name}"; then
+                    echo "[daytona-binary-installer] ERROR: install failed for ${name}"
+                    continue
+                  fi
                   echo "[daytona-binary-installer] installed ${HOST_SRC_DIR}/${name} ($(stat -c '%s bytes' "${DST_DIR}/${name}"))"
                 done
               }
@@ -1129,11 +1172,11 @@ spec:
                 sleep "${REFRESH_INTERVAL_SEC}"
                 cleanup_stale_dirs
                 for name in ${BINARIES}; do
-                  SRC_SUM=$(sha256sum "${SRC_DIR}/${name}" 2>/dev/null | awk '{print $1}')
-                  DST_SUM=$(sha256sum "${DST_DIR}/${name}" 2>/dev/null | awk '{print $1}')
-                  if [ -z "${DST_SUM}" ] || [ "${SRC_SUM}" != "${DST_SUM}" ]; then
+                  if needs_install "${name}"; then
                     echo "[daytona-binary-installer] refreshing ${HOST_SRC_DIR}/${name}"
                     install_one "${name}" || echo "[daytona-binary-installer] WARN: refresh install failed for ${name}"
+                  else
+                    lock_one "${name}"
                   fi
                 done
               done
