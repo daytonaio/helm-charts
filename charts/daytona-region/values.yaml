@@ -529,7 +529,7 @@ services:
     env:
       API_PORT: "3000"
       ENVIRONMENT: "production"
-      CONTAINER_RUNTIME: ""
+      CONTAINER_RUNTIME: "sysbox-runc"
       LOG_FILE_PATH: "/home/daytona/runner/runner.log"
       LOG_LEVEL: "info"
       SSH_GATEWAY_ENABLE: "true"
