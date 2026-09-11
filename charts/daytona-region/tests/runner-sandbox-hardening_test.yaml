@@ -56,10 +56,10 @@ tests:
       # The rule itself.
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+          pattern: 'iptables -w 5 -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+          pattern: 'ip6tables -w 5 -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
       # The kernel precondition, without which the rule filters nothing.
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
@@ -126,13 +126,20 @@ tests:
       # No enforcement, and no orphaned rule left behind.
       - notMatchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'iptables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+          pattern: 'iptables -w 5 -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'ip6tables -w 5 -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP'
       - notMatchRegex:
           path: spec.template.spec.containers[0].args[0]
           pattern: '"icc": false'
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'iptables -w -D DOCKER-USER -i docker0 -o docker0 -j DROP'
+          pattern: 'iptables -w 5 -D DOCKER-USER -i docker0 -o docker0 -j DROP'
+      # Both families are torn down; dropping the v6 cleanup would orphan a DROP.
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'ip6tables -w 5 -D DOCKER-USER -i docker0 -o docker0 -j DROP'
 
   - it: networkPolicy.enabled renders the egress-enforcer with block + input rules
     set:

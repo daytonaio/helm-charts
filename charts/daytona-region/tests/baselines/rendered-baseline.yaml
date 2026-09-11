@@ -821,8 +821,8 @@ spec:
               # chain exists on every node this chart provisions and a failure here is a real
               # gap, not an absent feature: containers can hold IPv6 addresses and sandbox
               # services bind ::. Counts toward the exit status.
-              if ! ip6tables -w -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
-                if ip6tables -w -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP; then
+              if ! ip6tables -w 5 -C DOCKER-USER -i docker0 -o docker0 -j DROP 2>/dev/null; then
+                if ip6tables -w 5 -I DOCKER-USER 1 -i docker0 -o docker0 -j DROP; then
                   echo "Installed IPv6 sandbox peer-denial rule"
                   changed=1
                 else
