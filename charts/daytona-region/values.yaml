@@ -647,7 +647,7 @@ services:
       # docker default (1024 flat per container).
       requestMillicoresPerVcpu: 0
       reconcileSeconds: 10
-      image: "docker:27.4.1-cli"
+      image: "docker:29.8.1-cli"
       stateDir: /var/lib/daytona/sandbox-cpu-state
     # Sandbox egress policy, enforced with iptables on the sandbox node host
     # (chain SBX_EGRESS hooked from DOCKER-USER for docker0/br-+ bridges,

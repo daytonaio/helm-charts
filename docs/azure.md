@@ -74,7 +74,7 @@ kubectl -n daytona logs daemonset/daytona-region-runner -c docker-installer | \
   grep -E 'static.*tarball|dockerd not installed by deb'
 ```
 
-**The tarball-fallback log line** confirms the fallback fired. AKS-managed nodes (Ubuntu 24.04 in current up.sh, since the chart's docker-installer downloads Ubuntu 24.04/noble .deb packages) ship `moby-containerd`, which conflicts with `docker-ce` at apt install time. The docker-installer detects the missing `/usr/bin/dockerd` after the deb step and falls back to installing Docker from the official static tarball at `download.docker.com/linux/static/stable/x86_64/docker-27.4.1.tgz`. EKS + GKE don't hit this path; AKS does. The up.sh script enforces `--os-sku Ubuntu2404` + `omc::verify_node_ubuntu` gates that refuse to continue if any AKS node isn't on Ubuntu 24.04.
+**The tarball-fallback log line** confirms the fallback fired. AKS-managed nodes (Ubuntu 24.04 in current up.sh, since the chart's docker-installer downloads Ubuntu 24.04/noble .deb packages) ship `moby-containerd`, which conflicts with `docker-ce` at apt install time. The docker-installer detects the missing `/usr/bin/dockerd` after the deb step and falls back to installing Docker from the official static tarball at `download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz`. EKS + GKE don't hit this path; AKS does. The up.sh script enforces `--os-sku Ubuntu2404` + `omc::verify_node_ubuntu` gates that refuse to continue if any AKS node isn't on Ubuntu 24.04.
 
 ## Smoke test
 
