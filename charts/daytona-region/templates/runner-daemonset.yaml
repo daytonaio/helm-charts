@@ -335,7 +335,7 @@ spec:
                   cd /tmp
                   
                   # For Ubuntu 24.04 (noble)
-                  DOCKER_VERSION="27.4.1-1~ubuntu.24.04~noble"
+                  DOCKER_VERSION="29.8.1-1~ubuntu.24.04~noble"
 
                   apt-get update
                   apt-get install -y wget xfsprogs
@@ -355,7 +355,7 @@ spec:
                   # skip this block entirely.
                   if [ ! -x /usr/bin/dockerd ]; then
                     echo "dockerd not installed by deb (managed-runtime conflict?) - using static tarball"
-                    curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.4.1.tgz -o /tmp/docker.tgz
+                    curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz -o /tmp/docker.tgz
                     tar xzf /tmp/docker.tgz -C /tmp
                     install -m 0755 /tmp/docker/dockerd /usr/bin/dockerd
                     install -m 0755 /tmp/docker/docker-proxy /usr/bin/docker-proxy
