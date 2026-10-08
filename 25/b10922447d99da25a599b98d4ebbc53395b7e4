@@ -1,0 +1,44 @@
+docs/issues-summary.md
+  s_d43809f4b8f471::t_e4898143df8dca 8
+docs/upgrades.md
+  s_d43809f4b8f471::t_9aaf5ab4003c1b 20-25
+  s_d43809f4b8f471::t_a9c8395cf7bc1d 41-42
+charts/daytona-region/values.yaml
+  s_d43809f4b8f471::t_fc263edf44713b 510-512,514-516
+  s_d43809f4b8f471::t_b7234c64887d79 476-477
+charts/daytona-region/README.md
+  s_d43809f4b8f471::t_c2a3afcd25227f 294,299-300,312,634
+docs/troubleshooting.md
+  s_d43809f4b8f471::t_5dacd21b1ef9b0 89,91,93
+docs/README.md
+  s_d43809f4b8f471::t_d42f34cac2902f 106
+docs/aws.md
+  s_d43809f4b8f471::t_38eb50f73af448 43
+  s_d43809f4b8f471::t_2b7d6956f2427c 54
+charts/daytona-region/templates/runner-secret.yaml
+  s_d43809f4b8f471::t_91a506979307fc 7-9
+runner/README.md
+  s_d43809f4b8f471::t_e4e76b0d8337f3 65-66,78,87
+scripts/aws-setup/README.md
+  s_d43809f4b8f471::t_9e38dc4ee1527e 314-315
+scripts/aws-setup/up.sh
+  s_d43809f4b8f471::t_a69283789ac85a 205,266-267,343
+scripts/aws-setup/values-region.yaml.tmpl
+  s_d43809f4b8f471::t_f21b997e938148 15,127-128,144-145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "25b10922447d99da25a599b98d4ebbc53395b7e4",
+  "prompts": {},
+  "sessions": {
+    "s_d43809f4b8f471": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee93eeaf1ffepYJYpTysBUcBBF",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Bruno Grbavac <bruno.grbavac@outlook.com>"
+    }
+  }
+}
