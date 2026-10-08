@@ -1046,7 +1046,7 @@ spec:
         #   path on the host via the host-root bind-mount. Stale empty
         #   directories auto-created by Docker are cleaned up first.
         - name: daytona-binary-installer
-          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ .Values.services.runner.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ include "daytona.runnerImageTag" $ }}"
           imagePullPolicy: {{ .Values.services.runner.image.pullPolicy }}
           securityContext:
             privileged: true
@@ -1245,7 +1245,7 @@ spec:
         # ports api+ssh are exposed both as containerPort and hostPort so they survive
         # hostNetwork=true and reach the host network namespace.
         - name: runner
-          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ .Values.services.runner.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ include "daytona.runnerImageTag" $ }}"
           imagePullPolicy: {{ .Values.services.runner.image.pullPolicy }}
           securityContext:
             privileged: true

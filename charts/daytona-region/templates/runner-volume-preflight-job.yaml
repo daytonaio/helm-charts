@@ -56,7 +56,7 @@ spec:
       {{- end }}
       containers:
         - name: preflight
-          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ .Values.services.runner.image.tag | default .Chart.AppVersion }}"
+          image: "{{ include "daytona.imageRegistry" (dict "Values" .Values "serviceRegistry" .Values.services.runner.image.registry) }}/{{ .Values.services.runner.image.repository }}:{{ include "daytona.runnerImageTag" $ }}"
           imagePullPolicy: {{ .Values.services.runner.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:

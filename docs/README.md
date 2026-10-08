@@ -103,7 +103,7 @@ lockstep; upgrade via the chart, not by overriding image tags.
 
 ## Known limitations
 
-- IRSA / Workload Identity for the runner is chart-wired but not production-functional until the runner accepts the SDK default credential chain. See [`issues-summary.md`](issues-summary.md).
+- GKE / Azure Workload Identity for the runner. See [`issues-summary.md`](issues-summary.md).
 - DNS-01 wildcard TLS certificate (HTTP-01 used by default — covers `proxy.<base>` + `snapshots.<base>` but not `*.proxy.<base>`)
 - Snapshot-manager IRSA / Workload Identity
 - Upstream-native versions of the chart-side hardening workarounds summarized in [`issues-summary.md`](issues-summary.md)

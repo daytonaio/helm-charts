@@ -507,12 +507,9 @@ services:
     #            ServiceAccount's eks.amazonaws.com/role-arn annotation to inject an
     #            IRSA-projected web-identity token at runtime. Set the role-arn under
     #            services.runner.serviceAccount.annotations.
+    #            With image.tag empty, irsa runs runner image v0.222.1-irsa.
     # aws.allowEmptyStaticKeyShim — when credentialMode=irsa, emit empty-string
-    # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY to satisfy the upstream daytona-runner
-    # config validator (which currently hard-requires these keys at startup; see
-    # docs/issues-summary.md). The AWS SDK still uses the IRSA
-    # token at runtime — the empty strings just unblock the startup validator. Defaults
-    # to false; opt-in workaround only.
+    # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY. Not needed; leave false.
     aws:
       credentialMode: static
       allowEmptyStaticKeyShim: false

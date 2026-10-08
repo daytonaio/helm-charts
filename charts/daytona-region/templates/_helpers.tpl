@@ -233,3 +233,11 @@ Used as API_TOKEN for runner-manager. Defaults to registration hook secret or re
 {{- define "daytona.runnermanagerDaytonaApiSecretKey" -}}
 {{- .Values.services.runnermanager.apiTokenSecret.key | default .Values.registration.secretKeys.apiKey | default "daytona-api-key" -}}
 {{- end -}}
+
+{{/*
+Runner image tag. credentialMode=irsa defaults to the v0.222.1-irsa runner build,
+since the appVersion runner only accepts static S3 keys.
+*/}}
+{{- define "daytona.runnerImageTag" -}}
+{{- .Values.services.runner.image.tag | default (ternary "v0.222.1-irsa" .Chart.AppVersion (eq .Values.services.runner.aws.credentialMode "irsa")) -}}
+{{- end }}
