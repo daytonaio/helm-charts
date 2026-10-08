@@ -2,6 +2,7 @@ suite: runner AWS credentialMode (S4)
 templates:
   - runner-secret.yaml
   - runner-serviceaccount.yaml
+  - runner-manager-deployment.yaml
 release:
   name: test-release
   namespace: test-ns
@@ -99,3 +100,18 @@ tests:
       - equal:
           path: automountServiceAccountToken
           value: false
+
+  - it: credentialMode=irsa spawns runners on the v0.222.1-irsa image unless image.tag is set
+    template: runner-manager-deployment.yaml
+    set:
+      regionName: "test"
+      proxyUrl: "https://p.example.com"
+      daytonaApiUrl: "https://api.example.com/api"
+      daytonaApiKey: "test"
+      services.runner.aws.credentialMode: irsa
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RUNNER_POD_IMAGE
+            value: "docker.io/daytonaio/daytona-runner:v0.222.1-irsa"

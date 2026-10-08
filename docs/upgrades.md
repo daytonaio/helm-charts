@@ -11,7 +11,7 @@ tags.
 
 | Component | Image | Version |
 |---|---|---|
-| Runner | `daytonaio/daytona-runner` | chart `appVersion` (`v0.207.0`) |
+| Runner | `daytonaio/daytona-runner` | chart `appVersion` (`v0.207.0`); `v0.222.1-irsa` when `credentialMode: irsa` |
 | Runner manager | `daytonaio/daytona-runner-manager` | chart `appVersion` (`v0.207.0`, amd64-only) |
 | Proxy | `daytonaio/daytona-proxy` | chart `appVersion` (`v0.207.0`) |
 | Snapshot manager | `daytonaio/daytona-snapshot-manager` | chart `appVersion` (`v0.207.0`) |
