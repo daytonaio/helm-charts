@@ -55,7 +55,7 @@ vCPU requirement and your regional quota, unless you override it with
 4. **kubeconfig** via `aws eks update-kubeconfig`.
 5. **daytona namespace** created.
 6. **ingress-nginx** + **cert-manager** installed via helm. A `letsencrypt-prod` ClusterIssuer with HTTP-01 challenge is applied.
-7. **LoadBalancer wait**: the script polls the `ingress-nginx-controller` Service until the AWS NLB hostname is allocated. ~3-5 min.
+7. **LoadBalancer wait**: the script polls the `ingress-nginx-controller` Service until the AWS load balancer hostname is allocated. ~3-5 min. The setup does not explicitly select a load balancer type; that depends on the cluster's load balancer controller and defaults.
 8. **DNS records**: the script prints exactly the records you must create. Create them in Route53 (or your DNS provider) and wait for propagation (~30-300s).
 9. **SSH gateway keypairs** generated into `.state/`, then **values-region.yaml render** from `scripts/aws-setup/values-region.yaml.tmpl` with your prompt answers. The snapshot-manager uses REAL AWS S3 (`storage.driver: s3`) — the one backend with the full multipart semantics the registry needs; runners share the same bucket for backups + build context.
 10. **`helm install daytona-region`** waits up to 10 min for the proxy + snapshot-manager + runner DaemonSet to come up, then the **post-registration finalize** (`omc::region_sshgateway_finalize`) fetches the region-scoped ssh-gateway api key (an org key 403s on session validation), rolls it into the release (`.state/values-sshgateway-key.yaml`), bounces the gateway pod, and PATCHes the region's `sshGatewayUrl` with the gateway LoadBalancer address.
@@ -111,7 +111,7 @@ The teardown:
 
 1. Helm uninstalls daytona-region
 2. Deletes the daytona namespace
-3. `eksctl delete cluster` (also removes the NLB + VPC if eksctl created them)
+3. `eksctl delete cluster` (also removes the load balancer + VPC if eksctl created them)
 4. Empties + deletes the S3 bucket
 5. Deletes the IAM user/role + access keys + attached policies
 6. Cleans up the `.state/` directory and kubeconfig context
