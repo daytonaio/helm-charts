@@ -557,6 +557,18 @@ services:
     affinity: {}
     podAnnotations: {}
     hostAliases: []
+    # Route the public snapshot hostname through an in-cluster ingress Service
+    # for host dockerd pushes/pulls, preserving the URL and TLS certificate.
+    # Requires dockerInstaller.enabled and host-network access to the ClusterIP.
+    # Refreshed at startup and every 60s; DNS failures leave existing entries alone.
+    # Host /etc/hosts entries persist after disabling/uninstalling: remove them
+    # from retained nodes manually (see docs/troubleshooting.md).
+    snapshotManagerInClusterRoute:
+      enabled: false
+      # Service serving the snapshot host with its valid TLS certificate.
+      targetService: "ingress-nginx-controller.ingress-nginx.svc.cluster.local"
+      # Optional DNS hostname override; otherwise use the host of snapshotManagerUrl.
+      hostname: ""
     registryProxy:
       enabled: false
       image: "alpine/socat:1.7.4.4-r0"
@@ -600,7 +612,7 @@ services:
       # "localhost:5000") so Docker doesn't try to TLS-validate the
       # in-pod socat forwarder.
       insecureRegistries: []
-      # dynamicHostAliases: hostnames that the docker-installer initContainer resolves
+      # dynamicHostAliases: hostnames that the docker-installer sidecar resolves
       # at install time (via `getent hosts <name>` from inside the pod, which sees
       # Kubernetes DNS) and then writes into the HOST's /etc/hosts via nsenter using
       # the shared add_host_alias function with awk-tmp-merge dedupe. Use this when
@@ -608,6 +620,12 @@ services:
       # "snapshot-manager", "registry.internal") that is only resolvable through
       # CoreDNS. Static entries with explicit IPs should go in services.runner.hostAliases
       # instead (those skip the getent step).
+      # Strings resolve and map the same name. Objects resolve target and map hostname:
+      #   - snapshot-manager
+      #   - hostname: registry.example.com
+      #     target: ingress-nginx-controller.ingress-nginx.svc.cluster.local
+      # Object fields must be DNS hostnames (no scheme, port or path). Both forms
+      # resolve only at startup; snapshotManagerInClusterRoute refreshes every 60s.
       dynamicHostAliases: []
       airgapped:
         enabled: false

@@ -11,6 +11,20 @@
 {{-   fail "services.runner.sandboxIsolation.enabled=true requires services.runner.dockerInstaller.enabled=true (the peer-denial control is applied by the docker-installer). Set services.runner.sandboxIsolation.enabled=false to run without inter-sandbox isolation, and provide an equivalent host-level control yourself." }}
 {{- end }}
 {{- if .Values.services.runner.enabled }}
+{{- $snapshotRoute := .Values.services.runner.snapshotManagerInClusterRoute | default dict }}
+{{- $snapshotHostname := "" }}
+{{- $snapshotTarget := "" }}
+{{- if $snapshotRoute.enabled }}
+{{- if not .Values.services.runner.dockerInstaller.enabled }}
+{{- fail "services.runner.snapshotManagerInClusterRoute.enabled=true requires services.runner.dockerInstaller.enabled=true" }}
+{{- end }}
+{{- $snapshotHostname = $snapshotRoute.hostname | default "" }}
+{{- if not $snapshotHostname }}
+{{- $snapshotHostname = regexReplaceAll ":[0-9]+$" (urlParse (include "daytona.snapshotManagerUrl" .)).host "" }}
+{{- end }}
+{{- $snapshotHostname = include "daytona.runner.hostAliasName" (dict "name" $snapshotHostname "field" "snapshotManagerInClusterRoute hostname (or the host of snapshotManagerUrl)") }}
+{{- $snapshotTarget = include "daytona.runner.hostAliasName" (dict "name" $snapshotRoute.targetService "field" "services.runner.snapshotManagerInClusterRoute.targetService") }}
+{{- end }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -177,15 +191,44 @@ spec:
               {{- end }}
               # Dynamic aliases resolved at install time via Kubernetes DNS (services.runner.dockerInstaller.dynamicHostAliases)
               {{- range .Values.services.runner.dockerInstaller.dynamicHostAliases }}
+              {{- if kindIs "string" . }}
               resolved_ip="$(getent hosts {{ . | squote }} | awk '{print $1; exit}')"
               if [ -n "$resolved_ip" ]; then
                 add_host_alias "$resolved_ip" {{ . | squote }}
               else
                 echo "[host-alias] WARN: could not resolve {{ . }} via getent hosts" >&2
               fi
+              {{- else if kindIs "map" . }}
+              {{- $hostname := include "daytona.runner.hostAliasName" (dict "name" .hostname "field" "dynamicHostAliases.hostname") }}
+              {{- $target := include "daytona.runner.hostAliasName" (dict "name" .target "field" "dynamicHostAliases.target") }}
+              resolved_ip="$(getent hosts {{ $target | squote }} | awk '{print $1; exit}')"
+              if [ -n "$resolved_ip" ]; then
+                add_host_alias "$resolved_ip" {{ $hostname | squote }}
+              else
+                printf '[host-alias] WARN: could not resolve %s via getent hosts\n' {{ $target | squote }} >&2
+              fi
+              {{- else }}
+              {{- fail "services.runner.dockerInstaller.dynamicHostAliases entries must be strings or {hostname, target} objects" }}
+              {{- end }}
+              {{- end }}
+              {{- if $snapshotRoute.enabled }}
+              # Resolve in the pod (cluster DNS), then update the host used by dockerd.
+              # Keep the public hostname for TLS, authentication and snapshot references.
+              refresh_snapshot_manager_route() {
+                resolved_ip="$(getent hosts {{ $snapshotTarget | squote }} | awk '{print $1; exit}')"
+                if [ -n "$resolved_ip" ]; then
+                  add_host_alias "$resolved_ip" {{ $snapshotHostname | squote }}
+                else
+                  printf '[host-alias] WARN: could not resolve %s; keeping the existing snapshot host mapping\n' {{ $snapshotTarget | squote }} >&2
+                fi
+              }
+              refresh_snapshot_manager_route
               {{- end }}
               # Surface the resulting host entries we care about
               nsenter -t 1 -m -u -n -i sh -c 'grep -E "registry|minio|snapshot-manager" /etc/hosts || true'
+              {{- if $snapshotRoute.enabled }}
+              nsenter -t 1 -m -u -n -i sh -c 'grep -F -- "$1" /etc/hosts || true' sh {{ $snapshotHostname | squote }}
+              {{- end }}
               
               # Enter the host namespace and install Docker + Sysbox
               nsenter -t 1 -m -u -n -i sh <<'EOF'
@@ -866,6 +909,9 @@ spec:
               
               # Monitor and ensure Docker and Sysbox stay running
               while true; do
+                {{- if $snapshotRoute.enabled }}
+                refresh_snapshot_manager_route
+                {{- end }}
                 nsenter -t 1 -m -u -n -i sh -c '
                   # Check Sysbox
                   if ! systemctl is-active --quiet sysbox 2>/dev/null; then
@@ -1343,4 +1389,4 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-{{- end }}
+{{- end -}}

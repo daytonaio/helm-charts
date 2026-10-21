@@ -104,6 +104,9 @@ services:
       deleteEnabled: true
 
   runner:
+    # Keep host dockerd snapshot traffic inside the cluster via ingress-nginx.
+    snapshotManagerInClusterRoute:
+      enabled: true
     # The runner-manager owns the real (cloud-registered) runner pods; they
     # envFrom runner-config/runner-secrets and bind hostPorts 3000/2220. A
     # static mainContainer runner never registers with Daytona Cloud and

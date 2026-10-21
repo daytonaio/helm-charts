@@ -258,6 +258,76 @@ panic ... nil pointer dereference
 
 The registry's s3 driver (distribution v3) resumes blob uploads via `ListMultipartUploads`, which S3 *shims* (rclone `serve s3`, GCS XML interop, most "S3-compatible" gateways) stub out — the driver nil-panics mid-push and nginx returns 502. Fix: `services.snapshotManager.storage.driver: filesystem` (PVC-backed; the chart creates the claim). `driver: s3` is safe only against real AWS S3. Delete any snapshots stuck in `error` and re-create them after the switch.
 
+## Large snapshot push resets after a few seconds (hairpin through public LB)
+
+If small images push successfully but multi-GB layers repeatedly reset, check the
+path from the runner node to `snapshots.<base-domain>`. The host's Docker daemon
+uses the node resolver, not the pod's `ClusterFirstWithHostNet` DNS policy. A
+public answer can send the upload out through NAT and a public load balancer,
+then back into the same cluster. In the reported EKS case, routing directly to
+the ingress controller's ClusterIP fixed the reset; the specific failing
+component on the public path was not established.
+
+Enable the following in your region values and apply them with your normal Helm
+upgrade (including the existing values and region-scoped SSH key overlay):
+
+```yaml
+services:
+  runner:
+    snapshotManagerInClusterRoute:
+      enabled: true
+      targetService: ingress-nginx-controller.ingress-nginx.svc.cluster.local
+      # hostname: snapshots.example.com  # optional; derived from snapshotManagerUrl
+```
+
+This is off by default in the chart and on in the AWS, Azure and GCP setup
+templates. It requires `services.runner.dockerInstaller.enabled: true`, a
+Service reachable from the node's host network, and an ingress serving the
+snapshot hostname with its valid TLS certificate. Keep it disabled for an
+external snapshot registry or an ingress that cannot be reached this way. With
+an explicit URL port, the ingress Service must also serve that port.
+
+The docker-installer sidecar resolves the Service using pod DNS, then maps its
+IP to the public snapshot hostname in the **host's** `/etc/hosts`. It repeats
+this at startup and in its 60-second monitor loop, repairing the entry after a
+Service IP change. The public URL, TLS hostname, authentication and stored image
+references remain unchanged. A failed lookup logs a WARN and leaves the host
+file untouched: public DNS remains usable if there is no existing alias, while
+an existing alias retains its last resolved IP until DNS recovers.
+
+Verify the Service IP and host resolver result on each runner node (run the
+second command against each runner DaemonSet pod):
+
+```bash
+kubectl -n ingress-nginx get svc ingress-nginx-controller -o wide
+kubectl -n daytona exec <runner-daemonset-pod> -c docker-installer -- \
+  nsenter -t 1 -m -u -n -i getent hosts snapshots.example.com
+```
+
+For a static fallback, get the current ClusterIP with the first command and set:
+
+```yaml
+services:
+  runner:
+    hostAliases:
+      - ip: "10.100.12.34"  # replace with the ingress controller's ClusterIP
+        hostnames:
+          - snapshots.example.com
+```
+
+The static IP becomes stale if the Service is recreated. Remove a static alias
+for the same hostname when switching to the dynamic route. Both mechanisms
+change host resolution, including the host Docker daemon used by runners
+created by runner-manager. Disabling the route or uninstalling the chart does **not** undo
+host entries: after the sidecars have stopped managing the alias, remove that
+hostname's entry from `/etc/hosts` on every retained runner node, or replace the
+nodes, to restore public DNS. Do this also when changing the hostname override.
+
+On AWS, keep `proxy-body-size: "0"`, `proxy-request-buffering: "off"`, and
+`proxy-read-timeout` / `proxy-send-timeout: "3600"` on the snapshot ingress for
+large uploads. These annotations do not themselves remove the public network
+path.
+
 ## runnermanager ImagePullBackOff
 
 Not every chart `appVersion` has a published `daytonaio/daytona-runner-manager` tag (the tag lines are sparse: plain, `-k8s-oss`, `-byoc` flavors). Keep the chart's pinned default tag unless you have verified the override exists on Docker Hub.
