@@ -1,0 +1,37 @@
+name: Region registration tests
+
+on:
+  pull_request:
+    paths:
+      - 'charts/daytona-region/**'
+      - 'tests/daytona-region/**'
+      - '.github/workflows/daytona-region.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'charts/daytona-region/**'
+      - 'tests/daytona-region/**'
+      - '.github/workflows/daytona-region.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  registration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install -r tests/daytona-region/requirements.txt
+      - name: Execute registration hook regression tests
+        run: python -B -m unittest discover -s tests/daytona-region -v
+      - name: Lint region chart
+        run: helm lint charts/daytona-region --strict -f charts/daytona-region/tests/fixtures/baseline.values.yaml
+      - name: Check default manifest compatibility
+        run: bash scripts/_lib/check/check-baseline-compat.sh

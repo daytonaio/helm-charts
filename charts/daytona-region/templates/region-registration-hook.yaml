@@ -1,3 +1,6 @@
+{{- if and .Values.registration.manageOtelEndpoint (not .Values.registration.enabled) -}}
+{{- fail "registration.manageOtelEndpoint requires registration.enabled=true" -}}
+{{- end -}}
 {{- if .Values.registration.enabled -}}
 apiVersion: batch/v1
 kind: Job
@@ -38,6 +41,11 @@ spec:
 
               SECRET_NAME="{{ include "daytona.fullname" . }}-region-config"
               NAMESPACE="{{ include "daytona.namespace" . }}"
+              {{- if .Values.registration.manageOtelEndpoint }}
+
+              OTEL_PAYLOAD=$(jq -n --arg endpoint "${OTEL_ENDPOINT}" \
+                '{otelEndpoint: (if $endpoint == "" then null else $endpoint end)}')
+              {{- end }}
 
               # Function to create/update secret from JSON response
               create_secret() {
@@ -68,6 +76,34 @@ spec:
               # Check if region config secret already exists
               if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
                 echo "Region config secret '${SECRET_NAME}' exists."
+                {{- if .Values.registration.manageOtelEndpoint }}
+
+                REGION_ID=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o jsonpath='{.data.id}' | base64 -d)
+                if [ -z "${REGION_ID}" ]; then
+                  echo "ERROR: Could not get region ID from secret"
+                  exit 1
+                fi
+
+                echo "Updating region OTel endpoint..."
+                if ! HTTP_CODE=$(curl -sS --connect-timeout 10 --max-time 30 \
+                  -o /tmp/otel-update-resp.json -w '%{http_code}' \
+                  -X PATCH \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
+                  -d "${OTEL_PAYLOAD}" \
+                  "${DAYTONA_API_URL}/regions/${REGION_ID}"); then
+                  echo "ERROR: Could not reach the API to update the region OTel endpoint"
+                  exit 1
+                fi
+                case "${HTTP_CODE}" in
+                  2??) echo "Region OTel endpoint updated." ;;
+                  *)
+                    echo "ERROR: OTel endpoint update failed (HTTP ${HTTP_CODE})."
+                    echo "Check API availability and the API key's region write permission."
+                    exit 1
+                    ;;
+                esac
+                {{- end }}
 
                 # Check if snapshot manager credentials are needed but missing
                 if [ -n "${SNAPSHOT_MANAGER_URL}" ]; then
@@ -130,6 +166,10 @@ spec:
                   --arg proxyUrl "${PROXY_URL}" \
                   '{name: $name, proxyUrl: $proxyUrl}')
               fi
+              {{- if .Values.registration.manageOtelEndpoint }}
+
+              PAYLOAD=$(printf '%s' "${PAYLOAD}" | jq --argjson otel "${OTEL_PAYLOAD}" '. + $otel')
+              {{- end }}
 
               echo "Calling API at ${DAYTONA_API_URL}/regions..."
 
@@ -191,6 +231,10 @@ spec:
               value: {{ include "daytona.proxyUrl" . | quote }}
             - name: REGION_NAME
               value: {{ required "regionName is required" .Values.regionName | quote }}
+            {{- if .Values.registration.manageOtelEndpoint }}
+            - name: OTEL_ENDPOINT
+              value: {{ .Values.otelEndpoint | default "" | quote }}
+            {{- end }}
             {{- if .Values.services.snapshotManager.enabled }}
             - name: SNAPSHOT_MANAGER_URL
               value: {{ include "daytona.snapshotManagerUrl" . | quote }}
