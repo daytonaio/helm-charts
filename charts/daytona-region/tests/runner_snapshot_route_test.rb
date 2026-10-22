@@ -33,6 +33,12 @@ class SnapshotRouteTest < Minitest::Test
           printf '%s\n' "$*" >> "$TEST_DIR/queries"
           cat "$TEST_DIR/dns" 2>/dev/null || return 2
         }
+        # Record the bound, then run the mocked command.
+        timeout() {
+          printf 'timeout %s ' "$1" >> "$TEST_DIR/queries"
+          shift
+          "$@"
+        }
         nsenter() {
           [ "$1 $2 $3 $4 $5 $6" = '-t 1 -m -u -n -i' ] || exit 97
           shift 6
@@ -69,7 +75,7 @@ class SnapshotRouteTest < Minitest::Test
     }) do |directory, _stdout, stderr|
       assert_equal "127.0.0.1 localhost\n10.100.0.1 snapshots.daytona.example.com\n", File.read(File.join(directory, 'startup'))
       assert_equal "127.0.0.1 localhost\n10.100.0.2 snapshots.daytona.example.com\n", File.read(File.join(directory, 'hosts'))
-      assert_equal ["hosts #{TARGET}"] * 4, File.readlines(File.join(directory, 'queries'), chomp: true)
+      assert_equal ["timeout 5 hosts #{TARGET}"] * 4, File.readlines(File.join(directory, 'queries'), chomp: true)
       assert_includes stderr, 'WARN: could not resolve'
     end
   end

@@ -240,8 +240,9 @@ spec:
               {{- if $snapshotRoute.enabled }}
               # Resolve in the pod (cluster DNS), then update the host used by dockerd.
               # Keep the public hostname for TLS, authentication and snapshot references.
+              # The lookup is bounded so a DNS outage cannot stall the monitor loop.
               refresh_snapshot_manager_route() {
-                resolved_ip="$(getent hosts {{ $snapshotTarget | squote }} | awk '{print $1; exit}')"
+                resolved_ip="$(timeout 5 getent hosts {{ $snapshotTarget | squote }} | awk '{print $1; exit}')"
                 if [ -n "$resolved_ip" ]; then
                   add_host_alias "$resolved_ip" {{ $snapshotHostname | squote }}
                 else

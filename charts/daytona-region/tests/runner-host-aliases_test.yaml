@@ -116,7 +116,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: "getent hosts 'ingress-nginx-controller\\.ingress-nginx\\.svc\\.cluster\\.local'"
+          pattern: "timeout 5 getent hosts 'ingress-nginx-controller\\.ingress-nginx\\.svc\\.cluster\\.local'"
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
           pattern: 'add_host_alias "\$resolved_ip" ''snapshots\.example\.com'''
@@ -157,7 +157,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: "getent hosts 'custom-ingress\\.network\\.svc\\.cluster\\.local'"
+          pattern: "timeout 5 getent hosts 'custom-ingress\\.network\\.svc\\.cluster\\.local'"
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
           pattern: 'add_host_alias "\$resolved_ip" ''registry\.example\.com'''
