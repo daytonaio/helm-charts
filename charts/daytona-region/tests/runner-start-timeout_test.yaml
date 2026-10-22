@@ -1,0 +1,82 @@
+suite: runner Sysbox start timeout
+templates:
+  - runner-configmap.yaml
+  - runner-manager-deployment.yaml
+  - runner-daemonset.yaml
+values:
+  - fixtures/baseline.values.yaml
+release:
+  name: test-release
+  namespace: test-ns
+tests:
+  - it: defaults managed runners to 120 seconds through their ConfigMap
+    asserts:
+      - equal:
+          path: data.SYSBOX_START_TIMEOUT_SEC
+          value: "120"
+        template: runner-configmap.yaml
+      - equal:
+          path: 'spec.template.spec.containers[0].env[?(@.name=="RUNNER_POD_CONFIG_MAP")].value'
+          value: test-release-daytona-region-runner-config
+        template: runner-manager-deployment.yaml
+
+  - it: defaults the optional main runner container to the same timeout
+    set:
+      services.runner.mainContainer.enabled: true
+    asserts:
+      - equal:
+          path: data.SYSBOX_START_TIMEOUT_SEC
+          value: "120"
+        template: runner-configmap.yaml
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].envFrom'
+          content:
+            configMapRef:
+              name: test-release-daytona-region-runner-config
+          any: true
+        template: runner-daemonset.yaml
+
+  - it: accepts a custom timeout for managed runners
+    template: runner-configmap.yaml
+    set:
+      services.runner.env.SYSBOX_START_TIMEOUT_SEC: "180"
+    asserts:
+      - equal:
+          path: data.SYSBOX_START_TIMEOUT_SEC
+          value: "180"
+
+  - it: accepts a custom timeout for the optional main runner container
+    template: runner-configmap.yaml
+    set:
+      services.runner.mainContainer.enabled: true
+      services.runner.env.SYSBOX_START_TIMEOUT_SEC: "180"
+    asserts:
+      - equal:
+          path: data.SYSBOX_START_TIMEOUT_SEC
+          value: "180"
+
+  - it: allows operators to retain the runner's 10 second timeout
+    template: runner-configmap.yaml
+    set:
+      services.runner.env.SYSBOX_START_TIMEOUT_SEC: "10"
+    asserts:
+      - equal:
+          path: data.SYSBOX_START_TIMEOUT_SEC
+          value: "10"
+
+  - it: retains the chart default when the value is omitted
+    template: runner-configmap.yaml
+    set:
+      services.runner.env.SYSBOX_START_TIMEOUT_SEC: null
+    asserts:
+      - equal:
+          path: data.SYSBOX_START_TIMEOUT_SEC
+          value: "120"
+
+  - it: does not render runner configuration when runners are disabled
+    template: runner-configmap.yaml
+    set:
+      services.runner.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

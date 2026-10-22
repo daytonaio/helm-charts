@@ -590,6 +590,44 @@ Snapshot-manager log shows `panic ... nil pointer` in `s3-aws.(*driver).Writer` 
 
 Not every chart `appVersion` has a matching `daytonaio/daytona-runner-manager` tag on Docker Hub. Keep the chart's pinned default tag, or verify the tag exists before overriding `services.runnermanager.image.tag`.
 
+### Sysbox sandbox starts time out
+
+The runner reads `SYSBOX_START_TIMEOUT_SEC` at startup to limit how long a
+Sysbox container start can take. Starting with chart 0.2.7, the chart supplies
+`"120"` seconds by default instead of leaving the runner to use its built-in
+10-second default. This requires no runner image rebuild.
+
+To choose a different timeout, set a positive number of seconds in your values:
+
+```yaml
+services:
+  runner:
+    env:
+      SYSBOX_START_TIMEOUT_SEC: "180"
+```
+
+This setting reaches both manager-managed runners (the default mode) and the
+optional `mainContainer` through the runner ConfigMap. A longer timeout gives
+slow starts more time, but also delays failure detection and runtime fallback
+for a stuck start. Set `"10"` to retain the runner's original timeout.
+`SANDBOX_START_TIMEOUT_SEC` controls a separate wait and does not change this
+Sysbox start deadline.
+
+After upgrading, existing runner containers must be restarted through your
+normal runner maintenance procedure to read the new environment. Updating the
+ConfigMap alone does not restart them. In the default mode the chart's runner
+DaemonSet only prepares hosts; restarting it does not restart the actual
+manager-managed runners. Verify each restarted runner with:
+
+```bash
+kubectl -n <namespace> exec <runner-pod> -c runner -- printenv SYSBOX_START_TIMEOUT_SEC
+```
+
+If `services.runnermanager.env.RUNNER_POD_CONFIG_MAP` points to a custom
+ConfigMap, maintain this setting in that ConfigMap. For the optional main
+container, an existing `services.runner.extraEnv` entry for this variable
+takes precedence over the ConfigMap value.
+
 ### New runners never register / runner-manager loops every 20s
 
 Check whether `services.runnermanager.image.tag` is overridden. Runner-manager tags are not interchangeable — a tag other than the chart's pinned default is not validated against this chart's runner image, regardless of version number — `v0.174.0`, for example, is an older, incomplete build that only creates placeholder pods and never launches a runner. Remove the override so the chart's pinned tag applies.

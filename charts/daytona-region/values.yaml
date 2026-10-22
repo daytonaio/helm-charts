@@ -538,6 +538,9 @@ services:
       CACHE_RETENTION_DAYS: "7"
       DAEMON_START_TIMEOUT_SEC: "30"
       SANDBOX_START_TIMEOUT_SEC: "60"
+      # Allow slower BYOC Sysbox container starts before timing out. A longer
+      # timeout also delays failure detection and runtime fallback.
+      SYSBOX_START_TIMEOUT_SEC: "120"
       DAYTONA_API_URL: ""
       SERVER_URL: ""
       API_TOKEN: "secret_api_token"
