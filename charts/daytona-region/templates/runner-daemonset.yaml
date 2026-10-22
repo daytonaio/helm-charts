@@ -152,37 +152,63 @@ spec:
               ls -la /host/tmp/offline-packages/
               {{- end }}
               
-              # Shared add_host_alias() function — used by BOTH the static hostAliases loop
-              # below and the dynamicHostAliases loop. The awk-based tmp-merge writes the
-              # entry into a temp file and atomically renames it onto /etc/hosts via nsenter,
-              # so the host file is never half-written. Idempotent: re-running with the same
-              # (ip,name) pair leaves /etc/hosts in a deduplicated state — existing entries
-              # for that hostname are overwritten in place, new entries are appended exactly
-              # once.
+              # Shared add_host_alias() function — used by the static hostAliases loop, the
+              # dynamicHostAliases loop and the snapshot route refresh. The host side keeps
+              # the first entry that is exactly "ip name" in place, drops the name from every
+              # other entry (and any entry left without names), appends "ip name" if no entry
+              # was kept, and only when the result differs renames a temp copy onto
+              # /etc/hosts, so the file is never half-written and a call whose entry is
+              # already current leaves it untouched. Names compare as strings, ignoring a
+              # trailing CR. ip, name and the awk program reach the host shell as positional
+              # arguments, never as script text.
               echo "Setting up host aliases..."
+              host_alias_awk='
+                BEGIN { found = 0 }
+                NF == 0 || substr($1, 1, 1) == "#" { print; next }
+                {
+                  line = $1; kept = 0; hit = 0
+                  for (i = 2; i <= NF; i++) {
+                    if (substr($i, 1, 1) == "#") break
+                    f = $i ""; sub(/\r$/, "", f)
+                    if (f == (name "")) hit = 1
+                    else { line = line " " $i; kept++ }
+                  }
+                  if (!hit) { print; next }
+                  if (!kept && !found && ($1 "") == (ip "")) { print; found = 1; next }
+                  if (!kept) next
+                  for (j = i; j <= NF; j++) line = line " " $j
+                  print line
+                }
+                END { if (!found) print ip " " name }
+              '
               add_host_alias() {
                 ip="$1"; name="$2"
                 if [ -z "$ip" ] || [ -z "$name" ]; then
                   echo "[host-alias] WARN: skipping empty ip='$ip' name='$name'" >&2
                   return 0
                 fi
-                nsenter -t 1 -m -u -n -i sh -c "
-                  awk -v ip=\"$ip\" -v name=\"$name\" '
-                    BEGIN { found=0 }
-                    {
-                      if (\$2 == name) { print ip\" \"name; found=1 }
-                      else { print }
-                    }
-                    END { if (!found) print ip\" \"name }
-                  ' /etc/hosts > /etc/hosts.tmp && mv /etc/hosts.tmp /etc/hosts
-                "
-                echo "[host-alias] set $ip $name"
+                if ! host_alias_state="$(nsenter -t 1 -m -u -n -i sh -c '
+                  tmp="$(mktemp /etc/hosts.XXXXXX)" || exit 1
+                  if cp -p /etc/hosts "$tmp" && awk -v ip="$1" -v name="$2" "$3" /etc/hosts > "$tmp"; then
+                    if cmp -s "$tmp" /etc/hosts; then
+                      rm -f "$tmp"; echo unchanged; exit 0
+                    fi
+                    mv "$tmp" /etc/hosts && echo changed && exit 0
+                  fi
+                  rm -f "$tmp"; exit 1
+                ' sh "$ip" "$name" "$host_alias_awk")"; then
+                  echo "[host-alias] WARN: failed to update /etc/hosts for $name" >&2
+                  return 1
+                fi
+                if [ "$host_alias_state" = changed ]; then
+                  echo "[host-alias] set $ip $name"
+                fi
               }
               # Static aliases (explicit ip + hostnames in services.runner.hostAliases)
               # `squote` shell-quotes the helm-substituted values so a hostname containing
-              # special characters (e.g. quotes or backslashes) cannot break the surrounding
-              # shell context. add_host_alias receives the unquoted contents via positional
-              # arguments and re-quotes them safely with awk -v.
+              # special characters (e.g. double quotes or backslashes) cannot break the surrounding
+              # shell context. add_host_alias passes the unquoted contents to the host shell
+              # as positional arguments and on to awk with -v.
               {{- range .Values.services.runner.hostAliases }}
               {{- $ip := .ip -}}
               {{- range .hostnames }}

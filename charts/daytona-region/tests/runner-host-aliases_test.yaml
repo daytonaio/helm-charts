@@ -23,7 +23,7 @@ tests:
           path: spec.template.spec.containers[0].args[0]
           pattern: 'add_host_alias\(\)'
 
-  - it: add_host_alias uses awk tmp-merge with atomic mv (idempotent dedupe)
+  - it: add_host_alias merges via a temp file and atomic mv, only when the entry changes
     set:
       regionName: "test"
       proxyUrl: "https://p.example.com"
@@ -34,7 +34,25 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'mv\s+/etc/hosts\.tmp\s+/etc/hosts'
+          pattern: 'tmp="\$\(mktemp /etc/hosts\.XXXXXX\)"'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)if cmp -s "\$tmp" /etc/hosts; then\s+rm -f "\$tmp"; echo unchanged.*?mv "\$tmp" /etc/hosts && echo changed'
+
+  - it: add_host_alias passes ip and name to the host shell as arguments, not script text
+    set:
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - snapshot-manager
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'awk -v ip="\$1" -v name="\$2" "\$3" /etc/hosts'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '\n\s+'' sh "\$ip" "\$name" "\$host_alias_awk"\)"; then'
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'nsenter -t 1 -m -u -n -i sh -c "'
 
   - it: dynamicHostAliases triggers getent hosts resolution loop (squote-hardened)
     set:
