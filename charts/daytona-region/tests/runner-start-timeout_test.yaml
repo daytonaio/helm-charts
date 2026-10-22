@@ -45,15 +45,46 @@ tests:
           path: data.SYSBOX_START_TIMEOUT_SEC
           value: "180"
 
-  - it: accepts a custom timeout for the optional main runner container
-    template: runner-configmap.yaml
+  - it: renders an explicit main runner timeout override alongside its ConfigMap
     set:
       services.runner.mainContainer.enabled: true
       services.runner.env.SYSBOX_START_TIMEOUT_SEC: "180"
+      services.runner.extraEnv:
+        - name: SYSBOX_START_TIMEOUT_SEC
+          value: "240"
     asserts:
       - equal:
           path: data.SYSBOX_START_TIMEOUT_SEC
           value: "180"
+        template: runner-configmap.yaml
+      - equal:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].env[?(@.name=="SYSBOX_START_TIMEOUT_SEC")].value'
+          value: "240"
+        template: runner-daemonset.yaml
+      - contains:
+          path: 'spec.template.spec.containers[?(@.name=="runner")].envFrom'
+          content:
+            configMapRef:
+              name: test-release-daytona-region-runner-config
+          any: true
+        template: runner-daemonset.yaml
+
+  - it: preserves a custom ConfigMap reference for managed runners
+    set:
+      services.runnermanager.env.RUNNER_POD_CONFIG_MAP: operator-runner-config
+    asserts:
+      - equal:
+          path: 'spec.template.spec.containers[0].env[?(@.name=="RUNNER_POD_CONFIG_MAP")].value'
+          value: operator-runner-config
+        template: runner-manager-deployment.yaml
+      - equal:
+          path: metadata.name
+          value: test-release-daytona-region-runner-config
+        template: runner-configmap.yaml
+      - equal:
+          path: data.SYSBOX_START_TIMEOUT_SEC
+          value: "120"
+        template: runner-configmap.yaml
 
   - it: allows operators to retain the runner's 10 second timeout
     template: runner-configmap.yaml

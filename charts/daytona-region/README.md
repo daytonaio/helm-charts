@@ -608,16 +608,27 @@ services:
 
 This setting reaches both manager-managed runners (the default mode) and the
 optional `mainContainer` through the runner ConfigMap. A longer timeout gives
-slow starts more time, but also delays failure detection and runtime fallback
-for a stuck start. Set `"10"` to retain the runner's original timeout.
+slow starts more time. Chart-installed nodes have no fallback runtime
+configured, so a start that exceeds this timeout fails. Only use a low value
+such as `"10"` (the runner's built-in default) if your nodes provide a working
+`kata-clh` fallback runtime.
 `SANDBOX_START_TIMEOUT_SEC` controls a separate wait and does not change this
 Sysbox start deadline.
 
-After upgrading, existing runner containers must be restarted through your
-normal runner maintenance procedure to read the new environment. Updating the
-ConfigMap alone does not restart them. In the default mode the chart's runner
-DaemonSet only prepares hosts; restarting it does not restart the actual
-manager-managed runners. Verify each restarted runner with:
+For manager-managed runners (the default), after upgrading follow the
+[rolling runner procedure](../../docs/upgrades.md#rolling-runners-to-a-new-image)
+so replacement runners read the new environment. The same procedure applies
+to this configuration-only change: create replacement runners, drain the old
+runners, verify that no sandboxes remain on them, then remove them.
+Manager-created runner pods have no controller owner, so `rollout restart`
+does not apply. Deleting an active runner pod leaves its sandboxes behind;
+a replacement registers as a new runner.
+
+Updating the ConfigMap alone does not restart runners. In the default mode
+the chart's runner DaemonSet only prepares hosts; restarting it does not
+restart the actual manager-managed runners. For optional `mainContainer`
+installations, roll the runner DaemonSet so its runner containers read the
+new environment. Verify each replacement runner with:
 
 ```bash
 kubectl -n <namespace> exec <runner-pod> -c runner -- printenv SYSBOX_START_TIMEOUT_SEC
