@@ -124,9 +124,12 @@ services:
       deleteEnabled: true
 
   runner:
-    # Keep host dockerd snapshot traffic inside the cluster via ingress-nginx.
+    # Optional: send host dockerd snapshot traffic to ingress-nginx inside the
+    # cluster. The snapshot ingress annotations above fix large-push EOF
+    # failures on their own; enable this on private-subnet clusters to keep
+    # pushes off NAT and the public load balancer.
     snapshotManagerInClusterRoute:
-      enabled: true
+      enabled: false
     # The runner-manager owns the real (cloud-registered) runner pods; they
     # envFrom runner-config/runner-secrets and bind hostPorts 3000/2220. A
     # static mainContainer runner never registers with Daytona Cloud and
