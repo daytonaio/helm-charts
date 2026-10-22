@@ -35,6 +35,49 @@ helm upgrade <release> daytona/daytona-region -n <namespace> -f your-values.yaml
 If you override image tags in your values, remove the overrides so the chart's
 pinned defaults apply.
 
+Before every upgrade, review the rendered change. With the
+[helm-diff](https://github.com/databus23/helm-diff) plugin:
+
+```bash
+helm diff upgrade <release> daytona/daytona-region -n <namespace> -f your-values.yaml
+```
+
+Pass your full values file with `-f` rather than `--reuse-values`.
+`--reuse-values` reuses the values stored with the previous release and
+ignores the new chart's defaults, so new keys (such as
+`services.proxy.previewAuth`) come out empty and the render fails, or an old
+image tag override stays in place.
+
+## Upgrading to chart 0.2.7
+
+- **Image tag overrides.** If your values pin `services.proxy.image.tag` (or
+  any other component's tag), remove the pin unless Daytona gave it to you for
+  this chart version, and check the result in the `helm diff` output.
+- **Preview sign-in.** `services.proxy.previewAuth.login.enabled` defaults to
+  `false`: a browser that opens a private preview without a credential gets a
+  `401` instead of a redirect to Daytona sign-in, which cannot complete on your
+  domain. Proxy images that predate the setting ignore it; check
+  `curl -s https://<proxy-host>/health` for `"previewLogin":false`. See
+  [Preview authentication](../charts/daytona-region/README.md#preview-authentication).
+- **Cookie domain.** The chart no longer sets `COOKIE_DOMAIN` from `proxyUrl`
+  (it used the parent domain, e.g. `example.com` for `proxy.example.com`). The
+  proxy now scopes its cookies to the proxy host and its preview subdomains.
+  Cookies already set under the parent domain stay in browsers until they
+  expire. To keep the old behaviour, set `services.proxy.env.COOKIE_DOMAIN`.
+- **Extra proxy variables.** If you set proxy variables through other means
+  (for example by adding keys to the `<release>-region-config` Secret), move
+  them to `services.proxy.extraEnv`. Variables the chart owns, including every
+  `PREVIEW_*` variable, are rejected there; the chart's own values win over the
+  Secret.
+- **Probes.** The proxy now has liveness and readiness probes on `GET /health`:
+  a new pod gets traffic only once it answers, and a pod that stops answering
+  is restarted. Set `services.proxy.livenessProbe` or `readinessProbe` to
+  `null` to turn one off.
+- **Registration hook logs.** Hook logs from earlier chart versions contain the
+  region's keys. See "Registration Hook Failed" in the
+  [chart README](../charts/daytona-region/README.md#registration-hook-failed)
+  for how to rotate them.
+
 ## Rolling runners to a new image
 
 Upgrading the chart changes the image used for **new** runner pods; existing
