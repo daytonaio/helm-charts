@@ -82,7 +82,7 @@ kubectl -n daytona logs deployment/daytona-region-snapshot-manager --tail=50 | g
 
 Per-cloud:
 
-- **AWS:** IAM policy on the user/role missing one of `s3:{GetObject,PutObject,DeleteObject,ListBucket,AbortMultipartUpload,ListMultipartUploadParts}`. Confirm with `aws iam list-attached-user-policies --user-name <cluster>-daytona` or `aws iam list-attached-role-policies --role-name <cluster>-runner-irsa`.
+- **AWS:** IAM policy on the user/role missing one of `s3:{GetObject,PutObject,DeleteObject,ListBucket,ListBucketMultipartUploads,AbortMultipartUpload,ListMultipartUploadParts}`. Confirm with `aws iam list-attached-user-policies --user-name <cluster>-daytona` or `aws iam list-attached-role-policies --role-name <cluster>-runner-irsa`.
 - **Azure:** rclone-s3-gateway is down. `kubectl -n daytona get deploy rclone-s3-gateway` and `kubectl -n daytona logs deploy/rclone-s3-gateway`.
 - **GCP:** HMAC keys revoked or the GSA lost its `storage.objectAdmin` binding. `gcloud storage hmac list --service-account=<gsa>@<project>.iam.gserviceaccount.com`.
 
