@@ -105,9 +105,12 @@ services:
       deleteEnabled: true
 
   runner:
-    # Keep host dockerd snapshot traffic inside the cluster via ingress-nginx.
+    # Optional: send host dockerd snapshot traffic to ingress-nginx inside the
+    # cluster. Off: on AKS kube-proxy normally keeps node traffic to the
+    # load-balancer IP inside the cluster, so the route should not be needed.
+    # See docs/troubleshooting.md.
     snapshotManagerInClusterRoute:
-      enabled: true
+      enabled: false
     # The runner-manager owns the real (cloud-registered) runner pods; they
     # envFrom runner-config/runner-secrets and bind hostPorts 3000/2220. A
     # static mainContainer runner never registers with Daytona Cloud and
