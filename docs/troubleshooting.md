@@ -258,15 +258,83 @@ panic ... nil pointer dereference
 
 The registry's s3 driver (distribution v3) resumes blob uploads via `ListMultipartUploads`, which S3 *shims* (rclone `serve s3`, GCS XML interop, most "S3-compatible" gateways) stub out — the driver nil-panics mid-push and nginx returns 502. Fix: `services.snapshotManager.storage.driver: filesystem` (PVC-backed; the chart creates the claim). `driver: s3` is safe only against real AWS S3. Delete any snapshots stuck in `error` and re-create them after the switch.
 
-## Large snapshot push resets after a few seconds (hairpin through public LB)
+## Large snapshot push fails with EOF after the upload
 
-If small images push successfully but multi-GB layers repeatedly reset, check the
-path from the runner node to `snapshots.<base-domain>`. The host's Docker daemon
-uses the node resolver, not the pod's `ClusterFirstWithHostNet` DNS policy. A
-public answer can send the upload out through NAT and a public load balancer,
-then back into the same cluster. In the reported EKS case, routing directly to
-the ingress controller's ClusterIP fixed the reset; the specific failing
-component on the public path was not established.
+Small images push, but a snapshot with a multi-GB layer ends in `error` with
+`EOF`. Symptoms:
+
+- dockerd on the runner node logs `Upload failed, retrying: EOF` minutes into
+  each attempt, retries, and the snapshot then fails with `EOF`.
+- The ingress-nginx access log shows the layer `PATCH` with status `499` and an
+  `upstream_response_time` close to the load balancer idle timeout (about 60 s
+  for a classic ELB).
+- The ingress-nginx error log shows `a client request body is buffered to a
+  temporary file` for the uploads.
+
+```bash
+kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --since=1h \
+  | grep -E '"PATCH /v2/[^"]*" 499 |buffered to a temporary file'
+```
+
+With request buffering on (the ingress-nginx default), nginx receives the whole
+layer before it relays it to the registry. While it relays, the client
+connection carries no data, and a load balancer idle timeout in front of
+ingress-nginx closes it. A classic ELB's default idle timeout is 60 s, and TCP
+keepalives do not reset it. NAT gateways and NLBs (350 s idle timeout by
+default) restart their idle timer on TCP keepalives, which dockerd sends every
+30 s, so they should not cut this wait. A classic ELB, or any proxy in front of
+ingress-nginx with a short idle timeout that ignores keepalives, will. A timeout
+in nginx itself would log `504`, not `499`.
+
+On EKS, a LoadBalancer Service without the
+`service.beta.kubernetes.io/aws-load-balancer-type` annotation gets a classic
+ELB unless the AWS Load Balancer Controller takes it over, and the AWS setup
+script installs ingress-nginx without that annotation. To check, compare the
+Service's load balancer hostname with the classic ELBs in the region:
+
+```bash
+kubectl -n ingress-nginx get svc ingress-nginx-controller \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}{"\n"}'
+aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].DNSName'
+```
+
+Fix: turn request buffering off and raise the proxy timeouts on the
+snapshot-manager ingress:
+
+```yaml
+services:
+  snapshotManager:
+    ingress:
+      annotations:
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+```
+
+The AWS, Azure and GCP setup templates set these. The chart default for
+`services.snapshotManager.ingress.annotations` is empty, so a chart upgrade
+alone does not change an install that uses its own values: add these
+annotations next to the existing ones (for example the cert-manager issuer)
+before upgrading.
+
+To verify, delete the failed snapshot and create it again. It should become
+active without dockerd retries. The layer `PATCH` returns `202` with an
+`upstream_response_time` close to its `request_time`, which shows that nginx
+streamed the body to the registry, and the temporary-file warnings are gone.
+
+### Optional: route snapshot pushes inside the cluster
+
+The host's Docker daemon uses the node resolver, not the pod's
+`ClusterFirstWithHostNet` DNS policy, so it pushes to the public load balancer
+address of `snapshots.<base-domain>`. kube-proxy normally intercepts node
+traffic to a load balancer IP, so on AKS and GKE the route should add little.
+AWS load balancers publish a hostname, not an IP, so on EKS that traffic leaves
+the node. On AWS clusters with nodes in private subnets, it crosses a NAT gateway
+and the public load balancer, which adds NAT processing and load balancer data
+charges on every pushed GB. The in-cluster route sends this traffic to the
+ingress controller's ClusterIP instead. It does not replace the annotations
+above.
 
 Enable the following in your region values and apply them with your normal Helm
 upgrade (including the existing values and region-scoped SSH key overlay):
@@ -280,20 +348,26 @@ services:
       # hostname: snapshots.example.com  # optional; derived from snapshotManagerUrl
 ```
 
-This is off by default in the chart and on in the AWS, Azure and GCP setup
-templates. It requires `services.runner.dockerInstaller.enabled: true`, a
-Service reachable from the node's host network, and an ingress serving the
-snapshot hostname with its valid TLS certificate. Keep it disabled for an
-external snapshot registry or an ingress that cannot be reached this way. With
-an explicit URL port, the ingress Service must also serve that port.
+This is off by default in the chart and in the setup templates. It requires
+`services.runner.dockerInstaller.enabled: true`, a Service reachable from the
+node's host network, and an ingress serving the snapshot hostname with its valid
+TLS certificate. Keep it disabled for an external snapshot registry or an
+ingress that cannot be reached this way. With an explicit URL port, the ingress
+Service must also serve that port. It does not work if ingress-nginx runs with
+`use-proxy-protocol: "true"`: connections to the ClusterIP carry no PROXY
+protocol header, so nginx rejects them.
 
 The docker-installer sidecar resolves the Service using pod DNS, then maps its
 IP to the public snapshot hostname in the **host's** `/etc/hosts`. It repeats
 this at startup and in its 60-second monitor loop, repairing the entry after a
-Service IP change. The public URL, TLS hostname, authentication and stored image
-references remain unchanged. A failed lookup logs a WARN and leaves the host
-file untouched: public DNS remains usable if there is no existing alias, while
-an existing alias retains its last resolved IP until DNS recovers.
+Service IP change, and rewrites the file only when the entry changes. The public
+URL, TLS hostname, authentication and stored image references remain unchanged.
+A failed lookup (including one that times out after 5 s) logs a WARN and leaves
+the host file untouched: public DNS remains usable if there is no existing
+alias, while an existing alias retains its last resolved IP until DNS recovers.
+If the ingress Service is replaced under another name or renamed, lookups keep
+failing and nodes stay on the old IP: update `targetService`, or disable the
+route and remove the entry by hand as described below.
 
 Verify the Service IP and host resolver result on each runner node (run the
 second command against each runner DaemonSet pod):
@@ -322,11 +396,6 @@ created by runner-manager. Disabling the route or uninstalling the chart does **
 host entries: after the sidecars have stopped managing the alias, remove that
 hostname's entry from `/etc/hosts` on every retained runner node, or replace the
 nodes, to restore public DNS. Do this also when changing the hostname override.
-
-On AWS, keep `proxy-body-size: "0"`, `proxy-request-buffering: "off"`, and
-`proxy-read-timeout` / `proxy-send-timeout: "3600"` on the snapshot ingress for
-large uploads. These annotations do not themselves remove the public network
-path.
 
 ## runnermanager ImagePullBackOff
 
