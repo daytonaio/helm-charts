@@ -127,6 +127,119 @@ helm uninstall my-region
 
 ## Configuration
 
+### Sandbox telemetry (OpenTelemetry / Datadog)
+
+BYOC sandboxes use the existing Daytona sandbox telemetry exporter. They do not
+need an organization region-quota record to export runtime metrics. With no
+region or sandbox endpoint override, new sandboxes use Daytona's default
+collector and the organization's existing OTel integration. First look for
+`daytona.sandbox.cpu.utilization`, `daytona.sandbox.memory.usage`, and
+`daytona.sandbox.filesystem.usage` in your destination, filtering on
+`daytona_region_id:<actual-region-id>` rather than the quota metric's `region.id`.
+For example, in Datadog:
+
+```text
+avg:daytona.sandbox.cpu.utilization{daytona_region_id:<actual-region-id>} by {service}
+```
+
+The actual region ID can differ from `regionName`; read it from the saved
+region-config Secret's `id` field or `GET /api/regions`. The
+`daytona.sandbox.used_*` and `daytona.sandbox.total_*` organization metrics are
+quota-driven and remain absent without quota records. This configuration does
+not manufacture those series or change their exporter.
+
+#### Optional: send directly to a receiver in your BYOC network
+
+Use a region endpoint when sandbox telemetry should go directly to your existing
+Datadog Agent or OTel collector:
+
+```text
+Sandbox daemon -> customer OTLP/HTTP receiver -> Datadog
+```
+
+The chart configures the existing region API field; it does not install a
+receiver. The customer supplies the receiver address, destination credentials,
+and network access. Keep Datadog credentials on the receiver. The region endpoint
+does not forward the organization's OTel authentication headers and must not
+point straight at an intake that requires those headers. Direct routing also
+bypasses Daytona's analytics API/dashboard for this sandbox telemetry.
+
+1. **Check the deployed runtime before enabling a custom endpoint.** The API,
+   runner, and bundled daemon must include the
+   [custom endpoint credential isolation fix](https://github.com/daytona/daytona-ai/commit/515aee3d57e7fb0e47b784b8916d88fc073e48fe),
+   released in Daytona v0.209.0. Older runners can send the sandbox access token
+   to a custom collector. This chart still defaults to v0.207.0, so first upgrade
+   `services.runner.image.tag` to a supported version containing that fix and
+   finish the runtime rollout **before** enabling endpoint management in a
+   separate Helm upgrade. Keep the bundled daemon in sync via
+   `services.runner.daemonInstaller`; if runners or daemon binaries are managed
+   separately, upgrade those too. Check an explicit
+   `services.runnermanager.env.RUNNER_POD_IMAGE` override as well. Changing the
+   image and endpoint in one upgrade is insufficient: the registration hook runs
+   before workloads roll out. For a self-hosted control plane, also verify its
+   API version; Daytona Cloud manages that API upgrade.
+2. **Enable OTLP/HTTP on the receiver.** For an existing Datadog Helm release,
+   merge this into its values, retaining its Datadog API key and site settings:
+
+   ```yaml
+   datadog:
+     otlp:
+       receiver:
+         protocols:
+           http:
+             enabled: true
+             endpoint: "0.0.0.0:4318"
+   ```
+
+   See [Datadog's OTLP receiver setup](https://docs.datadoghq.com/opentelemetry/interoperability/otlp_ingest_in_the_agent/?tab=kuberneteshelmvaluesyaml)
+   for the receiver's version and signal-specific requirements. This fragment
+   enables the listener; it does not establish routing from sandboxes.
+3. **Make the receiver reachable from sandbox containers.** Use a private address
+   resolvable and reachable from the runner's Docker sandbox network. A
+   Kubernetes `.svc` hostname or `localhost` is not automatically usable there.
+   Allow the receiver in the sandbox's egress policy and the receiver's firewall.
+   Use an OTLP/HTTP base URL, without `/v1/metrics`; HTTPS requires a certificate
+   trusted by the daemon. Custom endpoints do not receive the managed Daytona
+   collector's egress exemption.
+4. **Merge this into the region release's existing values and install/upgrade:**
+
+   ```yaml
+   registration:
+     enabled: true
+     manageOtelEndpoint: true
+   otelEndpoint: "http://collector.example.internal:4318"
+   ```
+
+   On first registration, the hook sends `otelEndpoint` with `POST /regions`.
+   On upgrade, it reads the existing region ID from the region-config Secret
+   and sends `PATCH /regions/<id>`, preserving credentials. The API credential
+   used by registration needs `WRITE_REGIONS` permission and the organization's
+   infrastructure feature. An endpoint update failure fails the hook/upgrade.
+5. **Validate with a newly created sandbox in this region.** Check its effective
+   `DAYTONA_OTEL_ENDPOINT` and receiver export errors, then look for the runtime
+   metrics above using the actual region ID. A sandbox's explicit endpoint
+   override takes precedence over the region endpoint. Existing containers keep
+   their creation-time endpoint; stopping/starting the same container does not
+   reliably change it. Allow several collection intervals (normally 60 seconds
+   each) and plan migration of existing workloads separately.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `otelEndpoint` | Sandbox OTLP/HTTP base URL, used only when management is enabled; empty clears the region override | `""` |
+| `registration.manageOtelEndpoint` | Reconcile the endpoint on install/upgrade; requires `registration.enabled: true` | `false` |
+
+With management disabled, the hook leaves any endpoint configured outside Helm
+untouched, even if `otelEndpoint` is present in values. To restore the default
+Daytona collector for **new** sandboxes, keep management enabled and explicitly
+set `otelEndpoint: ""`; the hook sends JSON `null`. Turning management off does
+not clear an existing override. If registration is disabled, manage the same
+field directly through `PATCH /api/regions/<id>`.
+
+Endpoint changes are external API writes made by a pre-install/pre-upgrade hook.
+If a later deployment step fails, Helm rollback (including `--atomic`) does not
+undo them. To restore the prior endpoint, apply the previous endpoint explicitly
+in a successful upgrade or API PATCH.
+
 ### Required Configuration
 
 | Parameter | Description | Example |

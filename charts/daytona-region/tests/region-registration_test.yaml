@@ -1,0 +1,51 @@
+suite: region OTel endpoint configuration
+templates:
+  - region-registration-hook.yaml
+tests:
+  - it: leaves endpoint management disabled by default
+    values:
+      - fixtures/baseline.values.yaml
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OTEL_ENDPOINT
+          any: true
+        documentIndex: 0
+
+  - it: passes a managed endpoint as an environment value
+    values:
+      - fixtures/baseline.values.yaml
+    set:
+      registration.manageOtelEndpoint: true
+      otelEndpoint: "http://collector.example.internal:4318"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OTEL_ENDPOINT
+            value: "http://collector.example.internal:4318"
+        documentIndex: 0
+
+  - it: passes an empty value for an explicit reset
+    values:
+      - fixtures/baseline.values.yaml
+    set:
+      registration.manageOtelEndpoint: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OTEL_ENDPOINT
+            value: ""
+        documentIndex: 0
+
+  - it: requires the registration hook to manage the endpoint
+    values:
+      - fixtures/baseline.values.yaml
+    set:
+      registration.enabled: false
+      registration.manageOtelEndpoint: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "registration.manageOtelEndpoint requires registration.enabled=true"

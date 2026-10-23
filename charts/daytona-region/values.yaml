@@ -26,6 +26,14 @@ baseDomain: ""
 # Example: "https://snapshots.daytona.example.com"
 snapshotManagerUrl: ""
 
+# Sandbox OTLP/HTTP collector base URL, reachable from the sandbox network.
+# Applied only when registration.manageOtelEndpoint is true. An empty value
+# then clears the region override, restoring Daytona's default collector for
+# new sandboxes. This does not configure credentials on the receiving collector.
+# Before enabling a custom endpoint, complete the runtime upgrade described in
+# README.md (credential isolation requires v0.209.0+, newer than this chart's default).
+otelEndpoint: ""
+
 # Daytona API configuration (required)
 daytonaApiUrl: ""   # e.g., "https://app.daytona.io/api"
 daytonaApiKey: ""   # API key for authentication
@@ -760,13 +768,17 @@ services:
 # and store the response in a Kubernetes secret for use by other services
 registration:
   enabled: true
+  # Opt in to setting otelEndpoint on registration and updating it on upgrades.
+  # false preserves any endpoint configured outside Helm; true with an empty
+  # otelEndpoint explicitly clears the region override. Requires enabled: true.
+  manageOtelEndpoint: false
   # Use an existing secret for API key instead of creating one from daytonaApiKey
   # The secret should contain the API key
   existingSecret: ""
   # Key name in the secret
   secretKeys:
     apiKey: "daytona-api-key"
-  # Image for the registration job (needs curl and kubectl)
+  # Image for the registration job (needs curl, jq and kubectl)
   image:
     repository: daytonaio/kubectl
     tag: "1.34.2-r2"
