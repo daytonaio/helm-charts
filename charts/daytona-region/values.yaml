@@ -538,6 +538,11 @@ services:
       CACHE_RETENTION_DAYS: "7"
       DAEMON_START_TIMEOUT_SEC: "30"
       SANDBOX_START_TIMEOUT_SEC: "60"
+      # Allow slow Sysbox container starts more time. Chart-installed nodes have
+      # no fallback runtime, so a start that exceeds this timeout fails.
+      # Only use a low value such as "10" (the runner's built-in default) if
+      # your nodes provide a working kata-clh fallback runtime.
+      SYSBOX_START_TIMEOUT_SEC: "120"
       DAYTONA_API_URL: ""
       SERVER_URL: ""
       API_TOKEN: "secret_api_token"
