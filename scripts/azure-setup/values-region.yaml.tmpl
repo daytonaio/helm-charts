@@ -91,8 +91,9 @@ services:
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
         # Docker layer pushes exceed nginx's 1m default body limit (413).
         nginx.ingress.kubernetes.io/proxy-body-size: "0"
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     storage:
       # Registry data on a PVC — see the header for why the rclone S3 shim
       # cannot back the registry (multipart-resume nil-panic).
@@ -104,6 +105,12 @@ services:
       deleteEnabled: true
 
   runner:
+    # Optional: send host dockerd snapshot traffic to ingress-nginx inside the
+    # cluster. Off: on AKS kube-proxy normally keeps node traffic to the
+    # load-balancer IP inside the cluster, so the route should not be needed.
+    # See docs/troubleshooting.md.
+    snapshotManagerInClusterRoute:
+      enabled: false
     # The runner-manager owns the real (cloud-registered) runner pods; they
     # envFrom runner-config/runner-secrets and bind hostPorts 3000/2220. A
     # static mainContainer runner never registers with Daytona Cloud and
