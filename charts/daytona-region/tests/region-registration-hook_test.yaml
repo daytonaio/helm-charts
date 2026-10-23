@@ -1,0 +1,29 @@
+suite: region registration hook does not print secrets
+templates:
+  - region-registration-hook.yaml
+release:
+  name: test-release
+  namespace: test-ns
+set:
+  regionName: "test"
+  proxyUrl: "https://proxy.example.com"
+  daytonaApiUrl: "https://api.example.com/api"
+  daytonaApiKey: "test"
+tests:
+  - it: never prints the secret manifest or an API response that holds keys
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: Job
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "cat /tmp/secret\\.yaml"
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "received: \\$\\{?(SM_)?RESPONSE"
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "rm -f /tmp/secret\\.yaml"
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "Secret keys: "

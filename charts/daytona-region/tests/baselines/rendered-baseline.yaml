@@ -1252,8 +1252,30 @@ spec:
               value: "proxy.daytona.example.com"
             - name: DAYTONA_API_URL
               value: "https://api.daytona.example.com/api"
-            - name: COOKIE_DOMAIN
-              value: "daytona.example.com"
+            # Preview authentication (see "Preview authentication" in the chart README)
+            - name: PREVIEW_LOGIN_ENABLED
+              value: "false"
+            - name: PREVIEW_AUTH_DISABLED
+              value: "false"
+            - name: SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
+              value: "true"
+            - name: PREVIEW_WARNING_ENABLED
+              value: "false"
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
           resources:
             limits:
               memory: 256Mi
@@ -1652,9 +1674,10 @@ spec:
               ${SECRET_DATA}
               SECRETEOF
 
-                echo "Secret manifest:"
-                cat /tmp/secret.yaml
+                # Never print the manifest or the response: they hold the region's keys.
+                echo "Secret keys: $(echo "$response" | jq -r 'keys | join(", ")')"
                 kubectl apply -f /tmp/secret.yaml
+                rm -f /tmp/secret.yaml
               }
 
               # Check if region config secret already exists
@@ -1689,7 +1712,7 @@ spec:
                       exit 1
                     fi
 
-                    echo "Credentials response received: $SM_RESPONSE"
+                    echo "Credentials response received."
 
                     # Get existing secret data and merge with new credentials
                     EXISTING_DATA=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o json | jq '.data | to_entries | map({(.key): (.value | @base64d)}) | add')
@@ -1768,7 +1791,8 @@ spec:
                 exit 1
               fi
 
-              echo "API response received: ${RESPONSE}"
+              rm -f /tmp/register-resp.json
+              echo "API response received."
               create_secret "${RESPONSE}"
               echo "Region registration complete!"
           env:

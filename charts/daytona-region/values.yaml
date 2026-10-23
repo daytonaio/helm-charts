@@ -101,7 +101,52 @@ services:
     env:
       # PROXY_DOMAIN and PROXY_PROTOCOL are derived from proxyUrl - no need to set them
       # PROXY_API_KEY is obtained from the registration secret when registration.enabled=true
-      COOKIE_DOMAIN: ""  # Optional: override cookie domain (defaults to base domain from proxyUrl)
+      # Optional: cookie domain override. Leave empty so the proxy scopes its cookies to the
+      # host that sets them (the proxy hostname and its preview subdomains).
+      COOKIE_DOMAIN: ""
+    # Preview authentication. Every preview credential check is always enforced; these
+    # settings choose how a browser without a credential is answered.
+    # See "Preview authentication" in the chart README.
+    previewAuth:
+      login:
+        # Browser sign-in redirect (PREVIEW_LOGIN_ENABLED). Daytona sign-in only completes on
+        # proxy domains it knows, so a region on your own domain keeps this false: a browser
+        # without a credential then gets a 401 like any other client. Must be a boolean.
+        # Proxy images that predate the setting ignore it and keep the redirect.
+        enabled: false
+      # Re-validate signed preview links on open WebSockets, so a connection closes once its
+      # link expires (SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED, proxy v0.217.0 or later; older
+      # images ignore it). Must be a boolean.
+      signedLinkRecheck: true
+    # Interstitial warning page shown to browsers before a preview (PREVIEW_WARNING_ENABLED).
+    previewWarning:
+      enabled: false
+    # Extra environment variables for the proxy container, rendered after the chart's own,
+    # e.g. an outbound proxy for the proxy's calls to the Daytona API:
+    #   - name: HTTPS_PROXY
+    #     value: "http://egress-proxy.internal:3128"
+    #   - name: NO_PROXY
+    #     value: ".svc,.cluster.local"
+    # The render fails on PROXY_API_KEY, any PREVIEW_* variable,
+    # SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED, TOOLBOX_ONLY_MODE, COOKIE_DOMAIN and
+    # OIDC_CLIENT_SECRET: use the dedicated values above.
+    extraEnv: []
+    # Probes on the proxy's GET /health. Set either to null to disable it.
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
     # Resource limits and requests
     resources:
       limits:

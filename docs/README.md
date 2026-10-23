@@ -100,6 +100,8 @@ lockstep; upgrade via the chart, not by overriding image tags.
 | Fractional vCPU and density guidance | `services.runner.sandboxResources`, `services.api.sandboxDensity` | [`operations.md`](operations.md#sandbox-sizing-and-density) |
 | Sandbox egress lockdown and DNS hardening | `services.runner.networkPolicy`, `services.runner.dockerInstaller.dns`, `services.runner.buildkit.dns` | [`operations.md`](operations.md#sandbox-network-security-and-dns) |
 | Volume backends and mount-binary preflight | `services.runner.volumes`, `scripts/preflight/check-volume-backend.sh` | [`operations.md`](operations.md#sandbox-volumes) |
+| Preview authentication (browser sign-in off, signed-link recheck) | `services.proxy.previewAuth`, `services.proxy.previewWarning` | [chart README](../charts/daytona-region/README.md#preview-authentication) |
+| Internal load balancer for the proxy | `services.proxy.ingress`, `services.proxy.extraEnv` | [`private-ingress.md`](private-ingress.md) |
 
 ## Known limitations
 

@@ -157,6 +157,12 @@ helm uninstall my-region
 | `services.proxy.ingress.className` | Ingress class | `"nginx"` |
 | `services.proxy.ingress.tls` | Enable TLS | `true` |
 | `services.proxy.ingress.selfSigned` | Generate self-signed certs | `false` |
+| `services.proxy.previewAuth.login.enabled` | Browser sign-in redirect for private previews (`PREVIEW_LOGIN_ENABLED`); see [Preview authentication](#preview-authentication) | `false` |
+| `services.proxy.previewAuth.signedLinkRecheck` | Close signed-link WebSockets when the link expires (`SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED`, proxy v0.217.0+) | `true` |
+| `services.proxy.previewWarning.enabled` | Warning page before a preview (`PREVIEW_WARNING_ENABLED`) | `false` |
+| `services.proxy.env.COOKIE_DOMAIN` | Cookie domain override | `""` (the proxy uses the host that sets the cookie) |
+| `services.proxy.extraEnv` | Extra proxy environment variables, e.g. `HTTPS_PROXY` | `[]` |
+| `services.proxy.livenessProbe` / `readinessProbe` | Probes on `GET /health`; `null` disables | See values.yaml |
 | `services.proxy.replicaCount` | Number of replicas | `1` |
 | `services.proxy.autoscaling.enabled` | Enable HPA | `false` |
 | `services.proxy.resources` | Resource limits/requests | See values.yaml |
@@ -343,7 +349,7 @@ The `proxyUrl` is the source of truth for proxy configuration. The following val
 - **Proxy hostname**: Extracted from `proxyUrl` (e.g., `proxy.example.com`)
 - **Proxy port**: Extracted from `proxyUrl` (e.g., `4000`) or defaults to standard ports
 - **Protocol**: Extracted from `proxyUrl` (e.g., `https`)
-- **Cookie domain**: Base domain extracted by stripping first subdomain (e.g., `example.com`)
+- **Cookie domain**: not derived. The proxy scopes its cookies to the host that sets them (`proxy.example.com` and its preview subdomains). Override with `services.proxy.env.COOKIE_DOMAIN`; a parent domain such as `example.com` would send the cookies to every other site under it.
 - **Ingress hosts**: Proxy hostname + wildcard for sandbox subdomains
 
 ## TLS Configuration
@@ -357,6 +363,74 @@ Your TLS certificate should cover both patterns. Options:
 1. **cert-manager**: Automatically provisions certificates
 2. **Self-signed**: Set `services.proxy.ingress.selfSigned: true`
 3. **Custom certificate**: Provide via `services.proxy.ingress.secrets`
+
+## Preview authentication
+
+The proxy checks every preview request. A preview of a private sandbox needs
+one of these credentials:
+
+- the sandbox's preview token, in the `X-Daytona-Preview-Token` header or as
+  `Authorization: Bearer <token>`;
+- a signed preview URL.
+
+A public sandbox serves its previews without a credential, except the
+terminal, toolbox and recordings ports, which still need one. No chart value
+turns these checks off.
+
+### Browser sign-in (`services.proxy.previewAuth.login.enabled`)
+
+This value only decides what a browser that arrives **without** a credential
+gets:
+
+| `login.enabled` | Browser without a credential | `GET /callback` |
+|---|---|---|
+| `false` (default) | `401 Unauthorized` with `WWW-Authenticate: Bearer realm="daytona"`, the same answer every other client gets | `404` |
+| `true` | Redirect to Daytona sign-in | sign-in callback |
+
+Daytona sign-in only completes on proxy domains that Daytona has registered for
+it, so on your own domain the redirect ends on a sign-in error page. Keep
+`false` unless Daytona asks you to change it. Open previews in a browser with a
+signed preview URL, or call them with the preview token.
+
+The value must be an unquoted `true` or `false`: a string such as `"false"`
+fails the render. The chart also always renders `PREVIEW_AUTH_DISABLED=false`;
+the proxy never honours that variable as a way to turn authentication off.
+
+**The proxy image must support the setting.** Proxy images that predate
+`PREVIEW_LOGIN_ENABLED` ignore it and keep the redirect. Check what the running
+proxy does:
+
+```bash
+curl -s https://<proxy-host>/health
+# {"buildSha":"…","previewLogin":false,"status":"ok","version":"…"}
+```
+
+If the response has no `previewLogin` field, the image predates the setting.
+
+### Signed links and the warning page
+
+- `services.proxy.previewAuth.signedLinkRecheck: true` makes the proxy
+  re-validate a signed preview URL on an open WebSocket, so the connection
+  closes once the link expires. Proxy images before v0.217.0 ignore it. A
+  signed URL works like a password until it expires: share it only over
+  channels you trust, and keep its lifetime short.
+- `services.proxy.previewWarning.enabled: true` shows browsers a warning page
+  before a preview.
+
+### Environment variables the chart owns
+
+`services.proxy.extraEnv` adds variables to the proxy container, such as
+`HTTPS_PROXY` and `NO_PROXY` for the proxy's calls to the Daytona API. The
+render fails if it sets `PROXY_API_KEY`, any `PREVIEW_*` variable,
+`SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED`, `TOOLBOX_ONLY_MODE`, `COOKIE_DOMAIN` or
+`OIDC_CLIENT_SECRET`; use the dedicated values instead.
+
+### Who can reach the proxy
+
+Credentials decide what a request can open; the ingress decides who can send
+one. The proxy ingress does not have to be public: see
+[Private proxy ingress](../../docs/private-ingress.md) for internal load
+balancer examples on AWS, Azure and Google Cloud, and what to check first.
 
 ## Private Registry Authentication (ECR)
 
@@ -551,6 +625,15 @@ Common issues:
 - Invalid API key
 - Network connectivity to Daytona API
 - Region name already exists
+
+Hooks from chart versions before 0.2.7 printed the region's keys (proxy API
+key, SSH gateway API key, snapshot-manager credentials) in their logs. If those
+logs were kept or shipped elsewhere, rotate the keys with
+`POST /regions/<id>/regenerate-proxy-api-key`,
+`POST /regions/<id>/regenerate-ssh-gateway-api-key` and
+`POST /regions/<id>/regenerate-snapshot-manager-credentials`, then update the
+`<release>-region-config` Secret (and `services.sshGateway.apiKey`) with the new
+values and restart the proxy, SSH gateway and snapshot manager.
 
 ### Proxy Not Routing Traffic
 

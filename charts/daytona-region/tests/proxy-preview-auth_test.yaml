@@ -1,0 +1,248 @@
+suite: proxy preview authentication, cookie domain, extraEnv and probes
+templates:
+  - proxy-deployment.yaml
+release:
+  name: test-release
+  namespace: test-ns
+set:
+  regionName: "test"
+  proxyUrl: "https://proxy.example.com"
+  daytonaApiUrl: "https://api.example.com/api"
+  daytonaApiKey: "test"
+tests:
+  - it: defaults turn the browser sign-in redirect off and pin the legacy variable to false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PREVIEW_LOGIN_ENABLED
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PREVIEW_AUTH_DISABLED
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PREVIEW_WARNING_ENABLED
+            value: "false"
+
+  - it: login.enabled=true renders PREVIEW_LOGIN_ENABLED=true and still pins PREVIEW_AUTH_DISABLED=false
+    set:
+      services.proxy.previewAuth.login.enabled: true
+      services.proxy.previewAuth.signedLinkRecheck: false
+      services.proxy.previewWarning.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PREVIEW_LOGIN_ENABLED
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PREVIEW_AUTH_DISABLED
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PREVIEW_WARNING_ENABLED
+            value: "true"
+
+  - it: a quoted string for login.enabled fails the render
+    set:
+      services.proxy.previewAuth.login.enabled: "false"
+    asserts:
+      - failedTemplate:
+          errorPattern: "services.proxy.previewAuth.login.enabled must be true or false"
+
+  - it: a missing login.enabled fails the render instead of defaulting
+    set:
+      services.proxy.previewAuth.login.enabled: null
+    asserts:
+      - failedTemplate:
+          errorPattern: "services.proxy.previewAuth.login.enabled is not set. Upgrading with --reuse-values"
+
+  - it: a non-boolean signedLinkRecheck fails the render
+    set:
+      services.proxy.previewAuth.signedLinkRecheck: "yes"
+    asserts:
+      - failedTemplate:
+          errorPattern: "services.proxy.previewAuth.signedLinkRecheck must be true or false"
+
+  - it: a non-boolean previewWarning.enabled fails the render
+    set:
+      services.proxy.previewWarning.enabled: 1
+    asserts:
+      - failedTemplate:
+          errorPattern: "services.proxy.previewWarning.enabled must be true or false"
+
+  - it: COOKIE_DOMAIN is not rendered by default, so the proxy scopes cookies to the request host
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content:
+            name: COOKIE_DOMAIN
+
+  - it: env.COOKIE_DOMAIN still overrides the cookie domain
+    set:
+      services.proxy.env.COOKIE_DOMAIN: "proxy.example.com"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: COOKIE_DOMAIN
+            value: "proxy.example.com"
+
+  - it: extraEnv is rendered after the chart's entries, with values quoted and valueFrom kept
+    set:
+      services.proxy.extraEnv:
+        - name: HTTPS_PROXY
+          value: "http://egress.example.internal:3128"
+        - name: API_CLIENT_TIMEOUT_SEC
+          value: 30
+        - name: FROM_CONFIGMAP
+          valueFrom:
+            configMapKeyRef:
+              name: proxy-tuning
+              key: timeout
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HTTPS_PROXY
+            value: "http://egress.example.internal:3128"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: API_CLIENT_TIMEOUT_SEC
+            value: "30"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FROM_CONFIGMAP
+            valueFrom:
+              configMapKeyRef:
+                name: proxy-tuning
+                key: timeout
+      - equal:
+          path: spec.template.spec.containers[0].env[-1].name
+          value: FROM_CONFIGMAP
+
+  - it: extraEnv cannot set PREVIEW_LOGIN_ENABLED
+    set:
+      services.proxy.extraEnv:
+        - name: PREVIEW_LOGIN_ENABLED
+          value: "true"
+    asserts:
+      - failedTemplate:
+          errorPattern: "PREVIEW_LOGIN_ENABLED is set by the chart and cannot be overridden"
+
+  - it: extraEnv cannot set PREVIEW_AUTH_DISABLED
+    set:
+      services.proxy.extraEnv:
+        - name: PREVIEW_AUTH_DISABLED
+          value: "true"
+    asserts:
+      - failedTemplate:
+          errorPattern: "PREVIEW_AUTH_DISABLED is set by the chart and cannot be overridden"
+
+  - it: extraEnv cannot set any other PREVIEW_ variable
+    set:
+      services.proxy.extraEnv:
+        - name: PREVIEW_AUTH_MODE
+          value: "oidc"
+    asserts:
+      - failedTemplate:
+          errorPattern: "PREVIEW_AUTH_MODE is set by the chart and cannot be overridden"
+
+  - it: extraEnv cannot set PROXY_API_KEY
+    set:
+      services.proxy.extraEnv:
+        - name: PROXY_API_KEY
+          value: "x"
+    asserts:
+      - failedTemplate:
+          errorPattern: "PROXY_API_KEY is set by the chart and cannot be overridden"
+
+  - it: extraEnv cannot set SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
+    set:
+      services.proxy.extraEnv:
+        - name: SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
+          value: "false"
+    asserts:
+      - failedTemplate:
+          errorPattern: "SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED is set by the chart"
+
+  - it: extraEnv cannot set TOOLBOX_ONLY_MODE
+    set:
+      services.proxy.extraEnv:
+        - name: TOOLBOX_ONLY_MODE
+          value: "true"
+    asserts:
+      - failedTemplate:
+          errorPattern: "TOOLBOX_ONLY_MODE is set by the chart"
+
+  - it: extraEnv cannot set COOKIE_DOMAIN
+    set:
+      services.proxy.extraEnv:
+        - name: COOKIE_DOMAIN
+          value: "example.com"
+    asserts:
+      - failedTemplate:
+          errorPattern: "COOKIE_DOMAIN is set by the chart"
+
+  - it: extraEnv cannot set OIDC_CLIENT_SECRET
+    set:
+      services.proxy.extraEnv:
+        - name: OIDC_CLIENT_SECRET
+          value: "x"
+    asserts:
+      - failedTemplate:
+          errorPattern: "OIDC_CLIENT_SECRET is set by the chart"
+
+  - it: extraEnv entries need a name
+    set:
+      services.proxy.extraEnv:
+        - value: "x"
+    asserts:
+      - failedTemplate:
+          errorPattern: "services.proxy.extraEnv\\[0\\] must be a map with a name"
+
+  - it: liveness and readiness probes hit GET /health on the http port by default
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value:
+            path: /health
+            port: http
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value:
+            path: /health
+            port: http
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: http
+
+  - it: probes can be disabled
+    set:
+      services.proxy.livenessProbe: null
+      services.proxy.readinessProbe: null
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe
