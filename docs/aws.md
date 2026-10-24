@@ -40,7 +40,7 @@ You will be prompted for (defaults shown in `[brackets]`):
 | Daytona Cloud admin API key | — | From <https://app.daytona.io/dashboard/keys>; **secret** (read with no echo) |
 | AWS region | `us-east-1` | |
 | S3 bucket name | `<cluster>-snapshots` | Globally unique |
-| Runner credential mode | `static` | `static` (recommended for v1) or `irsa` |
+| Runner credential mode | `static` | `static` or `irsa` |
 
 The script saves your answers to `scripts/aws-setup/.state/prompts.env` so a re-run reuses them.
 It also selects an EKS node instance type that satisfies the script's minimum
@@ -120,7 +120,6 @@ The teardown:
 
 ## Known gaps
 
-- **`credentialMode: irsa` is non-functional at runtime** because the upstream daytona-runner hard-requires non-empty `AWS_ACCESS_KEY_ID`/`SECRET` env vars. See [`issues-summary.md`](issues-summary.md). Use `credentialMode: static`.
 - **Wildcard `*.proxy.<base>` TLS** is not auto-issued by HTTP-01. Sandbox subdomains either reuse the proxy's cert (if your proxy chains it) or need a DNS-01 wildcard cert (see [`troubleshooting.md`](troubleshooting.md)).
 - **ECR private image pulls** are not wired through `imagePullSecrets` — the Daytona control plane brokers them centrally. ECR repo creation is optional.
 

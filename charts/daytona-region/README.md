@@ -307,7 +307,7 @@ services:
       AWS_ENDPOINT_URL: "https://s3.us-east-1.amazonaws.com"
 ```
 
-> **Note** — Upstream `daytona-runner` currently hard-requires non-empty `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` at startup (see [`docs/issues-summary.md`](../../docs/issues-summary.md)). Until that lands, set `services.runner.aws.allowEmptyStaticKeyShim: true` to have the chart emit empty-string placeholders that satisfy the validator while the AWS SDK still uses the IRSA web-identity token at runtime.
+> **Note** — The `appVersion` runner only accepts static keys, so in `irsa` mode the chart runs runner image `v0.222.1-irsa` unless `services.runner.image.tag` is set. Leave `allowEmptyStaticKeyShim` at `false`.
 
 ### Registration Configuration
 

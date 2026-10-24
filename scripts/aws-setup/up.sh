@@ -262,8 +262,6 @@ EOF
     omc::log INFO "Created IRSA role: $IRSA_ROLE_ARN"
   fi
   aws iam attach-role-policy --role-name "$IRSA_ROLE_NAME" --policy-arn "$S3_POLICY_ARN" 2>/dev/null || true
-  omc::log WARN "IRSA mode: upstream runner currently hard-requires non-empty AWS_ACCESS_KEY_ID/SECRET."
-  omc::log WARN "See docs/issues-summary.md. For working v1 tests, use --static."
 fi
 
 # === 5. kubeconfig ===========================================================

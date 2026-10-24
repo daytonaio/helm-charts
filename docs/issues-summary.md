@@ -5,7 +5,7 @@ operator-visible limitation and the expected upstream direction.
 
 ## Runner Credential Chain
 
-The runner currently requires non-empty `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` at startup and constructs storage clients from static credentials, so EKS IRSA, GKE Workload Identity, Azure Workload Identity, EC2 instance profiles, and other default-provider-chain flows are not production-functional for runner storage today. BYOC installs should use static S3-shaped credentials until the runner accepts SDK default-chain credentials and passes ambient credential state through to storage and mount subprocesses.
+The `appVersion` runner only accepts static `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. For EKS IRSA the chart runs runner image `v0.222.1-irsa` when `credentialMode: irsa`. GKE and Azure Workload Identity are not supported for runner storage; use static S3-shaped credentials there.
 
 ## Runner Volume Mounts
 

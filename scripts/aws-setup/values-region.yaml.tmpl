@@ -138,9 +138,6 @@ services:
     aws:
       # credentialMode: "static" emits AWS_ACCESS_KEY_ID/SECRET into the runner Secret;
       # "irsa" omits them (relies on the SA's eks.amazonaws.com/role-arn annotation).
-      # Until the upstream runner supports the AWS default credential chain (see
-      # docs/issues-summary.md), runtime IRSA is non-functional;
-      # for first-pass testing, use "static".
       credentialMode: "${RUNNER_AWS_CREDENTIAL_MODE}"
       allowEmptyStaticKeyShim: false
     serviceAccount:
