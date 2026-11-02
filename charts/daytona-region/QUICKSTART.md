@@ -6,7 +6,8 @@ This guide walks through deploying a single Daytona region (`proxy`, `ssh-gatewa
 
 - A working Kubernetes cluster with `kubectl` context set to it.
 - [Helm](https://helm.sh/docs/intro/install/) 3.x on your workstation.
-- An ingress controller reachable from the public internet (the chart defaults to `nginx`). The proxy ingress uses a wildcard host derived from `proxyUrl`, so your DNS and TLS setup must cover `*.<proxy-host>`.
+- An ingress controller (the chart defaults to `nginx`) reachable by everyone who opens previews or uses the SDK, CLI or dashboard terminal against this region. It does not have to be public: Daytona Cloud does not connect to it, so an internal load balancer on your network works (see [Private proxy ingress](../../docs/private-ingress.md)). The proxy ingress uses a wildcard host derived from `proxyUrl`, so your DNS and TLS setup must cover `*.<proxy-host>`.
+- Outbound HTTPS from the cluster to the Daytona API (`daytonaApiUrl`).
 - A DNS record resolving to your ingress controller for `proxyUrl`. The SSH gateway is a separate `LoadBalancer` Service with its own address (NOT the ingress) — the post-install step below registers it with Daytona Cloud by IP, or you can point a DNS record at the gateway LB.
 - A Daytona API endpoint and API key (`daytonaApiUrl`, `daytonaApiKey`).
 - At least one node labelled and tainted to host runner pods:
@@ -30,7 +31,7 @@ Create `values-region-<name>.yaml` at the repo root (these files are ignored by 
 ```yaml
 regionName: "region-my-1"
 proxyUrl: "https://proxy.my-region.example.com"
-daytonaApiUrl: "https://daytona.io/api"
+daytonaApiUrl: "https://app.daytona.io/api"
 daytonaApiKey: "dtn_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 baseDomain: "my-region.example.com"
@@ -82,7 +83,7 @@ The chart will fail `helm install` with a clear error if any of these is missing
 | Key | Purpose |
 | --- | --- |
 | `regionName` | Unique identifier for this region; referenced by the Daytona API during registration. |
-| `proxyUrl` | Public URL of the proxy service. Used to derive the wildcard ingress host (`*.<proxy-host>`). |
+| `proxyUrl` | URL of the proxy service, as your users reach it (public or internal). Used to derive the wildcard ingress host (`*.<proxy-host>`). |
 | `daytonaApiUrl` | URL of the Daytona control-plane API, e.g. `https://api.daytona.example.com/api`. |
 | `daytonaApiKey` | API key used by the pre-install registration hook and stored in the region secret. |
 
@@ -111,6 +112,7 @@ The runner-manager authenticates to the Daytona API with the org key (`API_TOKEN
 All available keys and their defaults live in [`charts/daytona-region/values.yaml`](./values.yaml). A few you will likely touch:
 
 - `services.proxy.ingress.tls`, `services.proxy.ingress.selfSigned`, `services.proxy.ingress.certificate` — TLS setup for the proxy ingress.
+- `services.proxy.previewAuth.login.enabled` — what a browser without a preview credential gets. The default `false` answers with a `401`; see [Preview authentication](./README.md#preview-authentication).
 - `services.runner.daemonInstaller.enabled` — pre-installs the sandbox binaries onto each runner node. Keep enabled unless you manage those binaries out-of-band.
 - `services.runner.dockerInstaller.enabled` — installs Docker + Sysbox on the node. Disable if your node image already has them. The chart installs Sysbox **v0.7.1** (amd64 `.deb`, verified against the published sha256) onto Ubuntu 24.04 (noble) nodes — the same requirement the Docker install already has. A node that already has Sysbox keeps the version it was provisioned with — upgrading in place would stop dockerd and kill every sandbox on that node, so a newer pin is picked up by replacing nodes, not by re-running the installer.
 - `services.snapshotManager.*` — the region's snapshot registry. A region needs it (plus `snapshotManagerUrl`) before snapshots can be created in it. `storage.driver: s3` requires REAL S3 (AWS); for everything else use `storage.driver: filesystem` with the built-in PVC — S3 shims (rclone gateway, GCS interop) break the registry's multipart-upload resume path.

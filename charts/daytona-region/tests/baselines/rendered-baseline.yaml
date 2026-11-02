@@ -6,7 +6,7 @@ metadata:
   name: release-name-daytona-region-proxy
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -21,7 +21,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -36,7 +36,7 @@ metadata:
   name: release-name-daytona-region-runner
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -51,7 +51,7 @@ metadata:
   name: release-name-daytona-region-ssh-gateway
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -66,7 +66,7 @@ metadata:
   name: release-name-daytona-region-runner-secrets
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -92,7 +92,7 @@ metadata:
   name: release-name-daytona-region-secret-ssh
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -112,7 +112,7 @@ metadata:
   name: release-name-daytona-region-runner-config
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -147,7 +147,7 @@ metadata:
   name: release-name-daytona-region-runner-docker-installer-config
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -164,7 +164,7 @@ kind: ClusterRole
 metadata:
   name: release-name-daytona-region-runner-manager-nodes
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -182,7 +182,7 @@ kind: ClusterRoleBinding
 metadata:
   name: release-name-daytona-region-runner-manager-nodes
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -205,7 +205,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -230,7 +230,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -253,7 +253,7 @@ metadata:
   namespace: default
   name: release-name-daytona-region-proxy
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -279,7 +279,7 @@ metadata:
   name: release-name-daytona-region-runnermanager
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -305,7 +305,7 @@ metadata:
   name: release-name-daytona-region-ssh-gateway
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -331,7 +331,7 @@ metadata:
   name: release-name-daytona-region-runner
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1194,7 +1194,7 @@ metadata:
   namespace: default
   name: release-name-daytona-region-proxy
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1252,8 +1252,28 @@ spec:
               value: "proxy.daytona.example.com"
             - name: DAYTONA_API_URL
               value: "https://api.daytona.example.com/api"
-            - name: COOKIE_DOMAIN
-              value: "daytona.example.com"
+            # Preview authentication (see "Preview authentication" in the chart README)
+            - name: PREVIEW_LOGIN_ENABLED
+              value: "false"
+            - name: SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
+              value: "true"
+            - name: PREVIEW_WARNING_ENABLED
+              value: "false"
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
           resources:
             limits:
               memory: 256Mi
@@ -1269,7 +1289,7 @@ metadata:
   namespace: default
   name: release-name-daytona-region-runnermanager
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1388,7 +1408,7 @@ metadata:
   name: release-name-daytona-region-ssh-gateway
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1452,7 +1472,7 @@ metadata:
   name: release-name-daytona-region-proxy
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1499,7 +1519,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1518,7 +1538,7 @@ metadata:
   name: release-name-daytona-region-daytona-api-key
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1542,7 +1562,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1565,7 +1585,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1592,7 +1612,7 @@ metadata:
   name: release-name-daytona-region-region-registration
   namespace: default
   labels:
-    helm.sh/chart: daytona-region-0.2.7
+    helm.sh/chart: daytona-region-0.2.9
     app.kubernetes.io/name: daytona-region
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/version: "v0.207.0"
@@ -1623,9 +1643,16 @@ spec:
             - -c
             - |
               set -e
+              # Both files can hold the region's keys: remove them however the script ends.
+              trap 'rm -f /tmp/register-resp.json /tmp/secret.yaml' EXIT
 
               SECRET_NAME="release-name-daytona-region-region-config"
               NAMESPACE="default"
+
+              # Print only the API's error message, never the raw response body.
+              api_message() {
+                printf '%s' "$1" | jq -r '.message // empty | if type == "array" then join("; ") else tostring end' 2>/dev/null || true
+              }
 
               # Function to create/update secret from JSON response
               create_secret() {
@@ -1641,7 +1668,7 @@ spec:
                 name: release-name-daytona-region-region-config
                 namespace: default
                 labels:
-                  helm.sh/chart: daytona-region-0.2.7
+                  helm.sh/chart: daytona-region-0.2.9
                   app.kubernetes.io/name: daytona-region
                   app.kubernetes.io/instance: release-name
                   app.kubernetes.io/version: "v0.207.0"
@@ -1652,9 +1679,10 @@ spec:
               ${SECRET_DATA}
               SECRETEOF
 
-                echo "Secret manifest:"
-                cat /tmp/secret.yaml
+                # Never print the manifest or the response: they hold the region's keys.
+                echo "Secret keys: $(echo "$response" | jq -r 'keys | join(", ")')"
                 kubectl apply -f /tmp/secret.yaml
+                rm -f /tmp/secret.yaml
               }
 
               # Check if region config secret already exists
@@ -1689,7 +1717,7 @@ spec:
                       exit 1
                     fi
 
-                    echo "Credentials response received: $SM_RESPONSE"
+                    echo "Credentials response received."
 
                     # Get existing secret data and merge with new credentials
                     EXISTING_DATA=$(kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" -o json | jq '.data | to_entries | map({(.key): (.value | @base64d)}) | add')
@@ -1728,13 +1756,20 @@ spec:
               # Capture HTTP status AND body. `curl -sf` (used previously) hides
               # both, so a rejected registration surfaces only as "Job Failed"
               # with no reason — impossible to diagnose from the pre-install hook.
+              # curl's exit status is checked on its own: appending a fallback
+              # code to -w output could turn a 2xx into "201000".
+              CURL_RC=0
               HTTP_CODE=$(curl -s -o /tmp/register-resp.json -w '%{http_code}' \
                 -X POST \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${DAYTONA_API_KEY}" \
                 -d "${PAYLOAD}" \
-                "${DAYTONA_API_URL}/regions" || echo "000")
-              : "${HTTP_CODE:=000}"
+                "${DAYTONA_API_URL}/regions") || CURL_RC=$?
+              if [ "${CURL_RC}" -ne 0 ]; then
+                echo "ERROR: could not complete the request to ${DAYTONA_API_URL}/regions (curl exit ${CURL_RC}, HTTP ${HTTP_CODE:-none})."
+                echo "Check network access from the cluster to the Daytona API."
+                exit 1
+              fi
               RESPONSE=$(cat /tmp/register-resp.json 2>/dev/null || echo "")
               echo "Register API returned HTTP ${HTTP_CODE}"
 
@@ -1743,7 +1778,7 @@ spec:
               # keys, so fail with an actionable message instead of silently.
               if [ "${HTTP_CODE}" = "409" ] || printf '%s' "${RESPONSE}" | grep -qi 'already exists'; then
                 echo "ERROR: region '${REGION_NAME}' already exists in Daytona Cloud (HTTP ${HTTP_CODE})."
-                echo "Response body: ${RESPONSE}"
+                echo "API message: $(api_message "${RESPONSE}")"
                 echo "This fresh install has no saved config for it. Either:"
                 echo "  - set a UNIQUE regionName and re-install, OR"
                 echo "  - delete the stale region, then re-install:"
@@ -1756,9 +1791,9 @@ spec:
                 2??) : ;;  # success
                 *)
                   echo "ERROR: region registration failed (HTTP ${HTTP_CODE})."
-                  echo "Response body: ${RESPONSE}"
+                  echo "API message: $(api_message "${RESPONSE}")"
                   echo "Hint: 401/403 => bad/expired daytonaApiKey; 400 => payload rejected"
-                  echo "      (proxyUrl='${PROXY_URL}', name='${REGION_NAME}'); 000 => could not reach API."
+                  echo "      (proxyUrl='${PROXY_URL}', name='${REGION_NAME}')."
                   exit 1
                   ;;
               esac
@@ -1768,7 +1803,8 @@ spec:
                 exit 1
               fi
 
-              echo "API response received: ${RESPONSE}"
+              rm -f /tmp/register-resp.json
+              echo "API response received."
               create_secret "${RESPONSE}"
               echo "Region registration complete!"
           env:

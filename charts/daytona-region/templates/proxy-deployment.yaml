@@ -71,8 +71,24 @@ spec:
               value: {{ include "daytona.proxyDomain" . | quote }}
             - name: DAYTONA_API_URL
               value: {{ required "daytonaApiUrl is required" .Values.daytonaApiUrl | quote }}
+            {{- /* Unset by default: the proxy then scopes its cookies to the host that set them. */}}
+            {{- with .Values.services.proxy.env.COOKIE_DOMAIN }}
             - name: COOKIE_DOMAIN
-              value: {{ .Values.services.proxy.env.COOKIE_DOMAIN | default (include "daytona.proxyUrl.baseDomain" .) | quote }}
+              value: {{ . | quote }}
+            {{- end }}
+            # Preview authentication (see "Preview authentication" in the chart README)
+            {{- include "daytona.proxy.previewAuthEnv" . | trim | nindent 12 }}
+            {{- with include "daytona.proxy.extraEnv" . | trim }}
+            {{- . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.services.proxy.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.services.proxy.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.services.proxy.resources | nindent 12 }}
       {{- with .Values.dnsPolicy }}
