@@ -27,3 +27,29 @@ tests:
       - matchRegex:
           path: spec.template.spec.containers[0].command[2]
           pattern: "Secret keys: "
+
+  - it: prints only the API's error message, never a raw response body
+    documentIndex: 0
+    asserts:
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "Response body:"
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "echo \"[^\"]*\\$\\{?RESPONSE"
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "API message: \\$\\(api_message "
+
+  - it: checks curl's exit status apart from the HTTP code and removes temp files on any exit
+    documentIndex: 0
+    asserts:
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "\\|\\| echo \"000\""
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "\\|\\| CURL_RC=\\$\\?"
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: "trap 'rm -f /tmp/register-resp\\.json /tmp/secret\\.yaml' EXIT"
