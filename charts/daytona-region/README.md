@@ -157,8 +157,8 @@ helm uninstall my-region
 | `services.proxy.ingress.className` | Ingress class | `"nginx"` |
 | `services.proxy.ingress.tls` | Enable TLS | `true` |
 | `services.proxy.ingress.selfSigned` | Generate self-signed certs | `false` |
-| `services.proxy.previewAuth.login.enabled` | Browser sign-in redirect for private previews (`PREVIEW_LOGIN_ENABLED`); see [Preview authentication](#preview-authentication) | `false` |
-| `services.proxy.previewAuth.signedLinkRecheck` | Close signed-link WebSockets when the link expires (`SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED`, proxy v0.217.0+) | `true` |
+| `services.proxy.previewAuth.login.enabled` | Browser sign-in redirect for private previews (`PREVIEW_LOGIN_ENABLED`, proxy image v0.226.1+); see [Preview authentication](#preview-authentication) | `false` |
+| `services.proxy.previewAuth.signedLinkRecheck` | Close signed-link WebSockets when the link expires (`SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED`, proxy image v0.223.1+) | `true` |
 | `services.proxy.previewWarning.enabled` | Warning page before a preview (`PREVIEW_WARNING_ENABLED`) | `false` |
 | `services.proxy.env.COOKIE_DOMAIN` | Cookie domain override | `""` (the proxy uses the host that sets the cookie) |
 | `services.proxy.extraEnv` | Extra proxy environment variables, e.g. `HTTPS_PROXY` | `[]` |
@@ -393,12 +393,14 @@ it, so on your own domain the redirect ends on a sign-in error page. Keep
 signed preview URL, or call them with the preview token.
 
 The value must be an unquoted `true` or `false`: a string such as `"false"`
-fails the render. The chart also always renders `PREVIEW_AUTH_DISABLED=false`;
-the proxy never honours that variable as a way to turn authentication off.
+fails the render. `PREVIEW_AUTH_DISABLED` does not turn authentication off:
+the proxy never honoured it, and from v0.227.0 it logs a warning naming
+`PREVIEW_LOGIN_ENABLED` when it is set to `true`.
 
-**The proxy image must support the setting.** Proxy images that predate
-`PREVIEW_LOGIN_ENABLED` ignore it and keep the redirect. Check what the running
-proxy does:
+**The proxy image must support the setting.** The chart's default proxy image
+(`v0.207.0`) ignores `PREVIEW_LOGIN_ENABLED` and keeps the redirect. The first
+published proxy image that reads it is `v0.226.1` (source `v0.227.0`); set
+`services.proxy.image.tag` to it or later. Check what the running proxy does:
 
 ```bash
 curl -s https://<proxy-host>/health
@@ -411,8 +413,9 @@ If the response has no `previewLogin` field, the image predates the setting.
 
 - `services.proxy.previewAuth.signedLinkRecheck: true` makes the proxy
   re-validate a signed preview URL on an open WebSocket, so the connection
-  closes once the link expires. Proxy images before v0.217.0 ignore it. A
-  signed URL works like a password until it expires: share it only over
+  closes once the link expires. Daytona's own proxies run with it on. The
+  chart's default proxy image (`v0.207.0`) ignores it; the first published
+  proxy image that reads it is `v0.223.1` (source `v0.217.0`). A signed URL works like a password until it expires: share it only over
   channels you trust, and keep its lifetime short.
 - `services.proxy.previewWarning.enabled: true` shows browsers a warning page
   before a preview.

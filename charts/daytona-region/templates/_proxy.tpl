@@ -35,14 +35,17 @@ PROXY_API_KEY SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED TOOLBOX_ONLY_MODE COOKIE_DOMA
 Preview-authentication env entries for the proxy container.
 
 - PREVIEW_LOGIN_ENABLED: the browser sign-in redirect for private previews.
-  Off, a browser without a credential gets a 401 like any other client. Proxy
-  images that predate the setting ignore it and keep the redirect.
-- PREVIEW_AUTH_DISABLED: always "false". The proxy never honours it as a way
-  to turn authentication off; rendering it pins the value so nothing else in
-  the pod environment (envFrom, extraEnv) can set it.
+  Off, a browser without a credential gets a 401 like any other client. First
+  published proxy image that reads it: v0.226.1 (source v0.227.0); older
+  images, including the chart default, ignore it and keep the redirect.
 - SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED: re-validate signed preview links on
-  open WebSockets, so a connection closes once its link expires.
+  open WebSockets, so a connection closes once its link expires. First
+  published proxy image that reads it: v0.223.1 (source v0.217.0).
 - PREVIEW_WARNING_ENABLED: the interstitial warning page for browsers.
+
+PREVIEW_AUTH_DISABLED is not rendered: the proxy never honoured it, and from
+v0.227.0 it only logs a warning when it is set to true. Rendering it would
+shadow a value in the region-config Secret and hide that warning.
 */}}
 {{- define "daytona.proxy.previewAuthEnv" -}}
 {{- $proxy := .Values.services.proxy -}}
@@ -54,8 +57,6 @@ Preview-authentication env entries for the proxy container.
 {{- include "daytona.proxy.requireBool" (list "services.proxy.previewWarning.enabled" $warning) }}
 - name: PREVIEW_LOGIN_ENABLED
   value: {{ $login | toString | quote }}
-- name: PREVIEW_AUTH_DISABLED
-  value: "false"
 - name: SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
   value: {{ $recheck | toString | quote }}
 - name: PREVIEW_WARNING_ENABLED

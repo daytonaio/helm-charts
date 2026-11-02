@@ -1255,8 +1255,6 @@ spec:
             # Preview authentication (see "Preview authentication" in the chart README)
             - name: PREVIEW_LOGIN_ENABLED
               value: "false"
-            - name: PREVIEW_AUTH_DISABLED
-              value: "false"
             - name: SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED
               value: "true"
             - name: PREVIEW_WARNING_ENABLED

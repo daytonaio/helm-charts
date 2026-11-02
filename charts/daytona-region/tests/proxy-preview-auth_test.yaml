@@ -10,18 +10,18 @@ set:
   daytonaApiUrl: "https://api.example.com/api"
   daytonaApiKey: "test"
 tests:
-  - it: defaults turn the browser sign-in redirect off and pin the legacy variable to false
+  - it: defaults turn the browser sign-in redirect off and leave PREVIEW_AUTH_DISABLED unset
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: PREVIEW_LOGIN_ENABLED
             value: "false"
-      - contains:
+      - notContains:
           path: spec.template.spec.containers[0].env
           content:
             name: PREVIEW_AUTH_DISABLED
-            value: "false"
+          any: true
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -33,7 +33,7 @@ tests:
             name: PREVIEW_WARNING_ENABLED
             value: "false"
 
-  - it: login.enabled=true renders PREVIEW_LOGIN_ENABLED=true and still pins PREVIEW_AUTH_DISABLED=false
+  - it: login.enabled=true renders PREVIEW_LOGIN_ENABLED=true and still leaves PREVIEW_AUTH_DISABLED unset
     set:
       services.proxy.previewAuth.login.enabled: true
       services.proxy.previewAuth.signedLinkRecheck: false
@@ -44,11 +44,11 @@ tests:
           content:
             name: PREVIEW_LOGIN_ENABLED
             value: "true"
-      - contains:
+      - notContains:
           path: spec.template.spec.containers[0].env
           content:
             name: PREVIEW_AUTH_DISABLED
-            value: "false"
+          any: true
       - contains:
           path: spec.template.spec.containers[0].env
           content:

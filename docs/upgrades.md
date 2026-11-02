@@ -56,9 +56,16 @@ image tag override stays in place.
 - **Preview sign-in.** `services.proxy.previewAuth.login.enabled` defaults to
   `false`: a browser that opens a private preview without a credential gets a
   `401` instead of a redirect to Daytona sign-in, which cannot complete on your
-  domain. Proxy images that predate the setting ignore it; check
-  `curl -s https://<proxy-host>/health` for `"previewLogin":false`. See
+  domain. The setting has no effect on the chart's default proxy image
+  (`v0.207.0`): the first published proxy image that reads it is `v0.226.1`
+  (source `v0.227.0`). Check `curl -s https://<proxy-host>/health` for
+  `"previewLogin":false`. See
   [Preview authentication](../charts/daytona-region/README.md#preview-authentication).
+- **Signed-link recheck.** `services.proxy.previewAuth.signedLinkRecheck`
+  defaults to `true`, as on Daytona's own proxies: an open WebSocket on a
+  signed preview URL closes once the link expires. The first published proxy
+  image that reads it is `v0.223.1` (source `v0.217.0`); the chart's default
+  image ignores it. Set it to `false` to keep connections open past expiry.
 - **Cookie domain.** The chart no longer sets `COOKIE_DOMAIN` from `proxyUrl`
   (it used the parent domain, e.g. `example.com` for `proxy.example.com`). The
   proxy now scopes its cookies to the proxy host and its preview subdomains.

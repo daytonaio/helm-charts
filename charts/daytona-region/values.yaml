@@ -112,11 +112,13 @@ services:
         # Browser sign-in redirect (PREVIEW_LOGIN_ENABLED). Daytona sign-in only completes on
         # proxy domains it knows, so a region on your own domain keeps this false: a browser
         # without a credential then gets a 401 like any other client. Must be a boolean.
-        # Proxy images that predate the setting ignore it and keep the redirect.
+        # No effect on the chart's default proxy image (v0.207.0): the first published proxy
+        # image that reads it is v0.226.1 (source v0.227.0). Older images keep the redirect.
         enabled: false
       # Re-validate signed preview links on open WebSockets, so a connection closes once its
-      # link expires (SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED, proxy v0.217.0 or later; older
-      # images ignore it). Must be a boolean.
+      # link expires (SIGNED_PREVIEW_TOKEN_RECHECK_ENABLED). Daytona's own proxies run with it
+      # on. No effect on the chart's default proxy image (v0.207.0): the first published proxy
+      # image that reads it is v0.223.1 (source v0.217.0). Must be a boolean.
       signedLinkRecheck: true
     # Interstitial warning page shown to browsers before a preview (PREVIEW_WARNING_ENABLED).
     previewWarning:
