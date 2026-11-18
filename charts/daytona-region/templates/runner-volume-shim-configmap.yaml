@@ -6,9 +6,9 @@ The upstream runner shells out to a HARDCODED `mount-s3` binary
 (apps/runner/pkg/docker/volumes_mountpaths.go) with a fixed argument shape:
   --allow-other --allow-delete --allow-overwrite \
   --file-mode 0666 --dir-mode 0777 <bucket> <mountpoint>
-and replaces the subprocess environment with ONLY AWS_ENDPOINT_URL /
-AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION (cmd.Env is fully
-overridden — no PATH, no ambient credentials). This shim is mounted at
+and replaces the subprocess environment with the runner's AWS_* variables only
+(cmd.Env is fully overridden — no PATH; since v0.223.0 that includes the IRSA
+token-file / role-ARN variables). This shim is mounted at
 /usr/local/bin/mount-s3 (which shadows any real binary later in PATH) and
 translates that call to the chart-selected backend. It must therefore be
 fully self-contained: it sets its own PATH and only references the AWS_*

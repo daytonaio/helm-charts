@@ -313,8 +313,7 @@ more to track and tear down.
   (`services.*.serviceAccount.annotations` / `services.runner.aws.credentialMode: irsa`).
   The chart supports this — see
   [`charts/daytona-region/README.md`](../../charts/daytona-region/README.md)
-  and the upstream-issue note in
-  [`docs/issues-summary.md`](../../docs/issues-summary.md).
+  and [`docs/issues-summary.md`](../../docs/issues-summary.md).
 - **Single sandbox node pool, public subnets.** This setup provisions one
   node group in public subnets. Real fleets want sandbox nodes spread across
   multiple AZs and, typically, private subnets with tightened security groups.

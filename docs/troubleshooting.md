@@ -86,11 +86,9 @@ Per-cloud:
 - **Azure:** rclone-s3-gateway is down. `kubectl -n daytona get deploy rclone-s3-gateway` and `kubectl -n daytona logs deploy/rclone-s3-gateway`.
 - **GCP:** HMAC keys revoked or the GSA lost its `storage.objectAdmin` binding. `gcloud storage hmac list --service-account=<gsa>@<project>.iam.gserviceaccount.com`.
 
-## `credentialMode: irsa` works at chart level but runner exits at startup
+## `credentialMode: irsa` snapshot builds fail with `missing S3 configuration`
 
-This is the **known upstream gap** documented in [`issues-summary.md`](issues-summary.md). The upstream daytona-runner currently hard-requires non-empty `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` at startup, even when the runner's AWS SDK would otherwise pick up IRSA-projected web-identity tokens.
-
-**Workaround:** use `credentialMode: static`. The chart's `allowEmptyStaticKeyShim` knob is a placeholder for the partial workaround but is not production-functional today.
+If the message reads `missing S3 configuration - endpoint, access key, secret key, region, or bucket name not provided`, the runner is older than v0.223.0 and accepts only static keys. Remove any `services.runner.image.tag` or `services.runnermanager.env.RUNNER_POD_IMAGE` override so the chart default applies, then [roll the runners](upgrades.md#rolling-runners-to-a-new-image). If it reads `endpoint, region, or bucket name not provided`, the runner is current and one of `AWS_ENDPOINT_URL`, `AWS_REGION` or `AWS_DEFAULT_BUCKET` is empty.
 
 ## DNS-01 wildcard upgrade path
 

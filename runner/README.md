@@ -64,7 +64,6 @@ services:
   runner:
     aws:
       credentialMode: irsa
-      allowEmptyStaticKeyShim: true   # until upstream daytona-runner gains default-chain support
     serviceAccount:
       annotations:
         eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/daytona-runner"
@@ -74,7 +73,7 @@ services:
       AWS_ENDPOINT_URL: "https://s3.us-east-1.amazonaws.com"
 ```
 
-See [`docs/issues-summary.md`](../docs/issues-summary.md) for the upstream gap that `allowEmptyStaticKeyShim` works around.
+IRSA needs runner v0.223.0 or newer; the chart default qualifies. See [`docs/issues-summary.md`](../docs/issues-summary.md).
 
 ### Verify
 
@@ -83,7 +82,7 @@ kubectl -n daytona exec daemonset/<release>-daytona-region-runner -c runner -- \
   env | grep -E '^AWS_'
 ```
 
-All five `AWS_*` lines should be populated (or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` empty if you're using IRSA + the shim).
+All five `AWS_*` lines should be populated (or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` absent if you're using IRSA).
 
 ### IAM policy
 

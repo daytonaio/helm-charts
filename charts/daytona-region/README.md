@@ -307,7 +307,7 @@ services:
       AWS_ENDPOINT_URL: "https://s3.us-east-1.amazonaws.com"
 ```
 
-> **Note** — Upstream `daytona-runner` currently hard-requires non-empty `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` at startup (see [`docs/issues-summary.md`](../../docs/issues-summary.md)). Until that lands, set `services.runner.aws.allowEmptyStaticKeyShim: true` to have the chart emit empty-string placeholders that satisfy the validator while the AWS SDK still uses the IRSA web-identity token at runtime.
+> **Note** — IRSA needs runner v0.223.0 or newer; the chart default qualifies. If snapshot builds fail with `missing S3 configuration`, see [troubleshooting](../../docs/troubleshooting.md).
 
 ### Registration Configuration
 
@@ -678,7 +678,7 @@ Snapshot creation through `Image.debian_slim(...)` involves both the snapshot-ma
    kubectl -n daytona exec daemonset/<release>-daytona-region-runner -c runner -- \
      env | grep -E '^AWS_'
    ```
-   The five `AWS_*` lines must point at the **same bucket / region** as `services.snapshotManager.storage.s3.*` in this chart. Empty `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` are valid only when `services.runner.aws.credentialMode: irsa` is set and the runner ServiceAccount carries the matching IRSA role-arn annotation.
+   In `static` mode all five `AWS_*` lines must be present and point at the **same bucket / region** as `services.snapshotManager.storage.s3.*` in this chart. In `irsa` mode `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` are absent and the runner ServiceAccount must carry the matching IRSA role-arn annotation.
 
 3. **Can the runner reach the bucket on its own?**
    ```bash

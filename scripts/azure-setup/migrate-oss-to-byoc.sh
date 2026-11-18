@@ -38,8 +38,8 @@
 #   b) export RUNNER_S3_ENDPOINT/RUNNER_S3_BUCKET/RUNNER_S3_ACCESS_KEY/
 #      RUNNER_S3_SECRET_KEY[/RUNNER_S3_REGION] for any real S3-compatible store
 #   c) SKIP_RUNNER_STORAGE=yes — install without it (sandbox backups/volumes
-#      stay disabled until storage is configured; runner boots via the
-#      allowEmptyStaticKeyShim).
+#      stay disabled until storage is configured; runner boots with empty
+#      AWS keys).
 #
 # CERT REUSE (no re-issue):
 #   - the OSS cert secret (${BASE_DOMAIN}-tls, covering ${BASE_DOMAIN} and
@@ -167,7 +167,7 @@ else
   RUNNER_BLOCK="    aws:
       credentialMode: \"static\"
       # No backup storage configured (SKIP_RUNNER_STORAGE=yes): emit empty AWS
-      # keys so the upstream runner config validator does not block startup.
+      # keys; the runner starts without storage.
       # Sandbox backups/volumes stay disabled until real storage is configured.
       allowEmptyStaticKeyShim: true
     env:
