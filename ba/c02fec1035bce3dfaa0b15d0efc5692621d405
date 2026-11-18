@@ -1,0 +1,49 @@
+charts/daytona-region/Chart.yaml
+  s_0b7e8c631b9e73::t_88bca67efcef10 5-6
+charts/daytona-region/README.md
+  s_0b7e8c631b9e73::t_67092cdd253310 310,681
+charts/daytona-region/templates/runner-secret.yaml
+  s_0b7e8c631b9e73::t_f6b1ddde8055bb 8
+charts/daytona-region/templates/runner-volume-shim-configmap.yaml
+  s_0b7e8c631b9e73::t_3cf72de2d4f0de 9-11
+charts/daytona-region/tests/baselines/rendered-baseline.yaml
+  s_0b7e8c631b9e73::t_5a18d9f87dd111 9,12,24,27,39,42,54,57,69,72,95,98,115,118,150,153,167,170,185,188,208,211,233,236,256,259,282,285,308,311,334,337,994,1197,1200,1229,1272,1275,1306,1356,1391,1394,1423,1455,1458,1502,1505,1521,1524,1545,1548,1568,1571,1595,1598,1644,1647
+charts/daytona-region/values.yaml
+  s_0b7e8c631b9e73::t_d547866c5449b8 510-513
+docs/README.md
+  s_0b7e8c631b9e73::t_0556cf3391c1f5 106
+docs/aws.md
+  s_0b7e8c631b9e73::t_4983b07c01da5f 43,123
+docs/issues-summary.md
+  s_0b7e8c631b9e73::t_b2e561d1407544 8
+docs/troubleshooting.md
+  s_0b7e8c631b9e73::t_a9292c6908561f 89,91
+docs/upgrades.md
+  s_0b7e8c631b9e73::t_ebe1ccecbaad16 10,14-18
+runner/README.md
+  s_0b7e8c631b9e73::t_d59c7fc6f0fd1e 76,85
+scripts/aws-setup/README.md
+  s_0b7e8c631b9e73::t_d2520e41743ed3 316
+scripts/aws-setup/up.sh
+  s_0b7e8c631b9e73::t_07cdd50af22e3b 265
+scripts/aws-setup/values-region.yaml.tmpl
+  s_0b7e8c631b9e73::t_0d07f0cb737252 141
+scripts/azure-setup/migrate-oss-to-byoc.sh
+  s_0b7e8c631b9e73::t_5e487fc0ab69f7 41-42,170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "bac02fec1035bce3dfaa0b15d0efc5692621d405",
+  "prompts": {},
+  "sessions": {
+    "s_0b7e8c631b9e73": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e64a35343ffeX0dI9qfCxmIWar",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Bruno Grbavac <bruno.grbavac@outlook.com>"
+    }
+  }
+}
