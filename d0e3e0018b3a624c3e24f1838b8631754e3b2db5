@@ -1,0 +1,31 @@
+charts/daytona-region/README.md
+  s_d43809f4b8f471::t_c2a3afcd25227f 294,299-300,312,634
+charts/daytona-region/values.yaml
+  s_d43809f4b8f471::t_fc263edf44713b 509-511,513-515
+docs/README.md
+  s_d43809f4b8f471::t_d42f34cac2902f 106
+docs/aws.md
+  s_d43809f4b8f471::t_38eb50f73af448 43,123
+docs/issues-summary.md
+  s_d43809f4b8f471::t_e4898143df8dca 8
+docs/troubleshooting.md
+  s_d43809f4b8f471::t_5dacd21b1ef9b0 89,91,93
+docs/upgrades.md
+  s_d43809f4b8f471::t_9aaf5ab4003c1b 20-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "d0e3e0018b3a624c3e24f1838b8631754e3b2db5",
+  "prompts": {},
+  "sessions": {
+    "s_d43809f4b8f471": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee93eeaf1ffepYJYpTysBUcBBF",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Bruno Grbavac <bruno.grbavac@outlook.com>"
+    }
+  }
+}
