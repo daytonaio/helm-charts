@@ -212,6 +212,18 @@ Usage:
 {{- .Values.snapshotManagerUrl | default "http://snapshots.daytona.local:5000" -}}
 {{- end -}}
 
+{{/* Host alias names cross a host shell boundary; accept only DNS names. */}}
+{{- define "daytona.runner.hostAliasName" -}}
+{{- $name := required (printf "%s is required" .field) .name -}}
+{{- if not (kindIs "string" $name) -}}
+{{- fail (printf "%s must be a DNS hostname without a scheme, port or path" .field) -}}
+{{- end -}}
+{{- if or (gt (len $name) 253) (not (regexMatch `^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.?$` $name)) -}}
+{{- fail (printf "%s must be a DNS hostname without a scheme, port or path" .field) -}}
+{{- end -}}
+{{- $name -}}
+{{- end -}}
+
 {{/*
 Check if TLS is enabled for snapshot manager.
 Returns true if either selfSigned is enabled or secretName is provided.

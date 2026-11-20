@@ -215,8 +215,9 @@ services:
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
         # Docker layer pushes exceed nginx's 1m default body limit (413).
         nginx.ingress.kubernetes.io/proxy-body-size: "0"
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     storage:
       # Registry data on a PVC — see the header for why an S3 shim cannot back
       # the registry (multipart-resume nil-panic).

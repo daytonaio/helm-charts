@@ -4,8 +4,13 @@ templates:
 release:
   name: test-release
   namespace: test-ns
+set:
+  regionName: test
+  proxyUrl: https://p.example.com
+  daytonaApiUrl: https://api.example.com/api
+  daytonaApiKey: test
 tests:
-  - it: docker-installer initContainer defines shared add_host_alias() function with awk-tmp-merge
+  - it: docker-installer sidecar defines shared add_host_alias() function with awk-tmp-merge
     set:
       regionName: "test"
       proxyUrl: "https://p.example.com"
@@ -18,7 +23,7 @@ tests:
           path: spec.template.spec.containers[0].args[0]
           pattern: 'add_host_alias\(\)'
 
-  - it: add_host_alias uses awk tmp-merge with atomic mv (idempotent dedupe)
+  - it: add_host_alias merges via a temp file and atomic mv, only when the entry changes
     set:
       regionName: "test"
       proxyUrl: "https://p.example.com"
@@ -29,7 +34,25 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
-          pattern: 'mv\s+/etc/hosts\.tmp\s+/etc/hosts'
+          pattern: 'tmp="\$\(mktemp /etc/hosts\.XXXXXX\)"'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)if cmp -s "\$tmp" /etc/hosts; then\s+rm -f "\$tmp"; echo unchanged.*?mv "\$tmp" /etc/hosts && echo changed'
+
+  - it: add_host_alias passes ip and name to the host shell as arguments, not script text
+    set:
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - snapshot-manager
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'awk -v ip="\$1" -v name="\$2" "\$3" /etc/hosts'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '\n\s+'' sh "\$ip" "\$name" "\$host_alias_awk"\)"; then'
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'nsenter -t 1 -m -u -n -i sh -c "'
 
   - it: dynamicHostAliases triggers getent hosts resolution loop (squote-hardened)
     set:
@@ -73,3 +96,152 @@ tests:
       - matchRegex:
           path: spec.template.spec.containers[0].args[0]
           pattern: 'add_host_alias\(\)'
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'getent hosts|refresh_snapshot_manager_route'
+
+  - it: disabled snapshot route emits no resolution or refresh even with a custom target
+    set:
+      services.runner.snapshotManagerInClusterRoute.enabled: false
+      services.runner.snapshotManagerInClusterRoute.targetService: ingress.custom.svc.cluster.local
+    asserts:
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'refresh_snapshot_manager_route|ingress.custom.svc.cluster.local'
+
+  - it: routes the HTTPS snapshot hostname at startup and in the monitor loop
+    set:
+      snapshotManagerUrl: https://snapshots.example.com
+      services.runner.snapshotManagerInClusterRoute.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "timeout 5 getent hosts 'ingress-nginx-controller\\.ingress-nginx\\.svc\\.cluster\\.local'"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias "\$resolved_ip" ''snapshots\.example\.com'''
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)refresh_snapshot_manager_route\(\).*?\nrefresh_snapshot_manager_route\n.*?while true; do\n\s+refresh_snapshot_manager_route\n.*?sleep 60'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'grep -F -- "\$1" /etc/hosts \|\| true'' sh ''snapshots\.example\.com'''
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: '(?s)if \[ -n "\$resolved_ip" \]; then\s+add_host_alias.*?else\s+printf ''\[host-alias\] WARN: could not resolve %s; keeping the existing snapshot host mapping'
+
+  - it: strips the HTTP scheme port and path from the snapshot URL
+    set:
+      snapshotManagerUrl: http://snapshots.example.com:5000/v2/
+      services.runner.snapshotManagerInClusterRoute.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias "\$resolved_ip" ''snapshots\.example\.com'''
+
+  - it: uses the snapshot URL helper default when the URL is empty
+    set:
+      services.runner.snapshotManagerInClusterRoute.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias "\$resolved_ip" ''snapshots\.daytona\.local'''
+
+  - it: supports a hostname override and custom Service target
+    set:
+      snapshotManagerUrl: https://snapshots.example.com
+      services.runner.snapshotManagerInClusterRoute:
+        enabled: true
+        hostname: registry.example.com
+        targetService: custom-ingress.network.svc.cluster.local
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "timeout 5 getent hosts 'custom-ingress\\.network\\.svc\\.cluster\\.local'"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias "\$resolved_ip" ''registry\.example\.com'''
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias "\$resolved_ip" ''snapshots\.example\.com'''
+
+  - it: mixes legacy strings with objects resolving a different target
+    set:
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - snapshot-manager
+        - hostname: a.example.com
+          target: svc.ns.svc.cluster.local
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "getent hosts 'snapshot-manager'"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias "\$resolved_ip" ''snapshot-manager'''
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: "getent hosts 'svc\\.ns\\.svc\\.cluster\\.local'"
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'add_host_alias "\$resolved_ip" ''a\.example\.com'''
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].args[0]
+          pattern: 'refresh_snapshot_manager_route'
+
+  - it: rejects the route without the installer that owns host aliases
+    set:
+      services.runner.snapshotManagerInClusterRoute.enabled: true
+      services.runner.dockerInstaller.enabled: false
+      services.runner.sandboxIsolation.enabled: false
+    asserts:
+      - failedTemplate:
+          errorMessage: services.runner.snapshotManagerInClusterRoute.enabled=true requires services.runner.dockerInstaller.enabled=true
+
+  - it: rejects an empty target Service
+    set:
+      services.runner.snapshotManagerInClusterRoute.enabled: true
+      services.runner.snapshotManagerInClusterRoute.targetService: ""
+    asserts:
+      - failedTemplate:
+          errorMessage: services.runner.snapshotManagerInClusterRoute.targetService is required
+
+  - it: rejects shell metacharacters in a route hostname before shell interpolation
+    set:
+      services.runner.snapshotManagerInClusterRoute.enabled: true
+      services.runner.snapshotManagerInClusterRoute.hostname: "snapshots'$(id).example.com"
+    asserts:
+      - failedTemplate:
+          errorMessage: snapshotManagerInClusterRoute hostname (or the host of snapshotManagerUrl) must be a DNS hostname without a scheme, port or path
+
+  - it: rejects a URL instead of a target Service hostname
+    set:
+      services.runner.snapshotManagerInClusterRoute.enabled: true
+      services.runner.snapshotManagerInClusterRoute.targetService: https://ingress.example.com:443/
+    asserts:
+      - failedTemplate:
+          errorMessage: services.runner.snapshotManagerInClusterRoute.targetService must be a DNS hostname without a scheme, port or path
+
+  - it: rejects an incomplete dynamic alias object
+    set:
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - hostname: snapshots.example.com
+    asserts:
+      - failedTemplate:
+          errorMessage: dynamicHostAliases.target is required
+
+  - it: rejects shell metacharacters in a dynamic alias target
+    set:
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - hostname: snapshots.example.com
+          target: "svc'$(id).cluster.local"
+    asserts:
+      - failedTemplate:
+          errorMessage: dynamicHostAliases.target must be a DNS hostname without a scheme, port or path
+
+  - it: rejects unsupported dynamic alias types
+    set:
+      services.runner.dockerInstaller.dynamicHostAliases:
+        - 123
+    asserts:
+      - failedTemplate:
+          errorMessage: services.runner.dockerInstaller.dynamicHostAliases entries must be strings or {hostname, target} objects
